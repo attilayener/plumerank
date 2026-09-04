@@ -68,8 +68,14 @@ Degrading honestly
 This script writes ``data/manifest_confuse.json`` once, at the end, or not at all. There is
 no partial manifest: a half-built CONFUSE arm would still load, still solve a threshold and
 still print a number, and that number would be wrong in a way nothing downstream could see.
-An unreachable archive, an EMPTY selection, or a window that cannot produce exactly 81
-frames all exit non-zero with the reason.
+An unreachable archive and an EMPTY selection both exit non-zero with the reason.
+
+A selected window the archive cannot produce all 81 minutes of is neither shortened nor
+fatal: it is dropped, its class is re-filled from the next-hardest candidate in the same
+ranked pool, and the rejection is listed under ``incomplete_enumerations``. Shortening it
+would make one row a shorter camera-night than the rest and quietly change what "per
+camera-night" means; aborting spends a two-hour sweep on one absent JPEG. Nothing about
+the predicate moves either way, which is why this is a rejection list and not a shortfall.
 
 A class that comes up SHORT is different, and the policy changed: it is reduced, and the
 deficit and its reason are written into the manifest. Raising there instead sounds stricter
@@ -1689,6 +1695,10 @@ def build(
 ) -> dict:
     """Screen, select, enumerate and assemble. Raises rather than returning something partial.
 
+    Selection and enumeration interleave: a window the archive cannot deliver as 81
+    consecutive minutes is dropped and its class re-filled from the same ranked pool. See
+    the comment on the loop for why that is neither a shortfall nor a shortened window.
+
     ``calibration`` is the record ``calibrate_fog_predicate`` returned. It is required in
     practice and optional in the signature only so the selection machinery stays testable
     without the network; a manifest written without it says so in place of the record, and
@@ -1701,25 +1711,77 @@ def build(
     for camera_id in sorted(paired):
         pool[camera_id] = _score_camera(camera_id, paired[camera_id], days, excluded)
 
-    chosen, shortfalls = _select(pool, quotas)
-
-    windows: list[dict] = []
-    for sequence_id in sorted(chosen):
-        scored = chosen[sequence_id]
-        epochs = enumerate_window(
-            scored.candidate.camera_id,
-            scored.candidate.centre_epoch,
-            list(range(FRAMES_PER_WINDOW)),
-            known=scored.probes,
-        )
-        if len(epochs) != FRAMES_PER_WINDOW:
-            raise FetchError(
-                f"{sequence_id} enumerated {len(epochs)} of {FRAMES_PER_WINDOW} frames. "
-                f"A short window would be a shorter camera-night than every other window "
-                f"in the evaluation and would silently change the alert rate's "
-                f"denominator. No manifest was written."
+    # Selection and enumeration are one loop, and that is the correction this function
+    # most needed. A candidate is screened on PROBE_SLOTS frames and ranked on its
+    # hardness; whether the other 74 minutes exist in the bucket is not known until the
+    # full enumeration runs, and on the live MTA a few windows are missing a single minute
+    # -- confuse_vo-e-mobo-m_20260901 came back 80 of 81. The three ways out of that are
+    # not equal:
+    #
+    #   * shorten the window -- refused. It would be a shorter camera-night than every
+    #     other row in the arm, and "alerts per camera-night" would stop being one unit.
+    #   * abort the run -- what this function used to do, and it spends a two-hour sweep
+    #     and several thousand of somebody else's HEAD requests on one absent JPEG.
+    #   * reduce the class -- honest, but it pays a whole quota slot for a CDN gap rather
+    #     than for anything about the corpus, and ``shortfalls`` would then mean two
+    #     different things in one file.
+    #
+    # So the window is dropped and its class is re-filled from the same ranked pool: the
+    # next-hardest candidate the archive can actually deliver whole. No threshold moves,
+    # the ranking is untouched, and every rejection is written into the manifest under
+    # ``incomplete_enumerations`` -- a reader can see exactly how many rows the archive,
+    # rather than the predicate, decided. The loop terminates because ``rejected`` only
+    # grows and each pass either accepts every window or rejects one.
+    enumerated: dict[str, dict[int, int]] = {}
+    incomplete: list[dict] = []
+    rejected: set[str] = set()
+    while True:
+        available = {
+            camera_id: [
+                scored
+                for scored in entries
+                if scored.candidate.sequence_id not in rejected
+            ]
+            for camera_id, entries in pool.items()
+        }
+        chosen, shortfalls = _select(available, quotas)
+        short: tuple[str, int] | None = None
+        for sequence_id in sorted(chosen):
+            if sequence_id in enumerated:
+                continue
+            scored = chosen[sequence_id]
+            epochs = enumerate_window(
+                scored.candidate.camera_id,
+                scored.candidate.centre_epoch,
+                list(range(FRAMES_PER_WINDOW)),
+                known=scored.probes,
             )
-        windows.append(_window_json(scored, epochs))
+            if len(epochs) != FRAMES_PER_WINDOW:
+                short = (sequence_id, len(epochs))
+                break
+            enumerated[sequence_id] = epochs
+        if short is None:
+            break
+        sequence_id, found = short
+        rejected.add(sequence_id)
+        incomplete.append(
+            {
+                "sequence_id": sequence_id,
+                "class": chosen[sequence_id].measurement.label,
+                "frames_found": found,
+                "frames_required": FRAMES_PER_WINDOW,
+                "reason": (
+                    "The archive does not hold every minute of this window. It was "
+                    "dropped and its class re-filled from the next-hardest candidate; "
+                    "the window was NOT shortened and no threshold was moved."
+                ),
+            }
+        )
+
+    windows = [
+        _window_json(chosen[sequence_id], enumerated[sequence_id])
+        for sequence_id in sorted(chosen)
+    ]
 
     if not windows:
         raise FetchError(
@@ -1783,6 +1845,10 @@ def build(
             "project by construction, which makes the solved threshold conservative.",
             "Classes were filled scarcest-supply first, because the six classes differ by "
             "an order of magnitude in how many cameras can supply them.",
+            "A selected window the archive could not deliver as 81 consecutive minutes was "
+            "dropped and its class re-filled from the next-hardest candidate, never "
+            "shortened. Every such rejection is listed under incomplete_enumerations, so "
+            "the rows the CDN decided are separable from the rows the predicate decided.",
             "The fog predicate was CALIBRATED on this project's own labelled fog -- the 60 "
             "frames in spike/urls_fog.txt that a human picked and visually confirmed as "
             "marine layer -- against a camera- and clock-matched background sample drawn "
@@ -1804,6 +1870,15 @@ def build(
         "class_quotas": dict(quotas),
         "class_histogram": histogram,
         "shortfalls": shortfalls,
+        "incomplete_enumerations": incomplete,
+        "incomplete_enumerations_note": (
+            "Windows the predicate selected and the ARCHIVE could not deliver whole. A "
+            "window is 81 consecutive minutes or it is not a window, so each of these was "
+            "dropped and its class re-filled from the next-hardest candidate in the same "
+            "ranked pool. They are listed because the alternative -- silently taking the "
+            "second choice -- would make the selection unre-derivable from the record. "
+            "Distinct from shortfalls, which is a class the CORPUS could not fill."
+        ),
         "composition_note": (
             "class_quotas is what was asked for and class_histogram is what the archive "
             "supplied. Where they differ, shortfalls carries the class, the deficit and the "

@@ -522,10 +522,37 @@ def test_the_training_numbers_come_from_the_frozen_file() -> None:
 
 
 def test_a_tile_is_positive_at_the_overlap_rule_and_not_below_it() -> None:
-    over = POSITIVE_OVERLAP_MIN * TILE_SIZE + 1e-4
-    under = POSITIVE_OVERLAP_MIN * TILE_SIZE - 1e-4
-    assert train.tile_label((0, 0), [(0.0, 0.0, float(TILE_SIZE), over)]) == "pos"
-    assert train.tile_label((0, 0), [(0.0, 0.0, float(TILE_SIZE), under)]) == "skip"
+    """The overlap is a fraction of the BOX, not of the tile.
+
+    A box 40 px tall straddling the tile's top edge has 30% of ITSELF inside once 12 px
+    are in, and that is a positive: the tile contains most of a small plume. The same
+    geometry read tile-relative would need the box to fill 2,765 px of the 96x96 tile.
+    """
+    tall = 40.0
+    inside_at_30pc = tall * POSITIVE_OVERLAP_MIN
+    # box hangs above the tile, dipping `inside` pixels into it
+    just_over = (0.0, -(tall - inside_at_30pc) - 1e-4, float(TILE_SIZE), inside_at_30pc + 1e-4)
+    just_under = (0.0, -(tall - inside_at_30pc) + 1e-2, float(TILE_SIZE), inside_at_30pc - 1e-2)
+    assert train.tile_label((0, 0), [just_over]) == "pos"
+    assert train.tile_label((0, 0), [just_under]) == "skip"
+
+
+def test_a_small_box_wholly_inside_a_tile_is_positive() -> None:
+    """The regression guard for the defect that made the trained model useless.
+
+    tile_label measured overlap against the TILE's area, so a box had to fill 30% of a
+    96x96 tile -- 2,765 px of smoke -- to count. Measured over Pyro-SDIS at this working
+    resolution the median smoke box is 15.6 x 11.3 px, about 2% of a tile, and only 2.4%
+    of all boxes could EVER reach 30% of one. That reading left 628 usable images of
+    29,537 and trained a classifier to val precision 0.024 against a 1.8% base rate -- a
+    model that had learned nothing, in the role of baseline B1, which would have made the
+    headline comparison a strawman.
+
+    A median-sized plume box sitting entirely inside the tile is 100% overlapped and must
+    be a positive.
+    """
+    median_box = (40.0, 40.0, 55.6, 51.3)          # 15.6 x 11.3 px, the measured median
+    assert train.tile_label((0, 0), [median_box]) == "pos"
 
 
 def test_a_negative_tile_needs_zero_overlap() -> None:
@@ -533,9 +560,12 @@ def test_a_negative_tile_needs_zero_overlap() -> None:
 
 
 def test_an_ambiguous_tile_is_discarded_rather_than_reassigned() -> None:
-    # A tile clipping the edge of a plume teaches the net that the smoke boundary is
+    # A tile CLIPPING the edge of a plume teaches the net that the smoke boundary is
     # arbitrary -- which is the exact discrimination the escalation stage is asked to make.
-    assert train.tile_label((0, 0), [(0.0, 0.0, 20.0, 20.0)]) == "skip"
+    # Box-relative: a 100 px box with only 10 px inside the tile is 10% overlapped, below
+    # the rule and above zero, so it is discarded rather than assigned to either class.
+    clipped = (-90.0, 0.0, 10.0, 100.0)
+    assert train.tile_label((0, 0), [clipped]) == "skip"
 
 
 def test_an_image_with_no_label_file_is_all_negative(tmp_path: pathlib.Path) -> None:
@@ -683,3 +713,14 @@ def test_unmeasurable_precision_or_recall_is_none_not_zero(
     got = train.precision_recall(np.asarray(pred), np.asarray(truth))
     assert got["precision"] == precision and got["recall"] == recall
     assert got["n_tiles"] == 4
+
+
+def test_a_tile_wholly_inside_a_large_plume_is_positive() -> None:
+    """The other half of the overlap rule, and the reason it is measured both ways.
+
+    A near plume is bigger than a 96x96 tile. A tile sitting wholly inside a 192 x 162 px
+    box covers 29.6% of that box -- under the rule -- while being nothing but smoke. Judged
+    box-relative alone it would be discarded; judged tile-relative it is 100% covered.
+    """
+    big = (100.0, 50.0, 292.0, 212.0)            # 192 x 162 px, a near plume
+    assert train.tile_label((140, 80), [big]) == "pos"

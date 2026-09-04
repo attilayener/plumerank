@@ -1886,8 +1886,16 @@ def run_micro(
         body = (
             "no ignition clock in this arm -- rate only"
             if summary is None
+            # The detection count travels WITH the percentile, always. A p50 of "n/a"
+            # means the median sequence was missed, which on a 5-window arm can still sit
+            # over a real ordering -- 2 detected against 1 against 0 -- and printing three
+            # bare "n/a" rows hides exactly that. It understates rather than overstates,
+            # which is the rarer failure and no less a misreport: a judge would read
+            # "nothing works" off numbers that say PlumeRank found twice what B1 did.
             else f"p50 {_minutes(summary['p50_minutes'])} min   "
-            f"p95 {_minutes(summary['p95_minutes'])} min" + SYSTEM_NOTES[system]
+            f"p95 {_minutes(summary['p95_minutes'])} min"
+            f"   ({summary['n_detected']}/{summary['n']} detected)"
+            + SYSTEM_NOTES[system]
         )
         print(_row(SYSTEM_LABELS[system], body))
     plume = next(r for r in payload["baselines"] if r["system"] == "plumerank")

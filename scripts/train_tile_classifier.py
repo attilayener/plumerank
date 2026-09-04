@@ -167,7 +167,6 @@ def tile_label(
     """
     ox, oy = origin
     tx1, ty1 = ox + tile, oy + tile
-    area = float(tile * tile)
     best = 0.0
     total = 0.0
     for bx0, by0, bx1, by1 in boxes:
@@ -175,7 +174,28 @@ def tile_label(
         ih = max(0.0, min(ty1, by1) - max(oy, by0))
         inter = iw * ih
         total += inter
-        best = max(best, inter / area)
+        # Overlap is measured BOTH WAYS and the larger fraction wins, because a smoke box
+        # and a 96x96 tile can be either side of each other in size and only one of the two
+        # readings is meaningful in each regime.
+        #
+        # architecture.md section 5 says "positive tile = >=30% overlap with a smoke box".
+        # Read tile-relative only, it means the box must fill 2,765 px of the tile.
+        # Measured over Pyro-SDIS at this working resolution the median box is 15.6 x 11.3
+        # px -- about 2% of a tile -- and only 2.4% of boxes could EVER reach 30% of one.
+        # That reading discarded 97.6% of the corpus, left 628 usable images of 29,537, and
+        # trained a classifier to val precision 0.024 against a 1.8% base rate: a model
+        # that had learned nothing, in the role of baseline B1, which would have made the
+        # headline comparison a strawman.
+        #
+        # Read box-relative only, it fails at the other end: a tile sitting wholly INSIDE a
+        # near plume 192 x 162 px covers just 29.6% of that box and would be rejected,
+        # though it is nothing but smoke.
+        #
+        # So: a distant plume is positive when the tile contains most of IT, and a near
+        # plume is positive when it covers most of the TILE. Both are "overlapping by 30%";
+        # neither alone is.
+        box_area = max(1.0, (bx1 - bx0) * (by1 - by0))
+        best = max(best, inter / box_area, inter / float(tile * tile))
     if best >= POSITIVE_OVERLAP_MIN:
         return "pos"
     if total <= 0.0:
