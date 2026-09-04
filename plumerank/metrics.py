@@ -202,27 +202,33 @@ def summarise(ttds: Iterable[float]) -> TTDSummary:
 # ---------------------------------------------------------------------------------
 
 
-def alerts_per_camera_night(
-    n_alerts: int,
-    n_windows: int,
-    frames_per_window: int = FRAMES_PER_WINDOW,
-) -> float:
+def alerts_per_camera_night(n_alerts: int, window_lengths: Sequence[int]) -> float:
     """Realised alert rate, in the unit the whole project is calibrated to.
 
-    One window of ``frames_per_window`` frames on one camera is one camera-night. DEV,
-    HOLD and CONFUSE windows are all the same span on the same cameras at the same time
-    of day, which is what makes this denominator comparable across the arms -- and what
-    makes a like-for-like comparison at a fixed operating point possible at all.
+    One camera-night is ``FRAMES_PER_WINDOW`` frames on one camera. DEV, HOLD and CONFUSE
+    windows are the same span on the same cameras at the same time of day, which is what
+    makes this denominator comparable across the arms -- and what makes a like-for-like
+    comparison at a fixed operating point possible at all.
 
-    ``frames_per_window`` is accepted so the micro corpus, whose windows are shorter,
-    reports a rate in the same unit instead of a rate that only looks right.
+    **This takes the length of every window, not a count of them, and that is the whole
+    point of the signature.** FIgLib does not publish a uniform window: of the 30
+    committed DEV sequences 21 carry 80 frames and 9 carry 81, and HOLD splits 33/27. A
+    scalar ``frames_per_window`` was the earlier shape, and against that corpus it
+    published a rate biased high by ~0.9% -- inside ``BUDGET_DRIFT_TOLERANCE``, therefore
+    invisible, and sitting underneath the one number the whole project calibrates to. The
+    lengths are already in the caller's hands in every case, so asking for them removes
+    the failure rather than documenting it.
+
+    A window shorter than a full night counts as the fraction of a night it actually is.
     """
-    if n_windows <= 0:
-        raise ValueError(f"n_windows must be positive, got {n_windows}")
     if n_alerts < 0:
         raise ValueError(f"n_alerts must be non-negative, got {n_alerts}")
-    scale = FRAMES_PER_WINDOW / frames_per_window if frames_per_window else 1.0
-    return n_alerts / n_windows * scale
+    lengths = list(window_lengths)
+    if not lengths:
+        raise ValueError("no windows -- the caller has lost its arm")
+    if any(n < 1 for n in lengths):
+        raise ValueError(f"every window must have at least one frame, got {lengths!r}")
+    return n_alerts / (sum(lengths) / FRAMES_PER_WINDOW)
 
 
 def budget_ceiling(n_cameras: int) -> int:

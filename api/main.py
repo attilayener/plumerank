@@ -1050,8 +1050,12 @@ class Replay:
         """
         if not self._cameras or self._frame_count <= 0:
             return
+        # Every camera on the wall is replayed for the same _frame_count -- _align()
+        # trims each window to a common length so one ignition clock is honest across a
+        # roster whose FIgLib windows are 80 and 81 frames -- so the lengths here really
+        # are uniform and the list comprehension is not hiding a mixed-length corpus.
         rate = alerts_per_camera_night(
-            self._alerts_uncapped, len(self._cameras), self._frame_count
+            self._alerts_uncapped, [self._frame_count] * len(self._cameras)
         )
         self._telemetry.put("RealisedAlertRate", rate, unit="Count")
         if self._classifier is not None:

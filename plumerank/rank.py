@@ -213,9 +213,12 @@ def realised_rate(
     """
     if not hazard_windows:
         raise ValueError("realised_rate() of an empty arm -- the caller has lost its corpus")
-    # metrics.alerts_per_camera_night reads a zero here as "do not scale" and a negative one
-    # as a negative rate, and a negative rate satisfies any budget at THRESHOLD_SEARCH_LO. The
-    # caller's unit error has to stop here, where it is still one bad argument.
+    # frames_per_window is accepted for callers that still name it, but it is NOT used as
+    # the denominator: the real length of every window is already sitting in hazard_windows,
+    # and taking it from there is what makes a mixed-length corpus come out right. FIgLib
+    # publishes 80- and 81-frame windows in the same arm, so a single scalar biased the rate
+    # by ~0.9% -- inside BUDGET_DRIFT_TOLERANCE, therefore invisible. The argument is still
+    # validated, because a caller passing garbage has a unit error worth stopping here.
     if frames_per_window < 1:
         raise ValueError(f"frames_per_window must be at least 1, got {frames_per_window!r}")
 
@@ -233,7 +236,7 @@ def realised_rate(
                 raise ValueError(f"non-finite hazard {h!r} in window {w}")
             if hv >= threshold:
                 n_alerts += 1
-    return alerts_per_camera_night(n_alerts, len(hazard_windows), frames_per_window)
+    return alerts_per_camera_night(n_alerts, [len(w) for w in hazard_windows])
 
 
 def solve_threshold(

@@ -1,7 +1,7 @@
-# PlumeRank — five targets, and no sixth.
+# PlumeRank -- five targets, and no sixth.
 #
 # The Makefile holds NAMES, never logic: each target is one line of shell wrapping a
-# script that already exists. A sixth target is a scope change (complexity.md §3 G13),
+# script that already exists. A sixth target is a scope change (complexity.md section 3 G13),
 # and scripts/check_claims.py asserts that every target the docs mention lives here.
 #
 #   make fetch       the corpus, sha256-verified, resumable            (~35 min)
@@ -11,7 +11,7 @@
 #   make verify      THE JUDGE ONE-LINER: clean clone -> numbers       (<=3 min)
 #
 # `make fetch && make bench` is the pair that reproduces the published headline.
-# `make verify` does NOT reproduce it and never claims to — see README, ReproduceBlock.
+# `make verify` does NOT reproduce it and never claims to -- see README, ReproduceBlock.
 
 PY  := .venv/bin/python
 VENV := .venv

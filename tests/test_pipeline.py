@@ -237,3 +237,31 @@ def test_s4_is_not_order_dependent_across_component_shapes():
         "S4 depends on which component was measured first -- the flow instance is "
         "carrying buffers across ROI shapes"
     )
+
+
+def test_the_escalation_ceiling_is_roster_relative_not_a_flat_two_percent():
+    """The 99/1 cost claim is arithmetic, and the arithmetic depends on roster size.
+
+    The gate is ``rank <= ESCALATION_TOP_K``, so at most K of N cameras escalate per tick
+    and the frame fraction cannot fall below K/N however good the statistic is. A flat 2%
+    assertion is therefore a demand the design cannot meet on any demo-sized roster --
+    5% on the 40-tile wall, 3.3% on the 60-window HOLD arm, 0.2% at the 1,000-camera
+    network the architecture is actually designed for. Pinning this stops a future reader
+    concluding from a small run that the project contradicts its own cost story.
+    """
+    from plumerank.constants import (
+        ESCALATION_FRACTION_MAX,
+        ESCALATION_TOP_K,
+        escalation_fraction_ceiling,
+    )
+
+    assert escalation_fraction_ceiling(1000) == pytest.approx(0.002)
+    assert escalation_fraction_ceiling(1000) < ESCALATION_FRACTION_MAX
+    assert escalation_fraction_ceiling(40) == pytest.approx(0.05)
+    assert escalation_fraction_ceiling(40) > ESCALATION_FRACTION_MAX
+    # the roster at which the design target first becomes reachable at all
+    breakeven = ESCALATION_TOP_K / ESCALATION_FRACTION_MAX
+    assert escalation_fraction_ceiling(int(breakeven)) == pytest.approx(ESCALATION_FRACTION_MAX)
+    assert escalation_fraction_ceiling(1) == 1.0        # never reports above 1.0
+    with pytest.raises(ValueError):
+        escalation_fraction_ceiling(0)

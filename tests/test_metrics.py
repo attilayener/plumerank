@@ -133,21 +133,42 @@ def test_random_scores_produce_a_believably_terrible_number():
 
 
 def test_alert_rate_is_per_camera_night():
-    # 80 alerts over 40 camera-nights is exactly the 2.0 target.
-    assert alerts_per_camera_night(80, 40) == pytest.approx(2.0)
+    # 80 alerts over 40 full camera-nights is exactly the 2.0 target.
+    assert alerts_per_camera_night(80, [FRAMES_PER_WINDOW] * 40) == pytest.approx(2.0)
 
 
-def test_short_windows_report_in_the_same_unit():
-    """The micro corpus has shorter windows; its rate must still mean alerts per
-    81-frame camera-night, or `make verify` would print a number in private units."""
-    full = alerts_per_camera_night(30, 10, frames_per_window=FRAMES_PER_WINDOW)
-    third = alerts_per_camera_night(10, 10, frames_per_window=FRAMES_PER_WINDOW // 3)
-    assert full == pytest.approx(third)
+def test_a_short_window_counts_as_the_fraction_of_a_night_it_is():
+    """The micro corpus, and any partial window, must report in the same unit rather
+    than in one that only looks right."""
+    third = FRAMES_PER_WINDOW // 3
+    assert alerts_per_camera_night(10, [third] * 30) == pytest.approx(1.0)
 
 
-def test_alert_rate_rejects_a_zero_denominator():
+def test_a_mixed_length_corpus_is_not_counted_as_if_every_window_were_full():
+    """The real defect this signature exists to remove.
+
+    FIgLib does not publish a uniform window: 21 of the 30 committed DEV sequences carry
+    80 frames and 9 carry 81. Counting 30 windows as 30 full camera-nights understates
+    the denominator, so the published rate came out ~0.9% high -- comfortably inside
+    BUDGET_DRIFT_TOLERANCE, therefore invisible, and sitting underneath the one number
+    the whole project is calibrated to.
+    """
+    mixed = [80] * 21 + [81] * 9
+    honest = alerts_per_camera_night(60, mixed)
+    as_if_uniform = 60 / len(mixed)
+    assert honest > as_if_uniform
+    assert honest == pytest.approx(60 / (sum(mixed) / FRAMES_PER_WINDOW))
+    assert honest / as_if_uniform == pytest.approx(1.0090, abs=5e-4)
+
+
+def test_alert_rate_rejects_an_empty_arm():
     with pytest.raises(ValueError):
-        alerts_per_camera_night(1, 0)
+        alerts_per_camera_night(1, [])
+
+
+def test_alert_rate_rejects_a_window_with_no_frames():
+    with pytest.raises(ValueError):
+        alerts_per_camera_night(1, [81, 0, 81])
 
 
 def test_budget_ceiling_is_two_per_camera():
