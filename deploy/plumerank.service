@@ -1,0 +1,69 @@
+# PlumeRank API -- FastAPI/Uvicorn behind Caddy. Installed by deploy/bootstrap.sh.
+# Edit this file in the repo and re-run bootstrap.sh; never edit the copy in
+# /etc/systemd/system, which bootstrap.sh overwrites on every run.
+
+[Unit]
+Description=PlumeRank API (FastAPI/Uvicorn, 127.0.0.1:8000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=plumerank
+Group=plumerank
+WorkingDirectory=/opt/plumerank
+
+# `-` so a box whose env file has not been written yet still starts and still answers
+# /health -- a service that refuses to boot cannot tell anyone why it refused.
+EnvironmentFile=-/etc/plumerank.env
+Environment=PYTHONUNBUFFERED=1
+
+# --host 127.0.0.1 is not defence in depth, it is the design: Caddy owns TLS and every
+# public byte, and this process has no TLS configuration at all. Binding 0.0.0.0 would
+# expose an unencrypted second front door on the same box.
+#
+# --workers 1 is load-bearing. The replay loop is process-wide by design: one loop, every
+# viewer on the same stream, no session state to clean up. A second worker would give the
+# next judge to connect a second replay -- two walls disagreeing, two sets of MOG2 models
+# competing for 2 GiB, and the burstable CPU budget spent twice.
+ExecStart=/opt/plumerank/.venv/bin/uvicorn api.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 1 \
+    --timeout-keep-alive 75 \
+    --log-level info
+
+Restart=always
+# Long enough that a crash loop from a bad deploy does not spin the CPU credits away on
+# a burstable instance, short enough that an unattended 14-day judging window never sees
+# a visible outage.
+RestartSec=5
+# Uvicorn treats SIGINT as a graceful shutdown and closes open SSE connections; SIGTERM
+# on an in-flight stream leaves clients hanging until their own timeout.
+KillSignal=SIGINT
+TimeoutStopSec=20
+
+# --- hardening: the box is public, unattended, and holds no secret worth this risk ---
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+# ProtectSystem=strict makes /opt read-only too, which is right: the only thing this
+# process legitimately writes is the evidence crop it just drew. If it ever tries to
+# write anywhere else, that is a bug and it should surface as EROFS rather than as a
+# mystery file on a production box.
+ReadWritePaths=/opt/plumerank/web/evidence
+
+# Deliberately no MemoryMax. 40 warm background models are the product's state; having
+# the cgroup kill the process mid-replay would look exactly like a crash to a judge and
+# would lose the warm-up the UI has already paid for on screen.
+
+[Install]
+WantedBy=multi-user.target

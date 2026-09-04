@@ -74,6 +74,16 @@ USAC_MAX_ITERS: Final[int] = 2000
 #: frame is passed through unstabilised and flagged, rather than warped by a wrong number.
 MAX_PLAUSIBLE_SHIFT_PX: Final[float] = 40.0
 
+#: How far cv2.phaseCorrelateIterative's refinement may sit from the coarse peak it
+#: claims to refine before the refinement is dropped and the coarse peak used instead
+#: (method="phase"). a priori: it is the definition of "sub-pixel", not a fitted value.
+#: It is here rather than in stabilise.py because it decides an output, and a number that
+#: decides an output and sits outside this file is a number outside the freeze. Measured
+#: reason for its existence: on a featureless sky the refinement walks to a different
+#: optimum 30-80 px away while the coarse peak stays under 3 px, and it reports no
+#: response of its own, so nothing else in the pipeline could catch it.
+SUBPIXEL_AGREEMENT_PX: Final[float] = 1.0
+
 # ---------------------------------------------------------------------------------
 # segment.py -- MOG2 defaults are OpenCV's own; the rest is a priori
 # ---------------------------------------------------------------------------------
@@ -89,6 +99,20 @@ WARMUP_FRAMES: Final[int] = 8
 MORPH_OPEN_KERNEL: Final[int] = 3   # kill single-pixel speckle
 MORPH_CLOSE_KERNEL: Final[int] = 7  # a plume is porous; close it into one component
 
+#: OpenCV's own encoding of a foreground pixel in a subtractor mask. Not fitted, and
+#: listed here for the same reason the ``solved`` values are: the frozen surface has to
+#: be complete, or "the constants are frozen" is a claim with an exception in it. The
+#: mask is compared for EQUALITY with this rather than tested ``> 0`` -- a subtractor
+#: labels shadows 127, so a future flip of MOG2_DETECT_SHADOWS must not silently promote
+#: every shadow into a component.
+MASK_FOREGROUND_VALUE: Final[int] = 255
+
+#: 8-connectivity, not 4. A rising plume is wispy and its pixels touch diagonally as
+#: often as orthogonally; 4-connectivity shatters one plume into sub-threshold fragments
+#: that MIN_COMPONENT_AREA_PX then drops individually. a priori -- it is a claim about
+#: the shape of smoke, not a knob.
+CC_CONNECTIVITY: Final[int] = 8
+
 CLAHE_CLIP_LIMIT: Final[float] = 2.0
 CLAHE_TILE_GRID: Final[int] = 8
 
@@ -96,6 +120,7 @@ CLAHE_TILE_GRID: Final[int] = 8
 #: enough for S3 to mean anything, so it is dropped before it reaches the statistic.
 MIN_COMPONENT_AREA_PX: Final[int] = 60
 MAX_COMPONENTS_PER_FRAME: Final[int] = 8
+
 
 # ---------------------------------------------------------------------------------
 # statistic.py -- THE PRIMITIVE. Six constants, and their provenance is the point.
@@ -114,11 +139,35 @@ S1_ANCHOR_TOLERANCE_PX: Final[float] = 4.0
 #: is floored so a component that does not widen at all does not produce an infinity.
 S2_WIDTH_RATE_FLOOR_PX_PER_FRAME: Final[float] = 0.25
 
+#: The rate ratio at which growth is isotropic -- rising exactly as fast as it spreads.
+#: The squash is fed the ratio's EXCESS over this, so s2 == 0 reads "expands like a
+#: diffusing cloud" rather than 0.5, and a statistic named "anisotropy" is not misnamed on
+#: a disc. a priori: it is the physical null hypothesis, not a knob -- but it lives here
+#: because results/constants.sha256 freezes this file, and a number that decides an output
+#: and sits outside this file is a number outside the freeze.
+S2_ISOTROPIC_RATIO: Final[float] = 1.0
+
 #: S3 -- diffuse boundary contrast. Boundary band width as a fraction of min(w, h),
 #: floored at 3 px. FIXED A PRIORI AND NEVER FITTED: this is the constant the Sep 1 gate
 #: was run with, and refitting it after the gate would retro-actively invalidate the gate.
 S3_BAND_FRACTION: Final[float] = 0.15
 S3_BAND_MIN_PX: Final[int] = 3
+
+#: Minimum extent in EACH dimension for a component the primitive can say anything about.
+#: Area alone is not enough: a 60x1 sliver clears MIN_COMPONENT_AREA_PX and then has no
+#: interior at all once S3 takes its 3 px boundary band off both sides, so S3 returns nan
+#: and ``rank.fuse`` correctly refuses to score it. Filtering here rather than patching
+#: fuse is the honest fix, and the cutline is wider than S3's arithmetic because ALL FOUR
+#: statistics die at the same size: ``S1_ANCHOR_TOLERANCE_PX`` is 4 px, so in a component
+#: only 8 px tall "the foot stayed put" and "the foot moved the whole height" are the same
+#: measurement. Set to ``2 * S3_BAND_MIN_PX + 2`` -- the smallest box that holds a
+#: boundary band on both sides plus a two-pixel interior.
+#:
+#: The cost is a real limitation and it is stated rather than discovered: a plume must
+#: reach 8x8 px at 480x270 before it becomes rankable, which is a floor on
+#: time-to-detection that no amount of tuning removes. REPORT.md section limitations
+#: carries it.
+MIN_COMPONENT_EXTENT_PX: Final[int] = 2 * S3_BAND_MIN_PX + 2
 
 #: S4 -- DIS optical-flow drift, computed INSIDE the component bounding box only.
 #: Under ablation gate: if S4 does not improve DEV median TTD it is deleted, and
@@ -178,6 +227,52 @@ ESCALATION_FRACTION_MAX: Final[float] = 0.02
 
 #: B1, the headline baseline: the SAME onnx over a full-frame tile grid, max score.
 B1_GRID_STRIDE: Final[int] = 48           # 50% overlap at TILE_SIZE=96
+
+#: Preprocessing, and the reason it is in the frozen file rather than beside the code that
+#: uses it: it is part of the model's definition, not of its plumbing. Flip TILE_SWAP_RB
+#: and every score in the project changes with no exception raised anywhere -- exactly the
+#: class of number results/constants.sha256 exists to pin. escalate.py and
+#: scripts/train_tile_classifier.py both read these three, so the train path and the
+#: cv2.dnn.blobFromImage path cannot drift apart.
+TILE_PIXEL_SCALE: Final[float] = 1.0 / 255.0
+TILE_MEAN_BGR: Final[tuple[float, float, float]] = (0.0, 0.0, 0.0)
+TILE_SWAP_RB: Final[bool] = True
+
+# ---------------------------------------------------------------------------------
+# scripts/train_tile_classifier.py -- offline, and frozen anyway
+# ---------------------------------------------------------------------------------
+#
+# Training runs off the judge path, so leaving these beside the script would be arguable.
+# They are here because the freeze is only worth something if it has no exceptions: these
+# numbers decide what the shipped ONNX *is*, and "every fitted number lives in one hashed
+# file, except the ones that made the model" is a sentence a judge takes apart in one line.
+
+#: A tile is positive when a smoke box covers at least this fraction OF THE TILE
+#: (architecture.md section 5). Fraction-of-tile and not IoU: a 96 px tile sitting wholly
+#: inside a large plume has an IoU near zero and is unambiguously smoke, so IoU would file
+#: the clearest positives in the corpus as negatives. a priori.
+POSITIVE_OVERLAP_MIN: Final[float] = 0.30
+
+#: Tiles sampled per source image. The corpus is balanced by construction rather than by
+#: reweighting the loss, because a balanced corpus is a property a judge reads straight
+#: off data/tile_manifest.json.
+TILE_POS_PER_IMAGE: Final[int] = 2
+TILE_NEG_PER_IMAGE: Final[int] = 2
+
+TRAIN_EPOCHS: Final[int] = 6
+TRAIN_BATCH_SIZE: Final[int] = 64
+TRAIN_LEARNING_RATE: Final[float] = 1e-3
+TRAIN_SEED: Final[int] = 20261026
+
+#: Export at the oldest opset that carries Conv/Relu/MaxPool/Flatten/Gemm. The realistic
+#: failure of this stage is not "the model is inaccurate", it is "the model does not load"
+#: (opencv5-defense.md section 8.2), and a newer opset buys nothing for five operators.
+ONNX_OPSET: Final[int] = 12
+
+#: The export is rejected outright if its logits differ from PyTorch's by this much on 20
+#: tiles. A model that loads but computes something else is indistinguishable from a
+#: working one until it is scoring live frames on the wall.
+ONNX_ACCEPT_TOLERANCE: Final[float] = 1e-3
 
 # ---------------------------------------------------------------------------------
 # telemetry.py
