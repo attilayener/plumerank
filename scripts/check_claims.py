@@ -211,11 +211,20 @@ SURFACES: tuple[Surface, ...] = (
     Surface("warpAffine", "imgproc", SUPPORT),
     Surface("threshold", "imgproc", SUPPORT),
     Surface("GaussianBlur", "imgproc", SUPPORT),
+    # cv2.blur is corpus SELECTION, not analysis: it smooths a gradient-magnitude map
+    # while build_confusion_set.py decides which non-fire windows are the hard ones. It
+    # never runs on the judged path and is deliberately NOT a defended surface -- the
+    # confusion set is chosen once, offline, and then only its pixels matter.
+    Surface("blur", "imgproc", SUPPORT),
     Surface("absdiff", "core", SUPPORT),
     Surface("countNonZero", "core", SUPPORT),
     Surface("getTickCount", "core", SUPPORT),
     Surface("getTickFrequency", "core", SUPPORT),
     Surface("setRNGSeed", "core", SUPPORT),
+    # The read-back beside setNumThreads. setNumThreads is a counted surface because
+    # pinning the pool is load-bearing on 2 vCPUs; getNumThreads only reports what took,
+    # so a caller can publish the number rather than assume it.
+    Surface("getNumThreads", "core", SUPPORT),
     Surface("imencode", "imgcodecs", SUPPORT),
     Surface("imdecode", "imgcodecs", SUPPORT),
     Surface("getStructuringElement", "imgproc", SUPPORT),

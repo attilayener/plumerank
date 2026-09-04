@@ -1,0 +1,35 @@
+{
+  "generated": "2026-09-04",
+  "note": "The manifests pin WHICH frames; this receipt pins WHAT they contained. scripts/fetch.py re-hashes every file against it on every later run and exits non-zero on a mismatch.",
+  "n_files": 7,
+  "files": {
+    "pyrosdis/data/train-00000-of-00006.parquet": {
+      "sha256": "7cebaeff1d94d23513a59a5652ce04303d02297dd6126dbf9d4ea0d37d7eabae",
+      "bytes": 480959863
+    },
+    "pyrosdis/data/train-00001-of-00006.parquet": {
+      "sha256": "feb69d99b41e42cf9d73582ef2ff4237c7bbf5ad3f733a5ca0418e00795bd5b5",
+      "bytes": 485351693
+    },
+    "pyrosdis/data/train-00002-of-00006.parquet": {
+      "sha256": "79ac3a22306cdafad474b4f56288b254d400e30ef1b2ed7d1e961cefd32e6858",
+      "bytes": 482115894
+    },
+    "pyrosdis/data/train-00003-of-00006.parquet": {
+      "sha256": "ce112887c5eb1a44fe4e5bae6843714a9574c89fa5d5215580b1e2ed4b64822e",
+      "bytes": 482865791
+    },
+    "pyrosdis/data/train-00004-of-00006.parquet": {
+      "sha256": "1352d4d6b2443019fac83967b463bd0daab9030987363f26bae4ba8691653884",
+      "bytes": 479975330
+    },
+    "pyrosdis/data/train-00005-of-00006.parquet": {
+      "sha256": "05c000f07253dd60858a629119a5a2d94c8f8427b54f6f2fd503bbe06f933065",
+      "bytes": 482940251
+    },
+    "pyrosdis/data/val-00000-of-00001.parquet": {
+      "sha256": "d3929f81f755625e35c8b18f27f95cff8726bc279cedaf1c3d048b0fd35d6c57",
+      "bytes": 389834936
+    }
+  }
+}

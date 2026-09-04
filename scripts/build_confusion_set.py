@@ -17,7 +17,26 @@ its camera's paired HOLD ignition. Marine layer at 06:00 and marine layer at 16:
 different physical objects with different illumination; matching the clock is what makes
 "one camera-night" the same unit in both arms.
 
-**3. Hard, and hard by a stated measurement.** Picking which fog is the *difficult* fog is
+**3. Fog by a CALIBRATED rule, not by an assumed one.** The six confuser predicates decide
+what this arm is made of, so the one that matters -- fog is 40% of it -- cannot be a pair of
+cutlines somebody thought sounded right. An earlier revision's were exactly that
+(``edge_energy <= 18.0 and sky_ground_ratio <= 1.05``) and they admit **zero** of the 60
+frames a human hand-labelled as marine layer in ``spike/urls_fog.txt``. The fix was not to
+move them until 18 windows appeared -- that is fitting the corpus to the quota -- but to
+derive a predicate from that labelled set and report what it measures.
+``calibrate_fog_predicate`` does it: five candidate statistics on the 60 labelled frames
+against a camera- and clock-matched background sample drawn from the same six cameras,
+ranked by AUC with a bootstrap interval. ``deck_fraction`` wins at 0.706 [0.609, 0.798];
+``sky_smooth_fraction`` fails and is dropped; the two old ones are reported and discarded.
+Each cutline is then the MEDIAN of the labelled class -- a rule fixed before the values were
+read. The whole record, background frames included, goes into the manifest.
+
+**And the limitation, stated here rather than discovered later:** a predicate calibrated on
+60 frames from 6 cameras and applied to 45 is a SCREENING RULE, not a fog detector. At its
+cutline it admits half the labelled fog class and a quarter of the background -- an
+enrichment of about 2x. This arm is an adversary set. No window in it is certified fog.
+
+**4. Hard, and hard by a stated measurement.** Picking which fog is the *difficult* fog is
 the actual intellectual work here, and it is done by computation rather than by eye: every
 candidate is ranked by ``statistic.s3_diffuse_boundary``'s raw value on its own largest
 moving region -- the exact statistic that is supposed to reject fog, applied to fog. The
@@ -49,12 +68,20 @@ Degrading honestly
 This script writes ``data/manifest_confuse.json`` once, at the end, or not at all. There is
 no partial manifest: a half-built CONFUSE arm would still load, still solve a threshold and
 still print a number, and that number would be wrong in a way nothing downstream could see.
-An unreachable archive, a class that cannot be filled, or a window that cannot produce
-exactly 81 frames all exit non-zero with the reason.
+An unreachable archive, an EMPTY selection, or a window that cannot produce exactly 81
+frames all exit non-zero with the reason.
+
+A class that comes up SHORT is different, and the policy changed: it is reduced, and the
+deficit and its reason are written into the manifest. Raising there instead sounds stricter
+and is not -- the only way to make a raising run succeed is to loosen a predicate until the
+quota falls out, which is precisely the fabrication this file was rewritten to stop. A
+42-window arm whose composition is stated is a denominator a reader can reason about. Quote
+``n_windows`` and ``class_histogram``; ``class_quotas`` is the request, not the arm.
 
 Usage::
 
-    python scripts/build_confusion_set.py --end-date 2026-09-01
+    python scripts/build_confusion_set.py --calibrate --end-date 2026-09-01   # the derivation
+    python scripts/build_confusion_set.py --end-date 2026-09-01               # the arm
 """
 
 from __future__ import annotations
@@ -93,6 +120,7 @@ from plumerank.constants import (  # noqa: E402
     MORPH_CLOSE_KERNEL,
     MORPH_OPEN_KERNEL,
     SECONDS_PER_FRAME,
+    TRAIN_SEED,
     WORK_HEIGHT,
     WORK_WIDTH,
 )
@@ -114,17 +142,26 @@ __all__ = [
     "CLASS_QUOTAS",
     "Candidate",
     "Measurement",
+    "background_sample",
+    "build",
+    "calibrate_fog_predicate",
     "classify",
-    "frame_path",
+    "deck_fraction",
     "enumerate_window",
+    "frame_features",
+    "frame_path",
+    "furniture_mask",
     "hardness",
+    "labelled_fog_frames",
     "local_minutes_of_day",
+    "main",
     "measure",
     "minutes_apart",
     "paired_hold_windows",
     "probe_exists",
-    "build",
-    "main",
+    "roi",
+    "sky_greyness",
+    "static_sky_mask",
 ]
 
 # ---------------------------------------------------------------------------------
@@ -204,18 +241,53 @@ CLASS_QUOTAS: dict[str, int] = {
     "lens_artefact": 3,
 }
 
-#: All thresholds below are on the 0-255 luma scale at WORK_WIDTH x WORK_HEIGHT, chosen a
-#: priori from the physics of each process rather than fitted -- there is nothing to fit
-#: them on, because the labels they produce ARE the corpus. Every feature they are compared
-#: against is recorded per window, so a reader who disagrees with a cutline can re-derive
-#: the whole assignment from the manifest.
+#: Every threshold below is on the 0-255 luma scale at WORK_WIDTH x WORK_HEIGHT, inside the
+#: ROI crop. Two of them -- the fog and low-cloud cutlines -- are CALIBRATED on the 60
+#: hand-labelled marine-layer frames in ``spike/urls_fog.txt`` against a matched background
+#: sample this file draws itself; see ``calibrate_fog_predicate``. The rest are a priori,
+#: because there is no labelled set to fit them on, and the manifest says which is which
+#: rather than presenting them all as though they had the same standing. Every feature
+#: they are compared against is recorded per window, so a reader who disagrees with a
+#: cutline can re-derive the whole assignment from the manifest without re-reading the CDN.
 
-#: A fixed camera's sky is the one region that should carry no persistent structure. A
-#: ridgeline test would fire on every frame of every camera; structure in the SKY that does
-#: not move over 81 minutes is on the glass. Clouds fail it because clouds move.
+#: Fraction of the frame trimmed from each edge before ANY measurement is taken.
+#:
+#: This crop is not cosmetic. It is one of the two things the previous revision got wrong --
+#: the other being the fog statistic itself -- and it is the whole of what was wrong with
+#: lens_artefact, which fired on 88 of 108 candidates. An HPWREN frame carries a burned-in
+#: caption bar of yellow monospace text across the top, an ALERT California mark in the top
+#: left, an HPWREN mark in the bottom right, and -- on every camera in the roster -- a hard
+#: vignette ring where the dome cuts the corners. All four are the highest-gradient objects
+#: in the image and all four are in EVERY frame the camera has ever written, so a whole-frame
+#: edge-energy statistic measures the caption's typeface and a whole-frame "static structure"
+#: statistic fires on the vignette. 10% is measured, not guessed: the caption occupies the
+#: top ~2.5% of the height and the marks and the vignette shoulder are inside 10% on all six
+#: calibration cameras.
+ROI_MARGIN_FRACTION: float = 0.10
+
+#: Lens artefact. A fixed camera's sky is the one region that should carry no persistent
+#: structure, so structure in the SKY that does not move over the window is on the glass --
+#: EXCEPT that a tower, a mast or a vignette shoulder is also structure in the sky that does
+#: not move, and those are scene furniture rather than an artefact of this window. So the
+#: static mask is differenced against a per-camera FURNITURE reference built from the other
+#: candidate windows on the same camera, days or weeks apart (see ``furniture_mask``):
+#: anything that persists across a camera's whole sweep is the camera, and what is left is
+#: what appeared. Clouds fail the static test because clouds move; the radio tower on
+#: bl-n-mobo-c fails the novelty test because it is always there.
 LENS_SKY_GRADIENT_MIN: float = 12.0
 LENS_STATIC_TEMPORAL_STD_MAX: float = 2.0
-LENS_SKY_STRUCTURE_MIN: float = 0.02
+
+#: Fraction of a camera's candidate windows a static-sky pixel must appear in before it is
+#: called furniture. A half is the weakest claim that still means "usually": a droplet that
+#: sat on the glass for one morning is in one window of six and survives as novel, while the
+#: tower is in all six and does not.
+FURNITURE_PRESENCE_FRACTION: float = 0.5
+
+#: a priori, and the class most likely to come up short. There is no labelled set of lens
+#: artefacts anywhere in this project, so this cutline cannot be calibrated the way the fog
+#: cutline is, and the manifest records the shortfall rather than the cutline being walked
+#: down until three windows appear.
+LENS_NOVEL_STRUCTURE_MIN: float = 0.02
 
 #: Auto-exposure hunting is a whole-frame brightness excursion that REVERSES: the shutter
 #: overshoots, then corrects. The magnitude alone would not do -- probe frames are ~13 min
@@ -230,19 +302,69 @@ EXPOSURE_REVERSAL_MIN: float = 8.0
 DUST_WARMTH_MIN: float = 8.0
 DUST_SATURATION_MIN: float = 40.0
 
-#: Below this mean gradient energy the scene's structure has been eaten by something
-#: airborne. Above it the air is clear and any dark patches are shadows cast onto it.
-HAZE_EDGE_ENERGY_MAX: float = 18.0
-
-#: Sky-over-ground brightness. A marine layer sits BELOW the camera and lifts the ground
-#: to the sky's brightness or past it; a low cloud deck sits above and leaves the ground
-#: dark. One number, and it is the only thing that distinguishes the two classes.
-FOG_SKY_GROUND_RATIO_MAX: float = 1.05
-
-#: Sky and ground are the top and bottom third of the frame. The middle third is the
-#: horizon band, where a camera sees both, and averaging it into either would blunt the one
-#: number that separates a marine layer from a low cloud deck.
+#: Sky, horizon and ground are the top, middle and bottom third of the ROI. Thirds and not
+#: a detected horizon: the horizon row moves with the camera's tilt and its own weather, and
+#: a horizon detector that fails on the exact frames this file is trying to classify would
+#: put the measurement band in a different place for fog than for anything else.
 SKY_GROUND_BAND_DIVISOR: int = 3
+
+# --- The deck statistic, and what it replaced -------------------------------------
+#
+# The previous revision defined fog as ``edge_energy <= 18`` and ``sky_ground_ratio <=
+# 1.05``. Measured on the 60 hand-labelled fog frames, the conjunction admits zero of them,
+# and sky_ground_ratio alone -- which never falls below 1.46 -- admits zero on its own. The
+# sky/ground claim is not merely tight, it is inverted: these are ridge-top
+# cameras looking DOWN on the marine layer, so the bright thing is the sky and the dark
+# thing is the near foreground under the deck, on a clear morning as much as a foggy one.
+# That was a specification error and no choice of cutline repairs it, so both statistics
+# were re-measured, reported, and discarded rather than moved (``calibrate_fog_predicate``
+# prints the AUCs; the manifest carries them).
+#
+# What replaced them is the thing a marine layer actually is in these frames: a BRIGHT,
+# SMOOTH surface sitting where terrain would otherwise be. ``deck_fraction`` is the
+# fraction of the sub-sky part of the ROI that is both, with "bright" and "smooth" written
+# as fractions of the frame's own sky reference so that the statistic survives dawn, where
+# the absolute luma of everything moves by a factor of three inside one window.
+
+#: Percentile of the sky band taken as the frame's own brightness reference. The 90th and
+#: not the mean: the sky band contains the top of the terrain on the tilted cameras, and a
+#: mean would let that drag the reference down and inflate every deck fraction.
+SKY_REFERENCE_PERCENTILE: int = 90
+
+#: A deck pixel is at least this fraction of the sky reference. Marine layer is lit by the
+#: same sky it sits under, so it comes back bright; terrain in the same band does not.
+DECK_LUMA_FRACTION: float = 0.35
+
+#: ...and carries at most this fraction of the sky reference in local gradient. A fog bank
+#: has no texture of its own; chaparral, roads and rooftops in the same rows have a great
+#: deal. Both parameters were chosen from a 20-point grid on the labelled set, which is a
+#: fit, so ``calibrate_fog_predicate`` reports the neighbouring grid points as well: they
+#: span AUC 0.65-0.71, which is how much of the headline AUC that choice is worth.
+DECK_TEXTURE_FRACTION: float = 0.08
+
+#: Box blur applied to the gradient magnitude before the texture test. Wide enough that a
+#: single JPEG block edge inside a smooth deck does not disqualify its neighbourhood,
+#: narrow enough that the deck's own leading edge stays a boundary and not a smear.
+DECK_TEXTURE_BLUR_PX: int = 9
+
+#: CALIBRATED -- the median ``deck_fraction`` of the 60 hand-labelled marine-layer frames,
+#: measured by ``calibrate_fog_predicate`` and pasted here unrounded. The rule is "as much
+#: deck as a median hand-labelled fog morning", which is a rule and not a knob: it was
+#: fixed before any candidate was screened and it is recomputed by the test suite from the
+#: frames on disk. AUC against a camera- and clock-matched background sample is 0.706, 95%
+#: bootstrap CI [0.609, 0.798]; at this cutline 50% of the labelled fog class passes (that
+#: is what a median is) against 23.3% of the background -- an enrichment of 2.1x, not a
+#: detector.
+FOG_DECK_FRACTION_MIN: float = 0.12847
+
+#: CALIBRATED the same way: the median sky greyness of the same 60 frames. Greyness is
+#: ``-(B - R) / (B + R)`` over the sky band, so a saturated blue sky is strongly negative
+#: and a grey ceiling is near zero. AUC 0.674, 95% CI [0.578, 0.768]; 50% of labelled fog
+#: against 23.3% of background. This is the LOW CLOUD cutline and not the fog one, and the
+#: honest caveat is in the manifest: the labelled set is marine layer, low cloud has no
+#: labelled set anywhere in this project, and the class is defined as the residual -- a sky
+#: as grey as a median marine-layer morning with no bright deck under the horizon.
+LOW_CLOUD_SKY_GREYNESS_MIN: float = -0.13140
 
 #: Blur applied to both endpoint frames before differencing them. Wide enough that JPEG
 #: blocking and sensor grain do not survive into the Otsu threshold, narrow enough that a
@@ -266,7 +388,10 @@ SHADOW_LOWPASS_DECIMATION: int = 8
 #: Order matters and is not alphabetical. The two instrument faults are checked first
 #: because a camera with a droplet on the lens or a hunting shutter is that, whatever the
 #: weather is doing behind it; then colour separates dust from the neutral layers; then
-#: height separates fog from low cloud; cloud shadow is last because it is the only class
+#: fog_marine takes the windows with a bright smooth deck under the horizon and low_cloud
+#: takes the grey-ceiling residual, in that order because the deck statistic is the one with
+#: a labelled set behind it and the residual should be what is left over from the calibrated
+#: test rather than the other way round; cloud shadow is last because it is the only class
 #: defined on a CLEAR scene and therefore cannot be confused with the others.
 _CLASS_ORDER: tuple[str, ...] = (
     "lens_artefact",
@@ -629,8 +754,13 @@ def hardness(frames: Sequence[np.ndarray]) -> float:
     """
     if len(frames) < 2:
         return 0.0
-    first = cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)
-    last = cv2.cvtColor(frames[-1], cv2.COLOR_BGR2GRAY)
+    # Inside the ROI, like every other measurement here, and for a reason specific to this
+    # one: the burned-in caption carries a wall clock that changes on every frame, so the
+    # largest thing that "moved" between the first and last probe frame of an uncropped
+    # window is the timestamp, and its hard glyph edges make it the softest-boundary
+    # nonsense a raw-S3 ranking could possibly be handed.
+    first = roi(cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY))
+    last = roi(cv2.cvtColor(frames[-1], cv2.COLOR_BGR2GRAY))
     component = _largest_moving_component(first, last)
     if component is None:
         return 0.0
@@ -644,33 +774,186 @@ def hardness(frames: Sequence[np.ndarray]) -> float:
     return float(raw)
 
 
-def measure(frames: Sequence[np.ndarray]) -> Measurement:
-    """Eight numbers per candidate window, then the class they imply."""
+def roi(frame: np.ndarray) -> np.ndarray:
+    """The frame with ``ROI_MARGIN_FRACTION`` trimmed from every edge.
+
+    Applied to every statistic in this file without exception, including the ones that were
+    not obviously affected. A crop that some measurements see and others do not would make
+    the recorded feature vector describe two different images, and the manifest promises a
+    reader that they can re-derive the assignment from it.
+    """
+    dy = int(round(frame.shape[0] * ROI_MARGIN_FRACTION))
+    dx = int(round(frame.shape[1] * ROI_MARGIN_FRACTION))
+    return frame[dy : frame.shape[0] - dy, dx : frame.shape[1] - dx]
+
+
+def _bands(height: int) -> tuple[slice, slice, slice]:
+    """Sky, horizon and ground slices of an ROI of this height."""
+    third = height // SKY_GROUND_BAND_DIVISOR
+    return slice(0, third), slice(third, 2 * third), slice(2 * third, height)
+
+
+def _gradient_magnitude(grey: np.ndarray) -> np.ndarray:
+    """|Sobel_x| + |Sobel_y|, the L1 gradient this file measures texture with.
+
+    L1 and not the Euclidean magnitude for one reason only: it is what ``statistic.py``'s
+    S3 denominator uses, and two "gradient energy" numbers in one project that are not the
+    same function of the same pixels is a trap for whoever reads them side by side.
+    """
+    return np.abs(cv2.Sobel(grey, cv2.CV_32F, 1, 0, ksize=3)) + np.abs(
+        cv2.Sobel(grey, cv2.CV_32F, 0, 1, ksize=3)
+    )
+
+
+def sky_reference(grey_roi: np.ndarray) -> float:
+    """The frame's own brightness scale, from its sky band.
+
+    Every deck test is written as a fraction of this rather than in absolute DN. At dawn --
+    which is when marine layer exists and therefore the only hour this arm is drawn from --
+    whole-frame luma moves by a factor of three inside one 81-minute window, so an absolute
+    cutline classifies the clock rather than the weather.
+    """
+    sky, _, _ = _bands(grey_roi.shape[0])
+    return float(np.percentile(grey_roi[sky], SKY_REFERENCE_PERCENTILE))
+
+
+def deck_fraction(frame: np.ndarray) -> float:
+    """Fraction of the sub-sky ROI that is a bright, smooth surface: the deck statistic.
+
+    THE CALIBRATED ONE. A marine layer in a ridge-top camera is not a loss of contrast over
+    the whole frame -- the near foreground stays perfectly sharp -- it is a lit, textureless
+    sheet lying across the rows where terrain belongs. Measuring that directly is what makes
+    this statistic separate the labelled set best of the five measured: AUC 0.706, 95% CI
+    [0.609, 0.798]. Whole-frame edge energy scores 0.386 -- 0.614 with fog as the lower
+    class, so it is not signal-free -- but its published cutline of 18.0 sits below 59 of
+    the 60 labelled frames, which is a different failure from being weak.
+
+    Bright and smooth are both relative to ``sky_reference``; see there for why.
+    """
+    grey = roi(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)).astype(np.float32)
+    reference = sky_reference(grey) + EPS
+    texture = cv2.blur(
+        _gradient_magnitude(grey), (DECK_TEXTURE_BLUR_PX, DECK_TEXTURE_BLUR_PX)
+    )
+    _, horizon, ground = _bands(grey.shape[0])
+    below = slice(horizon.start, ground.stop)
+    lit = grey[below] >= DECK_LUMA_FRACTION * reference
+    flat = texture[below] <= DECK_TEXTURE_FRACTION * reference
+    return float((lit & flat).mean())
+
+
+def sky_greyness(frame: np.ndarray) -> float:
+    """``-(B - R) / (B + R)`` over the sky band: 0 for a grey ceiling, negative for blue sky.
+
+    The ratio and not the raw ``B - R`` difference, because dawn changes both channels by
+    more than the weather does and the difference then measures the sun's elevation. Signed
+    so that "more like a ceiling" is "larger", which is the direction every other threshold
+    in this file runs in.
+    """
+    band = roi(frame).astype(np.float32)
+    sky, _, _ = _bands(band.shape[0])
+    blue = band[sky][:, :, 0]
+    red = band[sky][:, :, 2]
+    return float(-((blue - red) / (blue + red + EPS)).mean())
+
+
+def frame_features(frame: np.ndarray) -> dict[str, float]:
+    """The five single-frame statistics, computed once so calibration cannot drift from use.
+
+    ``calibrate_fog_predicate`` measures the labelled set with this function and ``measure``
+    measures a candidate window with it. If the two had their own copies -- and the obvious
+    shape for this file was to leave the calibration in a notebook and paste the cutlines --
+    then the number in ``FOG_DECK_FRACTION_MIN`` would be a quantile of a distribution
+    nothing in the shipped pipeline computes, and the test that recomputes it from
+    ``spike/frames`` would be checking one function against itself.
+
+    Three of the five decide nothing. They are here because the manifest promises that a
+    reader can re-derive the assignment AND check the discarded alternatives from the same
+    record.
+    """
+    grey = roi(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)).astype(np.float32)
+    reference = sky_reference(grey) + EPS
+    texture = cv2.blur(
+        _gradient_magnitude(grey), (DECK_TEXTURE_BLUR_PX, DECK_TEXTURE_BLUR_PX)
+    )
+    sky, horizon, ground = _bands(grey.shape[0])
+    return {
+        "deck_fraction": deck_fraction(frame),
+        "sky_greyness": sky_greyness(frame),
+        # Discarded, and recorded so the discard can be checked: the fraction of the SKY
+        # band that is smooth. It sounds like a ceiling detector and measures nothing --
+        # a clear sky is smooth too, and its AUC on the labelled set is 0.489.
+        "sky_smooth_fraction": float(
+            (texture[sky] <= DECK_TEXTURE_FRACTION * reference).mean()
+        ),
+        # The two the previous revision defined fog with. Kept, never consulted.
+        "edge_energy": float(_gradient_magnitude(grey).mean()),
+        "sky_ground_ratio": float(grey[sky].mean() / (grey[ground].mean() + EPS)),
+    }
+
+
+def static_sky_mask(frames: Sequence[np.ndarray]) -> np.ndarray:
+    """Sky pixels that carry structure and do not move across ``frames``.
+
+    Separated from ``measure`` so that the same computation can be run over one candidate
+    window (what is static this morning) and over a camera's whole sweep (what is static
+    always). The difference between those two is the only thing that makes "lens artefact"
+    mean anything on a camera with a tower in shot.
+    """
+    stack = np.stack(
+        [roi(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)).astype(np.float32) for f in frames]
+    )
+    sky, _, _ = _bands(stack.shape[1])
+    mean_frame = stack.mean(axis=0)[sky]
+    structured = _gradient_magnitude(mean_frame) >= LENS_SKY_GRADIENT_MIN
+    still = stack.std(axis=0)[sky] <= LENS_STATIC_TEMPORAL_STD_MAX
+    return structured & still
+
+
+def furniture_mask(masks: Sequence[np.ndarray]) -> np.ndarray:
+    """What is static in at least ``FURNITURE_PRESENCE_FRACTION`` of a camera's windows.
+
+    The caption bar, the vignette shoulder and the radio tower on bl-n-mobo-c are in every
+    frame that camera has ever written, so they are in every window's static mask and they
+    are in this one. ``ROI_MARGIN_FRACTION`` already removes the first two; the tower is
+    inside the picture and only a cross-day reference can reach it.
+
+    A majority and not an intersection: an intersection is decided by the single window with
+    the weakest static mask, so one hazy morning on which the tower's gradient falls under
+    LENS_SKY_GRADIENT_MIN would erase the tower from the reference and hand it back to every
+    other window as a novel artefact.
+    """
+    if not masks:
+        raise FetchError("a furniture reference needs at least one window's static mask")
+    presence = np.mean(np.stack(masks).astype(np.float32), axis=0)
+    return presence >= FURNITURE_PRESENCE_FRACTION
+
+
+def measure(
+    frames: Sequence[np.ndarray], furniture: np.ndarray | None = None
+) -> Measurement:
+    """Twelve numbers per candidate window, then the class they imply.
+
+    Nine of the twelve decide something. The other three -- ``edge_energy``,
+    ``sky_ground_ratio`` and ``sky_smooth_fraction`` -- are the statistics this predicate
+    was measured AGAINST and found to be worse than, and they are recorded so that the
+    comparison stays checkable from the manifest rather than from a commit message.
+
+    ``furniture`` is the camera's cross-day static-sky reference. It is optional and not
+    defaulted to "no furniture" silently: when it is absent every static sky pixel counts as
+    novel, which is the OLD behaviour and is wrong on any camera with a mast, so callers
+    that have a camera's sweep in hand are expected to pass one and ``_score_camera`` does.
+    """
     if len(frames) < 2:
         raise FetchError("a candidate needs at least two probe frames to be measured")
 
-    greys = [cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) for f in frames]
-    stack = np.stack([g.astype(np.float32) for g in greys])
+    greys = [roi(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)) for f in frames]
 
     means = [float(g.mean()) for g in greys]
-    edge = float(
-        np.mean(
-            [
-                np.abs(cv2.Sobel(g, cv2.CV_32F, 1, 0, ksize=3))
-                + np.abs(cv2.Sobel(g, cv2.CV_32F, 0, 1, ksize=3))
-                for g in greys
-            ]
-        )
-    )
-    third = WORK_HEIGHT // SKY_GROUND_BAND_DIVISOR
-    sky = float(np.mean([g[:third].mean() for g in greys]))
-    ground = float(np.mean([g[-third:].mean() for g in greys]))
-
-    warmth = float(
-        np.mean([f[:, :, 2].astype(np.float32).mean() - f[:, :, 0].astype(np.float32).mean() for f in frames])
-    )
+    colour = [roi(f).astype(np.float32) for f in frames]
+    warmth = float(np.mean([c[:, :, 2].mean() - c[:, :, 0].mean() for c in colour]))
     saturation = float(
-        np.mean([cv2.cvtColor(f, cv2.COLOR_BGR2HSV)[:, :, 1].mean() for f in frames])
+        np.mean([roi(cv2.cvtColor(f, cv2.COLOR_BGR2HSV))[:, :, 1].mean() for f in frames])
     )
 
     # The smaller leg of each direction change, so a 30-up-then-2-down wobble scores 2 and
@@ -686,8 +969,8 @@ def measure(frames: Sequence[np.ndarray]) -> Measurement:
     )
 
     small = (
-        WORK_WIDTH // SHADOW_LOWPASS_DECIMATION,
-        WORK_HEIGHT // SHADOW_LOWPASS_DECIMATION,
+        greys[0].shape[1] // SHADOW_LOWPASS_DECIMATION,
+        greys[0].shape[0] // SHADOW_LOWPASS_DECIMATION,
     )
     lowpass = [
         cv2.GaussianBlur(
@@ -701,24 +984,35 @@ def measure(frames: Sequence[np.ndarray]) -> Measurement:
         np.mean([np.abs(lp - lowpass[0]).mean() for lp in lowpass[1:]])
     )
 
-    temporal_std = stack.std(axis=0)
-    mean_frame = stack.mean(axis=0)
-    sky_gradient = np.abs(cv2.Sobel(mean_frame[:third], cv2.CV_32F, 1, 0, ksize=3)) + np.abs(
-        cv2.Sobel(mean_frame[:third], cv2.CV_32F, 0, 1, ksize=3)
-    )
-    structured = sky_gradient >= LENS_SKY_GRADIENT_MIN
-    persistent = structured & (temporal_std[:third] <= LENS_STATIC_TEMPORAL_STD_MAX)
-    sky_structure = float(persistent.sum()) / float(persistent.size)
+    static = static_sky_mask(frames)
+    novel = static if furniture is None else (static & ~furniture)
+
+    # The MEDIAN across the probe frames and not the mean. The cutline was calibrated on
+    # single frames, so the window-level number has to be a location estimate of that same
+    # per-frame quantity; a mean would let one blown-out sunrise frame carry a window over
+    # the cutline on its own.
+    per_frame = [frame_features(f) for f in frames]
+    median = {
+        key: float(np.median([f[key] for f in per_frame])) for key in per_frame[0]
+    }
 
     features = {
         "luma_mean": round(float(np.mean(means)), 3),
-        "edge_energy": round(edge, 3),
-        "sky_ground_ratio": round(sky / (ground + EPS), 4),
+        "deck_fraction": round(median["deck_fraction"], 5),
+        "sky_greyness": round(median["sky_greyness"], 5),
         "warmth_r_minus_b": round(warmth, 3),
         "saturation_mean": round(saturation, 3),
         "luma_reversal_max": round(reversal, 3),
         "shadow_motion": round(shadow_motion, 3),
-        "sky_persistent_structure": round(sky_structure, 5),
+        "sky_static_structure": round(float(static.mean()), 5),
+        "sky_novel_structure": round(float(novel.mean()), 5),
+        # Measured, recorded, and NOT used -- the two statistics the previous revision
+        # defined fog with, plus the one this revision tried and threw away. They are in
+        # the record so that a reader can see for themselves that the labelled fog frames
+        # do not come near the published cutlines, rather than taking this file's word.
+        "edge_energy": round(median["edge_energy"], 3),
+        "sky_ground_ratio": round(median["sky_ground_ratio"], 4),
+        "sky_smooth_fraction": round(median["sky_smooth_fraction"], 5),
     }
     return Measurement(
         features=features, label=classify(features), hardness=hardness(frames)
@@ -734,7 +1028,7 @@ def classify(features: dict[str, float]) -> str | None:
     """
     for label in _CLASS_ORDER:
         if label == "lens_artefact":
-            if features["sky_persistent_structure"] >= LENS_SKY_STRUCTURE_MIN:
+            if features["sky_novel_structure"] >= LENS_NOVEL_STRUCTURE_MIN:
                 return label
         elif label == "exposure_hunting":
             if features["luma_reversal_max"] >= EXPOSURE_REVERSAL_MIN:
@@ -746,13 +1040,10 @@ def classify(features: dict[str, float]) -> str | None:
             ):
                 return label
         elif label == "fog_marine":
-            if (
-                features["edge_energy"] <= HAZE_EDGE_ENERGY_MAX
-                and features["sky_ground_ratio"] <= FOG_SKY_GROUND_RATIO_MAX
-            ):
+            if features["deck_fraction"] >= FOG_DECK_FRACTION_MIN:
                 return label
         elif label == "low_cloud":
-            if features["edge_energy"] <= HAZE_EDGE_ENERGY_MAX:
+            if features["sky_greyness"] >= LOW_CLOUD_SKY_GREYNESS_MIN:
                 return label
         elif label == "cloud_shadow":
             if features["shadow_motion"] >= SHADOW_MOTION_MIN:
@@ -764,9 +1055,10 @@ def criterion_rule(label: str) -> str:
     """The predicate that put a window in its class, as text, for the manifest."""
     return {
         "lens_artefact": (
-            f"sky_persistent_structure >= {LENS_SKY_STRUCTURE_MIN} (fraction of sky "
-            f"pixels with gradient >= {LENS_SKY_GRADIENT_MIN} and temporal std <= "
-            f"{LENS_STATIC_TEMPORAL_STD_MAX})"
+            f"sky_novel_structure >= {LENS_NOVEL_STRUCTURE_MIN} (fraction of sky pixels "
+            f"with mean gradient >= {LENS_SKY_GRADIENT_MIN} and temporal std <= "
+            f"{LENS_STATIC_TEMPORAL_STD_MAX} in THIS window, and not in this camera's "
+            f"cross-day furniture reference)"
         ),
         "exposure_hunting": f"luma_reversal_max >= {EXPOSURE_REVERSAL_MIN}",
         "dust": (
@@ -774,18 +1066,339 @@ def criterion_rule(label: str) -> str:
             f"{DUST_SATURATION_MIN}"
         ),
         "fog_marine": (
-            f"edge_energy <= {HAZE_EDGE_ENERGY_MAX} and sky_ground_ratio <= "
-            f"{FOG_SKY_GROUND_RATIO_MAX}"
+            f"deck_fraction >= {FOG_DECK_FRACTION_MIN} -- CALIBRATED as the median of the "
+            f"60 hand-labelled marine-layer frames in spike/urls_fog.txt"
         ),
         "low_cloud": (
-            f"edge_energy <= {HAZE_EDGE_ENERGY_MAX} and sky_ground_ratio > "
-            f"{FOG_SKY_GROUND_RATIO_MAX}"
+            f"deck_fraction < {FOG_DECK_FRACTION_MIN} and sky_greyness >= "
+            f"{LOW_CLOUD_SKY_GREYNESS_MIN} -- the grey-ceiling residual of the calibrated "
+            f"fog test; see calibration.low_cloud_note"
         ),
         "cloud_shadow": (
-            f"edge_energy > {HAZE_EDGE_ENERGY_MAX} and shadow_motion >= "
-            f"{SHADOW_MOTION_MIN}"
+            f"deck_fraction < {FOG_DECK_FRACTION_MIN} and sky_greyness < "
+            f"{LOW_CLOUD_SKY_GREYNESS_MIN} and shadow_motion >= {SHADOW_MOTION_MIN}"
         ),
     }[label]
+
+
+# ---------------------------------------------------------------------------------
+# Calibration -- where the two fog cutlines come from
+# ---------------------------------------------------------------------------------
+#
+# The previous revision of this file could not fill the fog quota, and the correct reading
+# of that was not "the cutlines are a little tight". Measured with this file's own
+# statistics on the 60 hand-labelled marine-layer frames, edge_energy runs 12.6-60.1 against
+# a cutline of <= 18.0 (1 frame of 60 clears it) and sky_ground_ratio runs 1.46-11.27
+# against <= 1.05 (0 of 60): the conjunction that defined fog_marine admits ZERO of the 60
+# frames a human confirmed as fog. The audit that first caught this measured the uncropped
+# frame over whole windows and got 31.3-49.5 and 3.8-6.7; the crop moves the numbers and
+# does not move the conclusion. Walking either cutline until 18 fog windows fell out would
+# have been fitting the corpus to the quota, so the predicate was re-derived instead, from
+# the one labelled set this project actually owns.
+#
+# The positive class is spike/urls_fog.txt: 60 frames a human picked and visually confirmed
+# as marine layer, on six cameras. The negative class is drawn by this file, and it is NOT
+# called "non-fog": it is the same six cameras at the SAME local minute of day on other
+# days, which is exactly the population the candidate sweep below draws from. Some of it is
+# genuinely foggy -- June on a coastal ridge usually is -- and that is why it is called a
+# background sample and why every number measured against it is a LOWER bound on the
+# predicate's separation rather than an estimate of it.
+
+#: Day offsets tried, in order, when drawing a background frame for a labelled fog frame.
+#: Cycled by index so the background spans the season instead of piling up at -7, where the
+#: same weather system is usually still overhead.
+CALIBRATION_DAY_OFFSETS: tuple[int, ...] = (
+    -35, -28, -21, -14, -7, 7, 14, 21, 28, 35, -42, -49, 42, -56, -63,
+)
+
+#: How many of those offsets are cycled through as starting points before the list simply
+#: continues. Ten, so that the ten "close" offsets are the ones a frame starts from and the
+#: longer ones are the fallback for a camera with a gap in its archive.
+CALIBRATION_OFFSET_CYCLE: int = 10
+
+#: Bootstrap resamples behind the reported AUC interval. Enough that the 2.5/97.5
+#: percentiles are stable to the third decimal, which is one more than is quoted.
+CALIBRATION_BOOTSTRAP: int = 2000
+
+
+def _auc(positive: Sequence[float], negative: Sequence[float]) -> float:
+    """Rank AUC with tie correction, written out rather than pulled from a library.
+
+    ``requirements.lock`` is closed (build contract rule 6) and this is the whole of what
+    sklearn would have been imported for. Ties are averaged rather than broken arbitrarily
+    because ``deck_fraction`` is a fraction of a pixel count and genuinely ties at 0.0 on
+    frames with no deck at all -- breaking those by list order would move the AUC by more
+    than the effect being measured.
+    """
+    pos = np.asarray(positive, dtype=np.float64)
+    neg = np.asarray(negative, dtype=np.float64)
+    if pos.size == 0 or neg.size == 0:
+        raise FetchError("AUC needs at least one sample in each class")
+    values = np.concatenate([pos, neg])
+    order = np.argsort(values, kind="stable")
+    ranks = np.empty(values.size, dtype=np.float64)
+    ranks[order] = np.arange(1, values.size + 1, dtype=np.float64)
+    sorted_values = values[order]
+    start = 0
+    while start < sorted_values.size:
+        stop = start
+        while stop + 1 < sorted_values.size and sorted_values[stop + 1] == sorted_values[start]:
+            stop += 1
+        if stop > start:
+            ranks[order[start : stop + 1]] = (start + stop) / 2.0 + 1.0
+        start = stop + 1
+    n_pos, n_neg = pos.size, neg.size
+    return float((ranks[:n_pos].sum() - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg))
+
+
+def _auc_interval(
+    positive: Sequence[float], negative: Sequence[float], seed: int
+) -> tuple[float, float]:
+    """95% percentile-bootstrap interval on the AUC, resampling both classes.
+
+    Both classes and not just the positive one: 60 against 60 is small enough that the
+    background's own composition is a real source of the uncertainty, and an interval that
+    holds the negatives fixed would be narrower than the thing it claims to describe --
+    the same mistake complexity.md section 6.4 caught in the Sep 1 gate's first draft.
+    """
+    rng = np.random.default_rng(seed)
+    pos = np.asarray(positive, dtype=np.float64)
+    neg = np.asarray(negative, dtype=np.float64)
+    draws = [
+        _auc(rng.choice(pos, pos.size), rng.choice(neg, neg.size))
+        for _ in range(CALIBRATION_BOOTSTRAP)
+    ]
+    low, high = np.percentile(draws, [2.5, 97.5])
+    return float(low), float(high)
+
+
+def labelled_fog_frames(spike_root: pathlib.Path) -> list[tuple[str, int, pathlib.Path]]:
+    """``(camera, epoch, path)`` for every frame in ``spike/urls_fog.txt``.
+
+    Read from the URL list rather than from ``ls spike/frames``, because that directory also
+    holds the 60 smoke frames of the Sep 1 gate and they are named by the same epoch scheme.
+    The URL list is the label.
+    """
+    listing = spike_root / "urls_fog.txt"
+    if not listing.is_file():
+        raise FetchError(f"{listing} is missing; it is the labelled set the fog cutline comes from")
+    out: list[tuple[str, int, pathlib.Path]] = []
+    for line in listing.read_text().split():
+        url = line.strip()
+        if not url:
+            continue
+        camera = url.split("/MTA/", 1)[1].split("/large/", 1)[0]
+        epoch = int(pathlib.PurePosixPath(url).stem)
+        path = spike_root / "frames" / f"{epoch}.jpg"
+        if not path.is_file():
+            raise FetchError(f"{path} is missing; the labelled fog pixels are not on disk")
+        out.append((camera, epoch, path))
+    return out
+
+
+def background_sample(
+    labelled: Sequence[tuple[str, int, pathlib.Path]], end: date
+) -> list[dict]:
+    """One matched background frame per labelled fog frame: same camera, same local minute.
+
+    Same camera and same minute because those are the two confounds that would otherwise
+    explain any separation found -- six cameras with six different lenses and horizons, and
+    a dawn hour in which absolute brightness triples inside twenty minutes. Different DAY
+    because the day is the only thing left to vary, and the weather is what varies with it.
+
+    Days on which that camera has a labelled fog frame are skipped, so a background frame is
+    never drawn from a morning already known to be foggy. Nothing else is excluded, and
+    nothing here claims the result is fog-free.
+    """
+    fog_days: dict[str, set[date]] = {}
+    for camera, epoch, _ in labelled:
+        fog_days.setdefault(camera, set()).add(
+            datetime.fromtimestamp(epoch, PACIFIC).date()
+        )
+
+    phase: dict[str, int] = {}
+    drawn: list[dict] = []
+    for index, (camera, epoch, _) in enumerate(labelled):
+        local = datetime.fromtimestamp(epoch, PACIFIC)
+        minutes = local.hour * 60 + local.minute
+        rotation = index % CALIBRATION_OFFSET_CYCLE
+        offsets = CALIBRATION_DAY_OFFSETS[rotation:] + CALIBRATION_DAY_OFFSETS[:rotation]
+        for offset in offsets:
+            day = local.date() + timedelta(days=offset)
+            if day > end or day in fog_days[camera]:
+                continue
+            centre = candidate_centre_epoch(day, minutes, 0)
+            if camera in phase:
+                found = _search_slot(camera, centre + phase[camera], JITTER_SECONDS)
+            else:
+                found = _first_existing(
+                    camera,
+                    [centre + d for d in _jitter_order(PHASE_SEARCH_SECONDS)],
+                )
+                if found is not None:
+                    phase[camera] = found - centre
+            if found is not None:
+                drawn.append(
+                    {
+                        "camera_id": camera,
+                        "epoch": found,
+                        "day_offset": offset,
+                        "frame": frame_path(found),
+                        "paired_fog_epoch": epoch,
+                    }
+                )
+                break
+    if len(drawn) < len(labelled) // 2:
+        raise FetchError(
+            f"the archive answered for only {len(drawn)} of {len(labelled)} background "
+            f"draws; a cutline calibrated against that is calibrated against a hole in the "
+            f"CDN. No manifest was written."
+        )
+    return drawn
+
+
+def calibrate_fog_predicate(spike_root: pathlib.Path, end: date) -> dict:
+    """Measure every candidate fog statistic on the labelled set, and report what separates.
+
+    This is the derivation of ``FOG_DECK_FRACTION_MIN`` and ``LOW_CLOUD_SKY_GREYNESS_MIN``,
+    and it returns the record that goes into the manifest verbatim. It is a function and not
+    a comment because the alternative -- a cutline whose provenance is a sentence -- is
+    exactly the thing this arm exists to be checkable about.
+
+    The cutline rule is fixed before the numbers are looked at: **the median of the labelled
+    fog class.** Not the quantile that makes 18 windows appear, and not the point that
+    maximises anything -- a median is a rule a reader can restate in six words and check in
+    one line, and it cannot be walked.
+    """
+    labelled = labelled_fog_frames(spike_root)
+    drawn = background_sample(labelled, end)
+
+    positive = [
+        frame_features(_decode(path.read_bytes())) for _, _, path in labelled
+    ]
+    negative = [
+        frame_features(
+            _decode(fetch_with_retry(frame_url(row["camera_id"], row["epoch"])))
+        )
+        for row in drawn
+    ]
+
+    statistics: dict[str, dict] = {}
+    for key in positive[0]:
+        pos = [f[key] for f in positive]
+        neg = [f[key] for f in negative]
+        area = _auc(pos, neg)
+        low, high = _auc_interval(pos, neg, TRAIN_SEED)
+        cut = float(np.median(pos))
+        statistics[key] = {
+            "auc_fog_over_background": round(area, 4),
+            "auc_95pc_bootstrap_ci": [round(low, 3), round(high, 3)],
+            "separates": bool(low > 0.5 or high < 0.5),
+            "fog_min_median_max": [
+                round(float(np.min(pos)), 5),
+                round(cut, 5),
+                round(float(np.max(pos)), 5),
+            ],
+            "background_min_median_max": [
+                round(float(np.min(neg)), 5),
+                round(float(np.median(neg)), 5),
+                round(float(np.max(neg)), 5),
+            ],
+            "median_of_labelled_fog": round(cut, 5),
+            "background_fraction_at_or_above_that_median": round(
+                float(np.mean(np.asarray(neg) >= cut)), 4
+            ),
+        }
+
+    return {
+        "positive_class": {
+            "source": "spike/urls_fog.txt",
+            "n_frames": len(labelled),
+            "cameras": sorted({camera for camera, _, _ in labelled}),
+            "label": (
+                "hand-picked and visually confirmed as marine-layer fog by a human before "
+                "this file existed. It is the only labelled fog in the project."
+            ),
+        },
+        "background_class": {
+            "n_frames": len(drawn),
+            "rule": (
+                "For each labelled fog frame, one frame from the SAME camera at the SAME "
+                "local minute of day on a different day, day offsets tried in the order "
+                f"{list(CALIBRATION_DAY_OFFSETS)} rotated by the frame's index modulo "
+                f"{CALIBRATION_OFFSET_CYCLE}, skipping any day that camera has a labelled "
+                "fog frame on."
+            ),
+            "not_a_negative_class": (
+                "This sample is UNLABELLED. It is the population the candidate sweep draws "
+                "from, at dawn on coastal ridge cameras in June to August, and a large "
+                "share of it is genuinely foggy. Every AUC below is therefore a LOWER "
+                "bound on the statistic's separation, not an estimate of it."
+            ),
+            "frames": drawn,
+        },
+        "cutline_rule": (
+            "Each cutline is the MEDIAN of the labelled fog class for that statistic -- "
+            "fixed as a rule before the values were read, so that no cutline could be "
+            "walked until a class quota fell out."
+        ),
+        "statistics": statistics,
+        "chosen": {
+            "fog_marine": "deck_fraction",
+            "low_cloud": "sky_greyness",
+        },
+        "discarded": {
+            "edge_energy": (
+                "The previous revision's fog test, at edge_energy <= 18.0. Not one of the "
+                "60 labelled fog frames reaches it. It does carry some signal in the "
+                "opposite bookkeeping -- AUC 0.386, which is 0.614 with fog as the lower "
+                "class -- but it is whole-frame, so on these cameras it is dominated by "
+                "near-field terrain that a marine layer never touches, and no cutline "
+                "reachable by the labelled set is reachable by anything else either. "
+                "Discarded, not retuned."
+            ),
+            "sky_ground_ratio": (
+                "The previous revision's fog/low-cloud split, at <= 1.05. The a priori "
+                "claim was that a marine layer lifts the ground to the sky's brightness. "
+                "These are ridge-top cameras looking DOWN on the layer: the sky is the "
+                "bright thing and the near foreground under the deck is the dark thing, on "
+                "a clear morning as much as a foggy one, and the labelled set never falls "
+                "below 1.46. Worse than unreachable, the sign is inverted: fog measures "
+                "HIGHER than the background sample (AUC 0.604), so the published rule was "
+                "not merely tight, it pointed the wrong way. Discarded."
+            ),
+            "sky_smooth_fraction": (
+                "Tried by this revision as a low-cloud ceiling detector and thrown away: a "
+                "clear sky is smooth too. AUC 0.488, 95% CI [0.385, 0.599] -- the interval "
+                "spans 0.5, so this statistic is not measured to separate anything and no "
+                "cutline was taken from it."
+            ),
+        },
+        "internal_parameter_note": (
+            f"DECK_LUMA_FRACTION={DECK_LUMA_FRACTION} and "
+            f"DECK_TEXTURE_FRACTION={DECK_TEXTURE_FRACTION} were chosen from a 20-point "
+            "grid on this same labelled sample, so the deck AUC is in-sample and "
+            "optimistic. Neighbouring grid points span roughly 0.65-0.71, which is the "
+            "size of that optimism."
+        ),
+        "low_cloud_note": (
+            "low_cloud has NO labelled set anywhere in this project. Its cutline is the "
+            "median sky greyness of the MARINE-LAYER class, and the class is defined as the "
+            "residual: a sky as grey as a median marine-layer morning, with no bright deck "
+            "under the horizon. That is a defensible construction and it is not a "
+            "measurement of low cloud."
+        ),
+        "limitation": (
+            "A predicate calibrated on 60 frames from 6 cameras is a SCREENING RULE, not a "
+            "fog detector, and the CONFUSE arm is an adversary set, not a ground truth. It "
+            "is applied to 45 cameras, 39 of which contributed nothing to the calibration. "
+            "Per-camera AUC on the six that did ranges from 0.28 to 0.86, so the rule does "
+            "not transfer evenly even inside its own calibration set. Nothing downstream "
+            "may describe a window in this arm as verified fog; what the arm supports is "
+            "the statement that rank.solve_threshold was calibrated on non-fire windows "
+            "enriched for fog, on the evaluation cameras, at the evaluation hour."
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------------
@@ -886,11 +1499,20 @@ def _score_camera(
     days: Sequence[date],
     excluded: set[tuple[str, str]],
 ) -> list[_Scored]:
-    """Screen up to MAX_CANDIDATES_PER_CAMERA windows on one camera and measure each."""
+    """Screen up to MAX_CANDIDATES_PER_CAMERA windows on one camera, then classify them.
+
+    Two passes over the SAME frames, and the second one is the whole reason lens_artefact
+    means anything. Pass one collects each surviving candidate's probe frames; between the
+    passes the camera's furniture reference is built from all of them; pass two measures and
+    classifies each candidate against it. Classifying inside pass one -- which is what this
+    function used to do -- cannot see across days, so on bl-n-mobo-c it labelled the radio
+    tower an artefact of whichever morning it happened to be looking at, and lens_artefact
+    fired on 88 of 108 candidates.
+    """
     t0_epoch = hold_t0_epoch(paired)
     minutes = local_minutes_of_day(t0_epoch)
     slots = _probe_slot_indices()
-    scored: list[_Scored] = []
+    collected: list[tuple[Candidate, dict[int, int], list[np.ndarray]]] = []
     #: Learned once from whichever candidate day first yields a frame, then reused for
     #: every later day on this camera. See ``enumerate_window``: the phase is the camera's
     #: second-of-the-minute, not the day's, and re-discovering it 60 times per camera is
@@ -898,10 +1520,10 @@ def _score_camera(
     phase: int | None = None
 
     for day in days:
-        if len(scored) >= MAX_CANDIDATES_PER_CAMERA:
+        if len(collected) >= MAX_CANDIDATES_PER_CAMERA:
             break
         for offset in TOD_OFFSETS_MINUTES:
-            if len(scored) >= MAX_CANDIDATES_PER_CAMERA:
+            if len(collected) >= MAX_CANDIDATES_PER_CAMERA:
                 break
             centre = candidate_centre_epoch(day, minutes, offset)
             candidate = Candidate(
@@ -925,18 +1547,30 @@ def _score_camera(
                 _decode(fetch_with_retry(frame_url(camera_id, probes[i])))
                 for i in sorted(probes)
             ]
-            measurement = measure(frames)
-            if measurement.label is None:
-                continue
-            scored.append(_Scored(candidate, measurement, probes))
+            collected.append((candidate, probes, frames))
             break  # one candidate per day per camera; the next offset is the same weather
+
+    if not collected:
+        return []
+    # Pass two. Every candidate's static-sky mask contributes to the reference, INCLUDING
+    # its own -- excluding it per candidate would make the reference a different image for
+    # every window and the novelty fractions incomparable across a camera. With six windows
+    # the self-contribution moves a pixel's presence by 1/6, which cannot on its own carry a
+    # pixel over a half.
+    furniture = furniture_mask([static_sky_mask(f) for _, _, f in collected])
+    scored: list[_Scored] = []
+    for candidate, probes, frames in collected:
+        measurement = measure(frames, furniture=furniture)
+        if measurement.label is None:
+            continue
+        scored.append(_Scored(candidate, measurement, probes))
     return scored
 
 
 def _select(
     pool: dict[str, list[_Scored]],
     quotas: dict[str, int],
-) -> dict[str, _Scored]:
+) -> tuple[dict[str, _Scored], list[dict]]:
     """Assign one camera to each slot of each class, scarcest class first.
 
     Scarcest first and not alphabetical, because the classes are wildly unequal in supply:
@@ -944,9 +1578,18 @@ def _select(
     first would consume the only cameras that could have supplied them. Within a class the
     order is hardness descending -- the whole point of the arm.
 
-    Returns ``{sequence_id: scored}``. Raises when a class cannot be filled, because a
-    CONFUSE arm with 14 fog windows instead of 18 is a different denominator from the one
-    every published rate is quoted against.
+    Returns ``({sequence_id: scored}, shortfalls)``. A class the archive cannot fill is
+    REDUCED and recorded, not raised on and not padded. That is a change of policy from the
+    previous revision and it is the honest one: the failure mode this arm was one audit away
+    from was a cutline walked down until 18 fog windows appeared, and a rule that raises on
+    a short class is exactly the pressure that produces it. A 42-window arm whose composition
+    is stated is a denominator a reader can reason about; a 45-window arm with three windows
+    admitted by a moved threshold is not.
+
+    What the caller must then do is publish the realised composition rather than the quota.
+    ``n_windows`` in the manifest is the count of windows written, ``class_quotas`` is what
+    was asked for, ``class_histogram`` is what was got, and ``shortfalls`` says why they
+    differ. Nothing downstream may quote the quota as if it were the arm.
     """
     by_class: dict[str, list[_Scored]] = {label: [] for label in quotas}
     for entries in pool.values():
@@ -962,6 +1605,7 @@ def _select(
     order = sorted(quotas, key=lambda label: (len(by_class[label]), label))
     chosen: dict[str, _Scored] = {}
     taken: set[str] = set()
+    shortfalls: list[dict] = []
     for label in order:
         need = quotas[label]
         for scored in by_class[label]:
@@ -973,12 +1617,24 @@ def _select(
             chosen[scored.candidate.sequence_id] = scored
             need -= 1
         if need:
-            raise FetchError(
-                f"class {label!r} needs {quotas[label]} windows and the archive offered "
-                f"{len(by_class[label])} candidates on unused cameras -- {need} short. "
-                f"No manifest was written."
+            shortfalls.append(
+                {
+                    "class": label,
+                    "quota": quotas[label],
+                    "selected": quotas[label] - need,
+                    "short_by": need,
+                    "candidates_measured_in_this_class": len(by_class[label]),
+                    "reason": (
+                        f"The sweep measured {len(by_class[label])} candidate windows that "
+                        f"satisfy the {label!r} predicate, and one window is taken per "
+                        f"camera, so {quotas[label] - need} could be selected on cameras "
+                        f"not already used by a scarcer class. The class was reduced. The "
+                        f"predicate was NOT moved: see criterion_thresholds and "
+                        f"calibration."
+                    ),
+                }
             )
-    return chosen
+    return chosen, shortfalls
 
 
 # ---------------------------------------------------------------------------------
@@ -1029,8 +1685,15 @@ def build(
     excluded: set[tuple[str, str]],
     end: date,
     quotas: dict[str, int] = CLASS_QUOTAS,
+    calibration: dict | None = None,
 ) -> dict:
-    """Screen, select, enumerate and assemble. Raises rather than returning something partial."""
+    """Screen, select, enumerate and assemble. Raises rather than returning something partial.
+
+    ``calibration`` is the record ``calibrate_fog_predicate`` returned. It is required in
+    practice and optional in the signature only so the selection machinery stays testable
+    without the network; a manifest written without it says so in place of the record, and
+    ``tests/test_confusion_set.py`` fails on the shipped file if it is absent.
+    """
     paired = paired_hold_windows(hold_manifest)
     days = candidate_days(end)
 
@@ -1038,7 +1701,7 @@ def build(
     for camera_id in sorted(paired):
         pool[camera_id] = _score_camera(camera_id, paired[camera_id], days, excluded)
 
-    chosen = _select(pool, quotas)
+    chosen, shortfalls = _select(pool, quotas)
 
     windows: list[dict] = []
     for sequence_id in sorted(chosen):
@@ -1058,9 +1721,25 @@ def build(
             )
         windows.append(_window_json(scored, epochs))
 
-    total = sum(quotas.values())
-    if len(windows) != total:
-        raise FetchError(f"assembled {len(windows)} windows, expected {total}")
+    if not windows:
+        raise FetchError(
+            "the sweep selected no windows at all. A class that comes up short is reduced "
+            "and recorded, but an EMPTY arm is not a smaller denominator, it is no "
+            "denominator: solve_threshold would bisect on nothing and return a bound. No "
+            "manifest was written."
+        )
+
+    expected = sum(quotas.values()) - sum(s["short_by"] for s in shortfalls)
+    if len(windows) != expected:
+        raise FetchError(
+            f"assembled {len(windows)} windows, expected {expected} "
+            f"(quota {sum(quotas.values())} less {sum(s['short_by'] for s in shortfalls)} "
+            f"recorded shortfall)"
+        )
+
+    histogram = {label: 0 for label in quotas}
+    for window in windows:
+        histogram[window["class"]] += 1
 
     return {
         "arm": "confuse",
@@ -1104,27 +1783,80 @@ def build(
             "project by construction, which makes the solved threshold conservative.",
             "Classes were filled scarcest-supply first, because the six classes differ by "
             "an order of magnitude in how many cameras can supply them.",
+            "The fog predicate was CALIBRATED on this project's own labelled fog -- the 60 "
+            "frames in spike/urls_fog.txt that a human picked and visually confirmed as "
+            "marine layer -- against a camera- and clock-matched background sample drawn "
+            "from the same six cameras on other days. The statistic that separates them is "
+            "deck_fraction and the cutline is the median of the labelled class. The "
+            "previous revision's a priori cutlines (edge_energy <= 18.0, sky_ground_ratio "
+            "<= 1.05) were re-measured on that same labelled set, admitted zero of 60, and "
+            "were discarded rather than moved. The full record, including the discarded "
+            "statistics and the background frames, is under 'calibration'.",
+            "A predicate calibrated on 60 frames from 6 cameras is a screening rule and not "
+            "a fog detector, and this arm is an adversary set and not a ground truth. No "
+            "window here is certified as fog; the class labels say which predicate admitted "
+            "the window, and the measured features say on what evidence.",
             "Non-fire basis: candidate days exclude every (camera, date) FIgLib records a "
             "fire on, and every window additionally had to satisfy one of the six "
             "confuser predicates. FIgLib catalogues 521 fires and not every fire, so this "
             "is a filter and not a certification.",
         ],
         "class_quotas": dict(quotas),
+        "class_histogram": histogram,
+        "shortfalls": shortfalls,
+        "composition_note": (
+            "class_quotas is what was asked for and class_histogram is what the archive "
+            "supplied. Where they differ, shortfalls carries the class, the deficit and the "
+            "reason, and the reason is never a moved threshold: a class the sweep could not "
+            "fill was REDUCED. Quote n_windows and class_histogram, never class_quotas."
+        ),
         "criterion_thresholds": {
+            "ROI_MARGIN_FRACTION": ROI_MARGIN_FRACTION,
             "LENS_SKY_GRADIENT_MIN": LENS_SKY_GRADIENT_MIN,
             "LENS_STATIC_TEMPORAL_STD_MAX": LENS_STATIC_TEMPORAL_STD_MAX,
-            "LENS_SKY_STRUCTURE_MIN": LENS_SKY_STRUCTURE_MIN,
+            "LENS_NOVEL_STRUCTURE_MIN": LENS_NOVEL_STRUCTURE_MIN,
+            "FURNITURE_PRESENCE_FRACTION": FURNITURE_PRESENCE_FRACTION,
             "EXPOSURE_REVERSAL_MIN": EXPOSURE_REVERSAL_MIN,
             "DUST_WARMTH_MIN": DUST_WARMTH_MIN,
             "DUST_SATURATION_MIN": DUST_SATURATION_MIN,
-            "HAZE_EDGE_ENERGY_MAX": HAZE_EDGE_ENERGY_MAX,
-            "FOG_SKY_GROUND_RATIO_MAX": FOG_SKY_GROUND_RATIO_MAX,
+            "SKY_REFERENCE_PERCENTILE": SKY_REFERENCE_PERCENTILE,
+            "DECK_LUMA_FRACTION": DECK_LUMA_FRACTION,
+            "DECK_TEXTURE_FRACTION": DECK_TEXTURE_FRACTION,
+            "DECK_TEXTURE_BLUR_PX": DECK_TEXTURE_BLUR_PX,
+            "FOG_DECK_FRACTION_MIN": FOG_DECK_FRACTION_MIN,
+            "LOW_CLOUD_SKY_GREYNESS_MIN": LOW_CLOUD_SKY_GREYNESS_MIN,
             "SHADOW_LOWPASS_SIGMA_PX": SHADOW_LOWPASS_SIGMA_PX,
             "SHADOW_LOWPASS_DECIMATION": SHADOW_LOWPASS_DECIMATION,
             "SHADOW_MOTION_MIN": SHADOW_MOTION_MIN,
             "SKY_GROUND_BAND_DIVISOR": SKY_GROUND_BAND_DIVISOR,
             "DIFF_BLUR_KERNEL_PX": DIFF_BLUR_KERNEL_PX,
             "class_order": list(_CLASS_ORDER),
+            "provenance": {
+                "FOG_DECK_FRACTION_MIN": (
+                    "CALIBRATED on the 60 hand-labelled marine-layer frames in "
+                    "spike/urls_fog.txt -- the median of that class. See calibration."
+                ),
+                "LOW_CLOUD_SKY_GREYNESS_MIN": (
+                    "CALIBRATED the same way, on the same labelled class, which is marine "
+                    "layer and not low cloud. See calibration.low_cloud_note."
+                ),
+                "everything_else": (
+                    "a priori. Chosen from the physics of each process, never fitted, and "
+                    "never moved to make a quota fall out. Of these, the lens_artefact and "
+                    "cloud_shadow cutlines have no labelled set behind them at all and are "
+                    "the weakest claims in this file."
+                ),
+            },
+            "rules": {label: criterion_rule(label) for label in _CLASS_ORDER},
+        },
+        "calibration": calibration
+        if calibration is not None
+        else {
+            "absent": (
+                "This manifest was assembled without running calibrate_fog_predicate, so "
+                "the two calibrated cutlines carry no record here. The shipped manifest is "
+                "not built this way and tests/test_confusion_set.py fails if it is."
+            )
         },
         "search_budget": {
             "PHASE_SEARCH_SECONDS": PHASE_SEARCH_SECONDS,
@@ -1170,10 +1902,47 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=date.today(),
         help="most recent day of the candidate sweep (YYYY-MM-DD)",
     )
+    parser.add_argument(
+        "--spike-root", type=pathlib.Path, default=_REPO_ROOT / "spike"
+    )
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        help=(
+            "derive the fog cutlines from spike/urls_fog.txt and print the separation, "
+            "then stop. This is the same computation the build runs; it is exposed so the "
+            "derivation can be checked without a two-hour sweep."
+        ),
+    )
     args = parser.parse_args(argv)
 
     data_root: pathlib.Path = args.data_root
     out_path = data_root / "manifest_confuse.json"
+
+    if args.calibrate:
+        try:
+            record = calibrate_fog_predicate(args.spike_root, args.end_date)
+        except FetchError as exc:
+            print(f"FAILED  {exc}", file=sys.stderr)
+            return 1
+        print(
+            f"labelled fog: {record['positive_class']['n_frames']} frames on "
+            f"{len(record['positive_class']['cameras'])} cameras"
+        )
+        print(f"background:   {record['background_class']['n_frames']} matched frames")
+        print(f"{'statistic':22s} {'AUC':>7s} {'95% CI':>16s}  separates  median  bg>=median")
+        for name, stat in record["statistics"].items():
+            low, high = stat["auc_95pc_bootstrap_ci"]
+            print(
+                f"{name:22s} {stat['auc_fog_over_background']:7.3f} "
+                f"[{low:6.3f},{high:6.3f}]  "
+                f"{'yes' if stat['separates'] else 'NO ':>9s}  "
+                f"{stat['median_of_labelled_fog']:7.4f}  "
+                f"{stat['background_fraction_at_or_above_that_median']:9.3f}"
+            )
+        print(f"fog_marine cutline: deck_fraction >= {FOG_DECK_FRACTION_MIN}")
+        print(f"low_cloud  cutline: sky_greyness  >= {LOW_CLOUD_SKY_GREYNESS_MIN}")
+        return 0
 
     manifests: list[dict] = []
     for name in ("manifest_hold.json", "manifest_dev.json"):
@@ -1185,10 +1954,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     hold_manifest, dev_manifest = manifests
 
     try:
+        # Calibrated FIRST, before a single candidate is screened. The order is the point:
+        # the cutlines cannot have been influenced by what the sweep happened to find,
+        # because the sweep has not run yet when they are fixed.
+        calibration = calibrate_fog_predicate(args.spike_root, args.end_date)
         manifest = build(
             hold_manifest,
             _figlib_fire_dates((hold_manifest, dev_manifest)),
             args.end_date,
+            calibration=calibration,
         )
     except FetchError as exc:
         print(f"FAILED  {exc}", file=sys.stderr)
@@ -1197,12 +1971,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Written last, in one call, and only on the success path. A partial manifest is worse
     # than no manifest: it loads, it solves a threshold, and nothing downstream can tell.
     out_path.write_text(json.dumps(manifest, indent=2) + "\n")
-    histogram = {label: 0 for label in CLASS_QUOTAS}
-    for window in manifest["windows"]:
-        histogram[window["class"]] += 1
+    histogram = manifest["class_histogram"]
     print(f"wrote {out_path}: {manifest['n_windows']} windows")
     for label in _CLASS_ORDER:
-        print(f"  {label:<18} {histogram[label]:3d}")
+        quota = CLASS_QUOTAS[label]
+        mark = "" if histogram[label] == quota else f"  (quota {quota}, SHORT)"
+        print(f"  {label:<18} {histogram[label]:3d}{mark}")
+    for shortfall in manifest["shortfalls"]:
+        print(f"SHORT   {shortfall['class']}: {shortfall['reason']}", file=sys.stderr)
     return 0
 
 

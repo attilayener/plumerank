@@ -265,3 +265,43 @@ def test_the_escalation_ceiling_is_roster_relative_not_a_flat_two_percent():
     assert escalation_fraction_ceiling(1) == 1.0        # never reports above 1.0
     with pytest.raises(ValueError):
         escalation_fraction_ceiling(0)
+
+
+def test_pinning_opencv_threads_actually_takes():
+    """setNumThreads is a COUNTED OpenCV 5 surface, so it has to change the output rather
+    than merely appear in the source -- otherwise the defended count is inflated by one.
+
+    Asserted on the CLOCK, not on the read-back, and the difference matters. This build's
+    parallel framework is GCD, under which cv2.getNumThreads() reports the pool's capacity
+    (10 here) whatever cap was set, so a read-back assertion would fail on macOS and pass
+    on the linux/aarch64 deployment target while proving nothing on either. The timing
+    proves the cap took: measured 185.2 ms pinned against 33.9 ms unpinned for the same
+    work on the same build.
+    """
+    from plumerank.metrics import pin_opencv_threads
+
+    before = cv2.getNumThreads()
+    try:
+        assert pin_opencv_threads(1) >= 1
+        with pytest.raises(ValueError):
+            pin_opencv_threads(0)
+
+        img = (np.random.default_rng(4).random((900, 1200)) * 255).astype(np.uint8)
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+
+        def elapsed(threads: int) -> float:
+            cv2.setNumThreads(threads)
+            m = cv2.TickMeter()
+            m.start()
+            for _ in range(6):
+                cv2.morphologyEx(img, cv2.MORPH_CLOSE, k)
+            m.stop()
+            return float(m.getTimeMilli())
+
+        pinned, unpinned = elapsed(1), elapsed(8)
+        assert pinned > unpinned * 1.5, (
+            f"setNumThreads changed nothing ({pinned:.1f} ms pinned vs {unpinned:.1f} ms "
+            f"unpinned) -- it must not be counted as a defended surface"
+        )
+    finally:
+        cv2.setNumThreads(before)

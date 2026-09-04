@@ -48,10 +48,15 @@ export default function WallPage() {
   // run really is the held-out one. bench.py can write a dev-arm file (--arm dev), and
   // captioning the wall "measured on N HOLD sequences" off a DEV run's count would be
   // the exact confusion the caption exists to prevent.
-  const holdSequences =
-    benchmark !== null && (benchmark.run.arm === null || benchmark.run.arm === "hold")
-      ? benchmark.run.n_sequences
-      : null;
+  const publishedHold =
+    benchmark !== null && (benchmark.run.arm === null || benchmark.run.arm === "hold");
+  const holdSequences = publishedHold && benchmark !== null ? benchmark.run.n_sequences : null;
+  // The count the exclusion list took out, carried beside the count that survived so that
+  // no caption on this page can quote one without the other. bench.py publishes both
+  // against the same arm, so holdSequences + holdExcluded is the manifest's own window
+  // count -- an addition a reader can check, rather than a third figure that could
+  // disagree with the two it summarises.
+  const holdExcluded = publishedHold && benchmark !== null ? benchmark.exclusions.count : null;
 
   return (
     <>
@@ -88,10 +93,10 @@ export default function WallPage() {
                   ? ABSENT
                   : benchmark.budget.target.toFixed(1)}{" "}
                 alerts per camera-night, on{" "}
-                {benchmark === null || benchmark.run.n_sequences === null
+                {holdSequences === null || holdExcluded === null
                   ? ABSENT
-                  : benchmark.run.n_sequences}{" "}
-                held-out sequences
+                  : `${holdSequences} of ${holdSequences + holdExcluded}`}{" "}
+                held-out sequences{holdExcluded === null ? "" : `, ${holdExcluded} excluded`}
               </span>
             </p>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -137,6 +142,7 @@ export default function WallPage() {
               framesSeen={framesSeen}
               compact={compact}
               holdSequences={holdSequences}
+              holdExcluded={holdExcluded}
             />
           </div>
 

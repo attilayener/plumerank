@@ -23,7 +23,7 @@ import re
 import shutil
 import sys
 import zlib
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import cv2
 import numpy as np
@@ -45,6 +45,23 @@ from plumerank.constants import (  # noqa: E402
 
 _DATA = _ROOT / "data"
 
+
+def _shipped_manifest() -> dict:
+    """The committed ``data/manifest_confuse.json`` -- the arm the project actually ships.
+
+    Separate from the synthetic ``built`` fixture on purpose. The fixture proves the
+    machinery does what it says on an archive this file controls; this proves the SHIPPED
+    corpus satisfies the same invariants, which is the only version a judge can read.
+    """
+    path = _DATA / "manifest_confuse.json"
+    if not path.is_file():
+        raise AssertionError(
+            f"{path} is missing. It is a committed artefact of this repository, not a "
+            f"build product: rank.solve_threshold is calibrated on it and every published "
+            f"rate is quoted at that operating point."
+        )
+    return json.loads(path.read_text())
+
 #: The day the synthetic archive holds frames for. Far from every FIgLib fire date in the
 #: committed manifests, so the non-fire exclusion never removes it.
 _SWEEP_DAY = date(2026, 7, 26)
@@ -53,6 +70,10 @@ _SWEEP_DAY = date(2026, 7, 26)
 #: epochs come from a wall clock that knows nothing about the camera's phase, so a phase of
 #: zero would let a broken phase search pass.
 _CAMERA_PHASE_SECONDS = 17
+
+#: Which swept day a lens camera actually carries its artefact on. Not the first, so that a
+#: furniture reference built from whatever the sweep saw first cannot accidentally be right.
+_LENS_DAY_INDEX = 1
 
 
 def _seed(label: str) -> int:
@@ -73,15 +94,31 @@ def _seed(label: str) -> int:
 
 _SRC_H, _SRC_W = 360, 640
 
+#: Row the synthetic sky stops at. A THIRD of the way down and not a half, because
+#: ``deck_fraction`` is measured over the lower two thirds of the ROI and the ROI is itself
+#: a 10% crop: with the horizon at mid-frame, a band of plain bright sky falls inside the
+#: measured region and every scene in this file -- the clear one included -- reads as 25%
+#: deck before its own weather is considered.
+_HORIZON = _SRC_H // 3
+
 
 def _terrain(rng: np.random.Generator) -> np.ndarray:
-    """A clear day: smooth sky over blocky ground. The null case, and no class at all."""
+    """A clear day: smooth BLUE sky over blocky ground. The null case, and no class at all.
+
+    Blue and not neutral grey, which is what it used to be. ``sky_greyness`` is the
+    low_cloud discriminator now, and a grey sky IS a low cloud deck by that definition -- so
+    a monochrome "clear day" fixture would be labelled low_cloud and the null case would
+    silently stop being one. The channel split is the same one the real cameras show on a
+    clear dawn: (B - R) / (B + R) around 0.17 against a labelled-fog median of 0.13.
+    """
     img = np.zeros((_SRC_H, _SRC_W, 3), np.uint8)
-    horizon = _SRC_H // 2
-    for row in range(horizon):
-        img[row, :, :] = 205 - int(30 * row / horizon)
-    blocks = rng.integers(40, 190, (_SRC_H - horizon, _SRC_W // 8), dtype=np.uint8)
-    img[horizon:, :, :] = np.repeat(blocks, 8, axis=1)[:, :_SRC_W, None]
+    for row in range(_HORIZON):
+        fade = int(30 * row / _HORIZON)
+        img[row, :, 0] = 215 - fade  # B
+        img[row, :, 1] = 185 - fade  # G
+        img[row, :, 2] = 150 - fade  # R
+    blocks = rng.integers(30, 200, (_SRC_H - _HORIZON, _SRC_W // 4), dtype=np.uint8)
+    img[_HORIZON:, :, :] = np.repeat(blocks, 4, axis=1)[:, :_SRC_W, None]
     return img
 
 
@@ -102,8 +139,12 @@ def _scene(label: str, k: int, rng: np.random.Generator) -> np.ndarray:
         bank = cv2.GaussianBlur(bank, (0, 0), 18)[:, :, None]
         return _grain((img * (1 - bank) + 200 * bank).astype(np.uint8), rng)
     if label == "low_cloud":
-        img = np.full((_SRC_H, _SRC_W, 3), 90, np.uint8)
-        img[: _SRC_H // 3 + 20] = 210  # the deck is ABOVE; the ground stays dark
+        # A flat grey ceiling with the terrain still visible and still dark under it. The
+        # ground has to stay UNDER DECK_LUMA_FRACTION of the ceiling, or the deck test --
+        # which runs first -- reads the whole lower frame as marine layer and this scene
+        # becomes a fog scene with a different name.
+        img = (_terrain(rng).astype(np.float32) * 0.30).astype(np.uint8)
+        img[:_HORIZON] = 205  # neutral: B == R, so sky_greyness is 0
         return _grain(img, rng)
     if label == "dust":
         img = np.zeros((_SRC_H, _SRC_W, 3), np.uint8)
@@ -179,25 +220,65 @@ def _camera_classes(hold: dict) -> dict[str, str]:
     return dict(zip(cameras, plan))
 
 
+#: Days of archive laid down per camera, and therefore candidate windows measured per
+#: camera. THREE, and it is not a convenience.
+#:
+#: ``furniture_mask`` calls a static-sky pixel furniture when it is static in at least
+#: FURNITURE_PRESENCE_FRACTION of a camera's windows. With one window every static pixel is
+#: furniture and lens_artefact can never fire; with two, a pixel present in one of them sits
+#: exactly ON the half and is furniture as well. Three is the smallest sweep in which a mark
+#: that appeared on one morning is distinguishable from a mast that is always there -- which
+#: is not a quirk of the fixture, it is the epistemics of the class, and the same arithmetic
+#: is why a real camera that yields fewer than three candidate windows can never contribute
+#: a lens_artefact.
+_SWEEP_DAYS = 3
+
+
 def _populate(
     archive: _Archive,
     hold: dict,
     classes: dict[str, str],
     slots: list[int] | None = None,
+    days: int = _SWEEP_DAYS,
 ) -> None:
-    """Lay one 81-frame window per camera into the archive at the right hour."""
+    """Lay one 81-frame window per camera per swept day into the archive at the right hour.
+
+    A lens camera carries its artefact on ONE of the days and an ordinary clear morning on
+    the others. That is what makes it a lens artefact rather than a tower: the same web on
+    all three days is furniture by construction and would be classified as nothing at all.
+    """
     frames = _class_frames()
     paired = bcs.paired_hold_windows(hold)
     indices = list(range(FRAMES_PER_WINDOW)) if slots is None else slots
     for camera_id, window in paired.items():
         minutes = bcs.local_minutes_of_day(bcs.hold_t0_epoch(window))
-        centre = bcs.candidate_centre_epoch(_SWEEP_DAY, minutes, 0) + _CAMERA_PHASE_SECONDS
-        label = classes[camera_id]
-        for i in indices:
-            epoch = centre + (i - IGNITION_FRAME_INDEX) * 60
-            archive.images[bcs.frame_url(camera_id, epoch)] = frames[label][
-                i * bcs.PROBE_SLOTS // FRAMES_PER_WINDOW
-            ]
+        for day_index in range(days):
+            day = _SWEEP_DAY - timedelta(days=day_index)
+            centre = bcs.candidate_centre_epoch(day, minutes, 0) + _CAMERA_PHASE_SECONDS
+            label = classes[camera_id]
+            if label == "lens_artefact" and day_index != _LENS_DAY_INDEX:
+                label = "clear"
+            for i in indices:
+                epoch = centre + (i - IGNITION_FRAME_INDEX) * 60
+                archive.images[bcs.frame_url(camera_id, epoch)] = frames[label][
+                    i * bcs.PROBE_SLOTS // FRAMES_PER_WINDOW
+                ]
+
+
+def _stub_calibration(spike_root: pathlib.Path, end: date) -> dict:
+    """Stands in for the calibration's ONE network leg, and for nothing else.
+
+    ``calibrate_fog_predicate`` reads 60 frames off disk and draws 60 matched background
+    frames from the CDN, and ``main`` runs it before the sweep. The rest of this file
+    replaces the archive, so replacing it here too is the same substitution and not a new
+    one. What is NOT substituted is the thing worth asserting -- that the two shipped
+    cutlines really are the medians of the labelled set --
+    ``test_the_fog_cutline_is_the_median_of_the_labelled_set`` recomputes both from
+    ``spike/frames`` with no network at all, and
+    ``test_the_shipped_manifest_records_its_calibration`` reads the real record off the
+    committed manifest.
+    """
+    return {"synthetic": "stand-in for the network leg of the calibration; see _stub_calibration"}
 
 
 @pytest.fixture()
@@ -211,11 +292,13 @@ def tree(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     archive = _Archive()
     monkeypatch.setattr(bcs, "probe_exists", archive.head)
     monkeypatch.setattr(bcs, "fetch_with_retry", archive.get)
-    # One day, one candidate per camera: the sweep's breadth is what makes the real run
-    # take an hour, and it is not what these tests are about.
-    monkeypatch.setattr(bcs, "CANDIDATE_DAYS", 1)
+    monkeypatch.setattr(bcs, "calibrate_fog_predicate", _stub_calibration)
+    # Three days, three candidates per camera: the sweep's breadth is what makes the real
+    # run take an hour and is not what these tests are about, but three is the floor -- see
+    # _SWEEP_DAYS.
+    monkeypatch.setattr(bcs, "CANDIDATE_DAYS", _SWEEP_DAYS)
     monkeypatch.setattr(bcs, "CANDIDATE_DAY_STRIDE", 1)
-    monkeypatch.setattr(bcs, "MAX_CANDIDATES_PER_CAMERA", 1)
+    monkeypatch.setattr(bcs, "MAX_CANDIDATES_PER_CAMERA", _SWEEP_DAYS)
 
     hold = json.loads((data_root / "manifest_hold.json").read_text())
     return data_root, archive, hold
@@ -250,9 +333,10 @@ def built(tmp_path_factory: pytest.TempPathFactory):
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(bcs, "probe_exists", archive.head)
         patch.setattr(bcs, "fetch_with_retry", archive.get)
-        patch.setattr(bcs, "CANDIDATE_DAYS", 1)
+        patch.setattr(bcs, "calibrate_fog_predicate", _stub_calibration)
+        patch.setattr(bcs, "CANDIDATE_DAYS", _SWEEP_DAYS)
         patch.setattr(bcs, "CANDIDATE_DAY_STRIDE", 1)
-        patch.setattr(bcs, "MAX_CANDIDATES_PER_CAMERA", 1)
+        patch.setattr(bcs, "MAX_CANDIDATES_PER_CAMERA", _SWEEP_DAYS)
         _populate(archive, hold, _camera_classes(hold))
         assert _run(data_root) == 0
 
@@ -420,21 +504,53 @@ def test_an_ordinary_clear_day_is_not_any_class() -> None:
     assert bcs.measure(frames).label is None
 
 
-def test_fog_and_low_cloud_are_separated_only_by_where_the_layer_sits() -> None:
-    # The two classes share every other feature; the sky-over-ground ratio is the whole
-    # discriminator, and it is worth one test on its own because a sign error there would
-    # swap 18 windows with 4 and nothing else would notice.
-    fog = {
-        "sky_persistent_structure": 0.0,
+def _neutral_features(**overrides: float) -> dict[str, float]:
+    """A feature vector that trips nothing, so a classify() test varies exactly one number."""
+    base = {
+        "sky_novel_structure": 0.0,
         "luma_reversal_max": 0.1,
         "warmth_r_minus_b": 0.0,
         "saturation_mean": 2.0,
-        "edge_energy": 4.0,
-        "sky_ground_ratio": 1.0,
+        "deck_fraction": 0.0,
+        "sky_greyness": -0.9,
         "shadow_motion": 0.0,
     }
+    base.update(overrides)
+    return base
+
+
+def test_fog_is_the_deck_under_the_horizon_and_low_cloud_is_the_grey_ceiling_residual() -> None:
+    """The one split that decides 18 windows against 4, on one number each.
+
+    ``deck_fraction`` is the calibrated statistic and it is evaluated first; ``sky_greyness``
+    only ever sees what the deck test rejected. A reader should be able to check that
+    ordering here without running a sweep, because getting it backwards would make low_cloud
+    the calibrated class and fog the residual -- which is the opposite of where the evidence
+    is.
+    """
+    fog = _neutral_features(deck_fraction=bcs.FOG_DECK_FRACTION_MIN)
     assert bcs.classify(fog) == "fog_marine"
-    assert bcs.classify({**fog, "sky_ground_ratio": 2.3}) == "low_cloud"
+
+    # Just under the deck cutline with a grey sky: the residual class.
+    ceiling = _neutral_features(
+        deck_fraction=bcs.FOG_DECK_FRACTION_MIN - 1e-6,
+        sky_greyness=bcs.LOW_CLOUD_SKY_GREYNESS_MIN,
+    )
+    assert bcs.classify(ceiling) == "low_cloud"
+
+    # A deck AND a grey sky is still fog: the calibrated test wins the tie.
+    assert (
+        bcs.classify(
+            _neutral_features(
+                deck_fraction=bcs.FOG_DECK_FRACTION_MIN,
+                sky_greyness=bcs.LOW_CLOUD_SKY_GREYNESS_MIN,
+            )
+        )
+        == "fog_marine"
+    )
+
+    # A blue sky with no deck is neither, and with nothing else moving it is no class.
+    assert bcs.classify(_neutral_features()) is None
 
 
 def test_a_fog_bank_under_a_rising_sun_is_fog_and_not_a_broken_camera() -> None:
@@ -497,9 +613,12 @@ def test_hardness_is_the_projects_own_boundary_statistic() -> None:
     value = bcs.hardness(frames)
     assert value > 0.0 and np.isfinite(value)
 
-    grey = cv2.cvtColor(frames[-1], cv2.COLOR_BGR2GRAY)
+    # Inside the ROI, because that is where hardness measures: see
+    # test_the_hardness_ranking_does_not_measure_the_burned_in_clock for why the crop is
+    # not optional here.
+    grey = bcs.roi(cv2.cvtColor(frames[-1], cv2.COLOR_BGR2GRAY))
     component = bcs._largest_moving_component(
-        cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY), grey
+        bcs.roi(cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)), grey
     )
     assert component is not None
     from plumerank.statistic import s3_diffuse_boundary
@@ -513,6 +632,181 @@ def test_a_still_window_is_the_softest_possible_confuser() -> None:
     # not out of it.
     flat = [np.full((WORK_HEIGHT, WORK_WIDTH, 3), 128, np.uint8)] * 3
     assert bcs.hardness(flat) == 0.0
+
+
+# ---------------------------------------------------------------------------------
+# Where the fog cutline comes from
+# ---------------------------------------------------------------------------------
+#
+# These three run on the 60 hand-labelled frames committed under spike/ and open no socket.
+# They are the reason the two calibrated constants are checkable rather than asserted: a
+# cutline pasted out of a notebook is a number whose provenance is a sentence, and this arm
+# exists to be the opposite of that.
+
+_SPIKE = _ROOT / "spike"
+
+
+@pytest.fixture(scope="module")
+def labelled_fog_features() -> list[dict[str, float]]:
+    labelled = bcs.labelled_fog_frames(_SPIKE)
+    assert len(labelled) == 60
+    return [bcs.frame_features(bcs._decode(path.read_bytes())) for _, _, path in labelled]
+
+
+def test_the_fog_cutline_is_the_median_of_the_labelled_set(labelled_fog_features) -> None:
+    """Recomputed from the pixels, not read back out of the manifest.
+
+    ``FOG_DECK_FRACTION_MIN`` and ``LOW_CLOUD_SKY_GREYNESS_MIN`` are the only two numbers in
+    this file that were fitted to data, and the rule they were fitted by is "the median of
+    the labelled fog class" -- stated before the values were read, so that no cutline could
+    be walked until a quota fell out. If either constant ever drifts from that median, this
+    test is what says so, and it says so without a network or a two-hour sweep.
+    """
+    decks = [f["deck_fraction"] for f in labelled_fog_features]
+    greys = [f["sky_greyness"] for f in labelled_fog_features]
+    assert bcs.FOG_DECK_FRACTION_MIN == pytest.approx(float(np.median(decks)), abs=5e-6)
+    assert bcs.LOW_CLOUD_SKY_GREYNESS_MIN == pytest.approx(float(np.median(greys)), abs=5e-6)
+
+
+def test_the_previous_fog_rule_admitted_none_of_the_labelled_fog(labelled_fog_features) -> None:
+    """The finding that made this a specification error rather than a tuning problem.
+
+    The rule was ``edge_energy <= 18.0 and sky_ground_ratio <= 1.05``. Zero of 60 frames a
+    human confirmed as marine layer satisfy it, and sky_ground_ratio -- which the
+    specification claimed a marine layer drives BELOW 1.05 -- never falls under 1.4 on any
+    of them, because these are ridge-top cameras looking down on the layer. This test is
+    here so that "the old cutlines were unreachable" stays a measurement rather than
+    becoming a remark in a commit message.
+    """
+    old_edge_max, old_ratio_max = 18.0, 1.05
+    admitted = [
+        f
+        for f in labelled_fog_features
+        if f["edge_energy"] <= old_edge_max and f["sky_ground_ratio"] <= old_ratio_max
+    ]
+    assert admitted == []
+    assert min(f["sky_ground_ratio"] for f in labelled_fog_features) > old_ratio_max
+
+
+def test_the_chosen_statistic_separates_the_labelled_set_from_a_matched_background() -> None:
+    """AUC on the record in the committed manifest, not on a fresh draw.
+
+    The background frames were fetched once, at build time, and every one of them is listed
+    in ``calibration.background_class.frames``. Re-fetching them here would make the suite
+    depend on a CDN; recomputing the AUC from the recorded per-statistic summary would be
+    checking arithmetic this file already did. What is worth asserting is the shape of the
+    claim: the two statistics the predicate uses have bootstrap intervals clear of 0.5, and
+    the one that was tried and dropped does not.
+    """
+    manifest = _shipped_manifest()
+    statistics = manifest["calibration"]["statistics"]
+    for chosen in ("deck_fraction", "sky_greyness"):
+        low, high = statistics[chosen]["auc_95pc_bootstrap_ci"]
+        assert low > 0.5, f"{chosen} does not separate: CI [{low}, {high}]"
+        assert statistics[chosen]["separates"] is True
+    dropped = statistics["sky_smooth_fraction"]
+    assert dropped["separates"] is False
+    assert dropped["auc_95pc_bootstrap_ci"][0] < 0.5 < dropped["auc_95pc_bootstrap_ci"][1]
+
+
+# ---------------------------------------------------------------------------------
+# Scene furniture is not an artefact
+# ---------------------------------------------------------------------------------
+
+
+def _window(label: str, seed_label: str | None = None) -> list[np.ndarray]:
+    rng = np.random.default_rng(_seed(seed_label or label))
+    return [
+        cv2.resize(
+            _scene(label, k, rng), (WORK_WIDTH, WORK_HEIGHT), interpolation=cv2.INTER_AREA
+        )
+        for k in range(bcs.PROBE_SLOTS)
+    ]
+
+
+def test_structure_that_is_in_every_window_is_furniture_and_not_an_artefact() -> None:
+    """The bug this predicate was redesigned to fix, stated as a test.
+
+    A burned-in caption bar, a vignette ring and the radio tower on bl-n-mobo-c are static
+    structure in the sky of EVERY frame their camera has ever written. Measured inside one
+    window they are indistinguishable from something that landed on the glass this morning,
+    which is why lens_artefact used to fire on 88 of 108 candidates. Measured against the
+    camera's other windows they are the camera.
+    """
+    web = [_window("lens_artefact") for _ in range(3)]
+    always = bcs.furniture_mask([bcs.static_sky_mask(w) for w in web])
+    # Same web on all three mornings: nothing novel is left, and no window is an artefact.
+    for window in web:
+        assert bcs.measure(window, furniture=always).label != "lens_artefact"
+    # ...and with no reference at all the same pixels do fire, which is the old behaviour
+    # and is exactly what the reference exists to correct.
+    assert bcs.measure(web[0]).label == "lens_artefact"
+
+
+def test_structure_that_appears_in_one_window_survives_as_an_artefact() -> None:
+    sweep = [_window("clear", "clear-a"), _window("lens_artefact"), _window("clear", "clear-b")]
+    furniture = bcs.furniture_mask([bcs.static_sky_mask(w) for w in sweep])
+    labels = [bcs.measure(w, furniture=furniture).label for w in sweep]
+    assert labels[_LENS_DAY_INDEX] == "lens_artefact"
+    assert labels[0] is None and labels[2] is None
+
+
+def test_a_furniture_reference_needs_a_majority_and_not_an_intersection() -> None:
+    """One hazy morning must not erase the tower from the reference.
+
+    An intersection is decided by the weakest window: a morning on which the mast's gradient
+    dips under LENS_SKY_GRADIENT_MIN would drop it from the reference and hand it back to
+    every OTHER window as a novel artefact -- the failure this whole mechanism exists to
+    prevent, reintroduced by the choice of set operation.
+    """
+    tower = np.zeros((8, 8), dtype=bool)
+    tower[2:6, 3] = True
+    missed_once = [tower, tower, np.zeros_like(tower)]
+    assert bcs.furniture_mask(missed_once)[2:6, 3].all()
+    assert not np.logical_and.reduce(np.stack(missed_once))[2:6, 3].any()
+
+
+# ---------------------------------------------------------------------------------
+# The ROI crop
+# ---------------------------------------------------------------------------------
+
+
+def test_the_roi_crop_removes_the_burned_in_caption_and_the_vignette_corners() -> None:
+    """Every measurement in the file is taken inside the crop, and this is why.
+
+    An HPWREN frame carries yellow caption text across the top and a hard vignette in the
+    corners. Both are the highest-gradient objects in the picture and both are in every
+    frame the camera has ever written, so an uncropped edge-energy statistic measures the
+    typeface and an uncropped static-structure statistic measures the dome.
+    """
+    frame = np.full((WORK_HEIGHT, WORK_WIDTH), 40, np.uint8)
+    caption = (slice(0, 8), slice(0, WORK_WIDTH))
+    corner = (slice(0, 20), slice(0, 20))
+    frame[caption] = 250
+    frame[corner] = 0
+    cropped = bcs.roi(frame)
+    assert cropped.shape == (
+        WORK_HEIGHT - 2 * round(WORK_HEIGHT * bcs.ROI_MARGIN_FRACTION),
+        WORK_WIDTH - 2 * round(WORK_WIDTH * bcs.ROI_MARGIN_FRACTION),
+    )
+    assert int(cropped.max()) == 40 and int(cropped.min()) == 40
+
+
+def test_the_hardness_ranking_does_not_measure_the_burned_in_clock() -> None:
+    """The caption's timestamp changes every minute, so uncropped it is what "moved".
+
+    ``hardness`` ranks candidates by raw S3 on the largest thing that moved between the
+    first and last probe frame. On an uncropped frame that is the wall clock, whose glyph
+    edges are the hardest boundary in the picture and have nothing to do with the weather.
+    """
+    still = np.full((WORK_HEIGHT, WORK_WIDTH, 3), 120, np.uint8)
+    first, last = still.copy(), still.copy()
+    cv2.putText(last, "88:88:88", (6, 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    # The clock is genuinely the only difference between the two frames...
+    assert int(np.abs(first.astype(int) - last.astype(int)).max()) > 100
+    # ...and inside the ROI there is nothing that moved at all, so the window ranks as the
+    # softest possible confuser rather than as the hardest.
+    assert bcs.hardness([first, last]) == 0.0
 
 
 # ---------------------------------------------------------------------------------
@@ -536,8 +830,9 @@ def test_within_a_class_the_hardest_candidate_wins() -> None:
     pool = {
         f"cam{i}": [_scored(f"cam{i}", "fog_marine", float(i))] for i in range(5)
     }
-    chosen = bcs._select(pool, {"fog_marine": 2})
+    chosen, shortfalls = bcs._select(pool, {"fog_marine": 2})
     assert {s.candidate.camera_id for s in chosen.values()} == {"cam4", "cam3"}
+    assert shortfalls == []
 
 
 def test_the_scarcest_class_is_filled_first() -> None:
@@ -554,15 +849,33 @@ def test_the_scarcest_class_is_filled_first() -> None:
         ],
         "cam1": [_scored("cam1", "fog_marine", 5.0)],
     }
-    chosen = bcs._select(pool, {"fog_marine": 1, "lens_artefact": 1})
+    chosen, shortfalls = bcs._select(pool, {"fog_marine": 1, "lens_artefact": 1})
     by_camera = {s.candidate.camera_id: s.measurement.label for s in chosen.values()}
     assert by_camera == {"cam0": "lens_artefact", "cam1": "fog_marine"}
+    assert shortfalls == []
 
 
-def test_a_class_that_cannot_be_filled_is_a_failure_not_a_short_arm() -> None:
+def test_a_class_that_cannot_be_filled_is_reduced_and_recorded_never_padded() -> None:
+    """The policy change, and the reason for it.
+
+    The previous revision raised here, and a rule that raises on a short class is exactly
+    the pressure that produces a walked threshold: the only way to make the run succeed is
+    to loosen a predicate until the quota falls out, which is the fabrication the audit
+    caught. So a short class is now reduced and the deficit is written into the manifest --
+    the arm gets smaller and stays honest, and the number that gets published is the
+    realised histogram rather than the quota.
+    """
     pool = {"cam0": [_scored("cam0", "dust", 1.0)]}
-    with pytest.raises(bcs.FetchError, match="short"):
-        bcs._select(pool, {"dust": 3})
+    chosen, shortfalls = bcs._select(pool, {"dust": 3})
+    assert len(chosen) == 1
+    assert len(shortfalls) == 1
+    assert shortfalls[0]["class"] == "dust"
+    assert shortfalls[0]["quota"] == 3
+    assert shortfalls[0]["selected"] == 1
+    assert shortfalls[0]["short_by"] == 2
+    # The reason must say the predicate was not moved, because that is the claim a reader
+    # of a short arm most needs to be able to check.
+    assert "NOT moved" in shortfalls[0]["reason"]
 
 
 # ---------------------------------------------------------------------------------
@@ -606,13 +919,25 @@ def test_every_window_is_exactly_81_frames(built) -> None:
         assert all(50 <= b - a <= 70 for a, b in zip(epochs, epochs[1:]))
 
 
-def test_the_class_histogram_is_exactly_the_quota(built) -> None:
+def test_the_class_histogram_is_what_was_written_and_not_what_was_asked_for(built) -> None:
+    """``class_histogram`` counts rows; ``class_quotas`` records the request.
+
+    On this synthetic archive every camera supplies exactly its own class, so the two agree
+    and ``shortfalls`` is empty -- which is the point: the reduction path exists and does
+    not fire when the archive can answer. What must never happen is the two disagreeing
+    without ``shortfalls`` saying so, because that is a manifest whose header does not
+    describe its rows.
+    """
     manifest, _ = built
     histogram: dict[str, int] = {}
     for window in manifest["windows"]:
         histogram[window["class"]] = histogram.get(window["class"], 0) + 1
+    assert histogram == manifest["class_histogram"]
+    assert manifest["n_windows"] == len(manifest["windows"]) == sum(histogram.values())
+    deficit = sum(s["short_by"] for s in manifest["shortfalls"])
+    assert sum(manifest["class_quotas"].values()) - deficit == manifest["n_windows"]
     assert histogram == bcs.CLASS_QUOTAS
-    assert manifest["n_windows"] == 45 == sum(bcs.CLASS_QUOTAS.values())
+    assert manifest["shortfalls"] == []
 
 
 def test_no_window_carries_an_ignition_clock(built) -> None:
@@ -644,19 +969,36 @@ def test_every_window_records_the_measurement_that_selected_it(built) -> None:
         criterion = window["criterion"]
         assert criterion["rule"]
         assert isinstance(criterion["hardness_raw_s3"], (int, float))
-        # All eight features, every time -- the selection has to be re-derivable from the
-        # manifest alone, or "the criterion is computed" is just a sentence.
+        # Every feature, every time -- the selection has to be re-derivable from the
+        # manifest alone, or "the criterion is computed" is just a sentence. The three
+        # DISCARDED statistics are in the list on purpose: a reader who wants to check that
+        # the old fog rule really was unreachable rather than merely unpopular has to be
+        # able to read its inputs off the same rows.
         assert set(criterion["features"]) == {
             "luma_mean",
-            "edge_energy",
-            "sky_ground_ratio",
+            "deck_fraction",
+            "sky_greyness",
             "warmth_r_minus_b",
             "saturation_mean",
             "luma_reversal_max",
             "shadow_motion",
-            "sky_persistent_structure",
+            "sky_static_structure",
+            "sky_novel_structure",
+            "edge_energy",
+            "sky_ground_ratio",
+            "sky_smooth_fraction",
         }
-    assert set(manifest["criterion_thresholds"]) >= {"HAZE_EDGE_ENERGY_MAX"}
+        # The recorded features must actually re-derive the recorded class. A manifest whose
+        # label and whose evidence disagree is worse than one that carries no evidence.
+        assert bcs.classify(criterion["features"]) == window["class"]
+    assert set(manifest["criterion_thresholds"]) >= {
+        "FOG_DECK_FRACTION_MIN",
+        "LOW_CLOUD_SKY_GREYNESS_MIN",
+        "LENS_NOVEL_STRUCTURE_MIN",
+        "ROI_MARGIN_FRACTION",
+    }
+    provenance = manifest["criterion_thresholds"]["provenance"]
+    assert "CALIBRATED" in provenance["FOG_DECK_FRACTION_MIN"]
     assert manifest["search_budget"]["end_date"] == _SWEEP_DAY.isoformat()
 
 
@@ -699,11 +1041,12 @@ def test_an_unreachable_archive_writes_no_manifest(tree, monkeypatch) -> None:
     assert not (data_root / "manifest_confuse.json").exists()
 
 
-def test_an_empty_archive_fails_rather_than_writing_a_short_arm(tree) -> None:
+def test_an_empty_archive_fails_rather_than_writing_an_empty_arm(tree) -> None:
     data_root, _, _ = tree
-    # Nothing populated. Every class comes up empty, and the failure has to be a non-zero
-    # exit rather than a manifest with zero windows that solve_threshold would happily
-    # bisect on.
+    # Nothing populated. A class that comes up SHORT is reduced and recorded -- that is the
+    # policy -- but an arm with no windows in it is not a smaller denominator, it is no
+    # denominator, and solve_threshold would bisect on nothing and return a bound. The
+    # failure has to be a non-zero exit and no file.
     assert _run(data_root) == 1
     assert not (data_root / "manifest_confuse.json").exists()
 
@@ -753,3 +1096,143 @@ def test_the_manifest_is_written_once_at_the_end(tree, monkeypatch) -> None:
     monkeypatch.setattr(bcs, "enumerate_window", fail_late)
     assert _run(data_root) == 1
     assert not out.exists()
+
+
+# ---------------------------------------------------------------------------------
+# The SHIPPED arm -- the same invariants, on the corpus that is actually committed
+# ---------------------------------------------------------------------------------
+#
+# Everything above this line runs against a synthetic archive. These run against
+# data/manifest_confuse.json, which is what rank.solve_threshold is calibrated on and the
+# only version of this arm a judge can read. A machinery test that passes on a fixture while
+# the shipped file is a straw man would be worse than no test at all.
+
+
+def test_the_shipped_arm_is_on_hold_cameras_at_the_hold_hour() -> None:
+    manifest = _shipped_manifest()
+    hold = json.loads((_DATA / "manifest_hold.json").read_text())
+    hold_cameras = {w["camera_id"] for w in hold["windows"]}
+    by_id = {w["sequence_id"]: w for w in hold["windows"]}
+
+    assert manifest["windows"], "the shipped arm has no windows"
+    for window in manifest["windows"]:
+        assert window["camera_id"] in hold_cameras
+        paired = by_id[window["paired_hold_sequence_id"]]
+        assert paired["camera_id"] == window["camera_id"]
+        # Recomputed from the frame epochs, so a script that computed the delta wrongly and
+        # wrote it faithfully still fails here.
+        hold_minutes = bcs.local_minutes_of_day(
+            bcs.frame_epoch(paired["frames"][paired["t0_index"]])
+        )
+        centre = bcs.frame_epoch(window["frames"][window["centre_index"]])
+        assert bcs.minutes_apart(bcs.local_minutes_of_day(centre), hold_minutes) <= 45
+
+
+def test_the_shipped_arm_collides_with_no_dev_or_hold_sequence() -> None:
+    manifest = _shipped_manifest()
+    dev = json.loads((_DATA / "manifest_dev.json").read_text())
+    hold = json.loads((_DATA / "manifest_hold.json").read_text())
+    other = {w["sequence_id"] for w in dev["windows"]} | {
+        w["sequence_id"] for w in hold["windows"]
+    }
+    ids = [w["sequence_id"] for w in manifest["windows"]]
+    assert len(ids) == len(set(ids))
+    assert not (set(ids) & other)
+
+
+def test_the_shipped_arm_is_81_frames_a_window_and_carries_no_ignition() -> None:
+    manifest = _shipped_manifest()
+    for window in manifest["windows"]:
+        assert window["n_frames"] == len(window["frames"]) == FRAMES_PER_WINDOW
+        assert window["t0_index"] is None
+        epochs = [bcs.frame_epoch(f) for f in window["frames"]]
+        assert epochs == sorted(epochs)
+        assert all(50 <= b - a <= 70 for a, b in zip(epochs, epochs[1:]))
+
+
+def test_the_shipped_header_describes_the_shipped_rows() -> None:
+    """n_windows, class_histogram and shortfalls must add up to class_quotas.
+
+    This is the arithmetic that makes a reduced arm honest instead of quiet. A manifest that
+    says 45 in the header and holds 42 rows is the failure this policy was introduced to
+    make impossible, and the header is where a reader looks first.
+    """
+    manifest = _shipped_manifest()
+    histogram: dict[str, int] = {label: 0 for label in bcs.CLASS_QUOTAS}
+    for window in manifest["windows"]:
+        histogram[window["class"]] += 1
+    assert histogram == manifest["class_histogram"]
+    assert manifest["n_windows"] == len(manifest["windows"]) == sum(histogram.values())
+
+    deficit = 0
+    for shortfall in manifest["shortfalls"]:
+        label = shortfall["class"]
+        assert shortfall["selected"] == histogram[label]
+        assert shortfall["quota"] == bcs.CLASS_QUOTAS[label]
+        assert shortfall["short_by"] == shortfall["quota"] - shortfall["selected"]
+        deficit += shortfall["short_by"]
+    assert sum(manifest["class_quotas"].values()) - deficit == manifest["n_windows"]
+    # ...and every class that fell short has to have said so. Silence is the failure mode.
+    for label, count in histogram.items():
+        if count < bcs.CLASS_QUOTAS[label]:
+            assert any(s["class"] == label for s in manifest["shortfalls"]), label
+
+
+def test_the_shipped_manifest_records_its_calibration() -> None:
+    """The record that makes the fog cutline disputable without re-reading the CDN.
+
+    A reader has to be able to see the labelled set it came from, the background it was
+    measured against, the AUC with its interval, the statistics that were tried and thrown
+    away, and the limitation -- in the artefact itself, not in a commit message.
+    """
+    manifest = _shipped_manifest()
+    calibration = manifest["calibration"]
+    assert calibration["positive_class"]["source"] == "spike/urls_fog.txt"
+    assert calibration["positive_class"]["n_frames"] == 60
+    assert calibration["background_class"]["n_frames"] > 0
+    assert calibration["background_class"]["frames"]
+    assert "UNLABELLED" in calibration["background_class"]["not_a_negative_class"]
+    assert "MEDIAN" in calibration["cutline_rule"]
+    assert calibration["chosen"] == {
+        "fog_marine": "deck_fraction",
+        "low_cloud": "sky_greyness",
+    }
+    assert set(calibration["discarded"]) == {
+        "edge_energy",
+        "sky_ground_ratio",
+        "sky_smooth_fraction",
+    }
+    # The cutlines in the record are the constants the shipped code compares against.
+    assert calibration["statistics"]["deck_fraction"][
+        "median_of_labelled_fog"
+    ] == pytest.approx(bcs.FOG_DECK_FRACTION_MIN, abs=5e-6)
+    assert calibration["statistics"]["sky_greyness"][
+        "median_of_labelled_fog"
+    ] == pytest.approx(bcs.LOW_CLOUD_SKY_GREYNESS_MIN, abs=5e-6)
+
+
+def test_the_shipped_manifest_states_the_limitation_rather_than_claiming_ground_truth() -> None:
+    """The arm is an adversary set. Nothing in it is certified fog, and it must say so.
+
+    A predicate calibrated on 60 frames from 6 cameras, applied to 45, is a screening rule.
+    Anything downstream that reads this manifest as a fog ground truth is reading it wrong,
+    and the only defence against that is the manifest saying so in its own words.
+    """
+    limitation = _shipped_manifest()["calibration"]["limitation"]
+    assert "SCREENING RULE" in limitation
+    assert "not a fog detector" in limitation
+    assert "adversary set" in limitation
+
+
+def test_the_shipped_rows_re_derive_their_own_class() -> None:
+    """Every window's recorded features must reproduce its recorded label, by classify().
+
+    This is the check that a hostile reader would actually run, and it is the one that
+    would catch a row whose class was edited by hand.
+    """
+    manifest = _shipped_manifest()
+    for window in manifest["windows"]:
+        features = window["criterion"]["features"]
+        assert bcs.classify(features) == window["class"], window["sequence_id"]
+        assert window["criterion"]["rule"] == bcs.criterion_rule(window["class"])
+

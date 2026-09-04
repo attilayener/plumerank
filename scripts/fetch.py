@@ -39,6 +39,13 @@ is read through the same four keys (``base_url``, ``windows[].sequence_id``,
 branch in here is a corpus whose manifest is underspecified, and the fix belongs in the
 manifest.
 
+Two arms have a step AFTER the download, and both are conversions rather than fetches:
+``build_micro`` cuts and downscales the committed micro corpus out of the DEV frames, and
+``explode_pyrosdis`` turns the HuggingFace parquet shards -- which is the only form
+Pyro-SDIS is published in -- into the ultralytics images/ + labels/ tree that
+``scripts/train_tile_classifier.py`` reads. Neither writes to the receipt: the receipt
+pins what an archive served, and a derived tree is not that.
+
 Usage::
 
     python scripts/fetch.py --corpus figlib     # DEV + HOLD + CONFUSE, then build micro
@@ -88,6 +95,9 @@ __all__ = [
     "split_at_ignition",
     "micro_windows",
     "build_micro",
+    "pyrosdis_split",
+    "explode_pyrosdis_shard",
+    "explode_pyrosdis",
     "main",
 ]
 
@@ -840,6 +850,165 @@ def _write_provenance(
 
 
 # ---------------------------------------------------------------------------------
+# Pyro-SDIS -- parquet on the wire, a YOLO tree on disk
+# ---------------------------------------------------------------------------------
+
+#: The columns this script reads out of a Pyro-SDIS shard. Named rather than taken
+#: positionally because the shard carries three more (``partner``, ``camera``, ``date``)
+#: that are ~0 bytes each while ``image`` is ~100 KB, and pyarrow reads column chunks:
+#: asking for all six would pull the whole 480 MB shard through memory to write files
+#: that only ever needed three of them.
+PYROSDIS_COLUMNS: tuple[str, ...] = ("image", "image_name", "annotations")
+
+#: Rows held in memory at once while a shard is exploded. 256 x ~100 KB is ~25 MB, which
+#: is the whole reason this is streamed by batch rather than read with ``pq.read_table``:
+#: the six train shards are 2.9 GB and a table-at-a-time read of the largest is a 480 MB
+#: allocation for a job whose working set is one image.
+PYROSDIS_BATCH_ROWS: int = 256
+
+#: The two splits Pyro-SDIS publishes, and the only two directory names this script will
+#: create. ``val`` is the held-out number the training run publishes, so a shard whose
+#: split cannot be read off its own filename is a hard stop rather than a default.
+PYROSDIS_SPLITS: frozenset[str] = frozenset({"train", "val"})
+
+
+def pyrosdis_split(shard_name: str) -> str:
+    """``train`` or ``val`` from a shard filename such as ``train-00000-of-00006.parquet``.
+
+    A default would be the worst possible convenience here. If an unreadable name fell
+    back to ``train``, the val shard would be exploded into the training split, the model
+    would be trained on the images its precision and recall are then measured on, and
+    nothing anywhere would say so -- the run would look healthier, not sicker.
+    """
+    split = pathlib.PurePosixPath(shard_name).name.split("-", 1)[0]
+    if split not in PYROSDIS_SPLITS:
+        raise FetchError(
+            f"cannot read a split off the Pyro-SDIS shard name {shard_name!r}: expected "
+            f"one of {sorted(PYROSDIS_SPLITS)} before the first '-'. Guessing would risk "
+            f"exploding the val shard into the training split."
+        )
+    return split
+
+
+def explode_pyrosdis_shard(
+    shard: pathlib.Path,
+    out_root: pathlib.Path,
+    seen: set[str],
+) -> tuple[int, int]:
+    """One parquet shard -> ``images/<split>/*.jpg`` + ``labels/<split>/*.txt``.
+
+    Returns ``(written, skipped)`` rows.
+
+    Why this conversion exists at all: Pyro-SDIS is published as HuggingFace parquet --
+    an ``image`` struct of raw JPEG bytes, an ``annotations`` string of YOLO lines, and an
+    ``image_name`` -- while ``scripts/train_tile_classifier.py`` reads the ultralytics
+    tree the dataset's own ``data.yaml`` describes. One of the two had to move, and it is
+    this one: the training script's reader is also what a judge points at any other YOLO
+    corpus, and rewriting it around a parquet schema would tie the model's provenance to
+    one host's storage format.
+
+    The image bytes are written **verbatim**, never decoded and re-encoded. A round trip
+    through the JPEG encoder here would put a second generation of lossy compression
+    between Pyro-SDIS and the model for no gain, and would make the sha256 in
+    ``data/tile_manifest.json`` a hash of this script's encoder settings rather than of
+    the corpus.
+
+    An image with no annotation gets an EMPTY label file rather than no file.
+    ``train_tile_classifier.parse_yolo_labels`` reads a missing file as "this frame has no
+    smoke", which is Pyro-SDIS's own convention and the right answer -- but on disk a
+    missing file is also what a truncated conversion leaves behind, and the two must not
+    be the same state. An empty file says "converted, and there was nothing in it".
+    """
+    # Imported here and not at module scope on purpose: pyarrow is in
+    # requirements-train.lock and NOT in requirements.lock, so it is absent on the server
+    # and absent in `make test`. A module-level import would make this whole script -- the
+    # one that pulls the evaluation corpus -- unimportable everywhere the training
+    # dependencies are deliberately not installed.
+    try:
+        import pyarrow.parquet as pq
+    except ImportError as exc:  # pragma: no cover - exercised by hand, not in CI
+        raise FetchError(
+            "reading Pyro-SDIS parquet needs pyarrow, which is a TRAINING dependency: "
+            "`pip install -r requirements-train.lock`. It is not in requirements.lock "
+            "because the server runs no training code and its dependency tree stays small."
+        ) from exc
+
+    split = pyrosdis_split(shard.name)
+    image_dir = out_root / "images" / split
+    label_dir = out_root / "labels" / split
+    image_dir.mkdir(parents=True, exist_ok=True)
+    label_dir.mkdir(parents=True, exist_ok=True)
+
+    written = 0
+    skipped = 0
+    for batch in pq.ParquetFile(shard).iter_batches(
+        batch_size=PYROSDIS_BATCH_ROWS, columns=list(PYROSDIS_COLUMNS)
+    ):
+        rows = batch.to_pydict()
+        for image, name, annotations in zip(
+            rows["image"], rows["image_name"], rows["annotations"]
+        ):
+            name = str(name)
+            if name != pathlib.PurePosixPath(name).name or name in ("", ".", ".."):
+                raise FetchError(
+                    f"{shard.name}: image_name {name!r} is not a bare filename, so writing "
+                    f"it would put a file outside {image_dir}"
+                )
+            key = f"{split}/{name}"
+            if key in seen:
+                raise FetchError(
+                    f"two rows named {key!r} in the Pyro-SDIS shards. The second would "
+                    f"overwrite the first and the corpus would silently lose an image."
+                )
+            seen.add(key)
+
+            image_path = image_dir / name
+            label_path = label_dir / (pathlib.PurePosixPath(name).stem + ".txt")
+            if image_path.is_file() and label_path.is_file():
+                skipped += 1
+                continue
+            _atomic_write(image_path, bytes(image["bytes"]))
+            _atomic_write(label_path, (str(annotations).strip() + "\n").encode("ascii"))
+            written += 1
+    return written, skipped
+
+
+def explode_pyrosdis(data_root: pathlib.Path, manifest: dict) -> dict[str, dict[str, int]]:
+    """Every shard the Pyro-SDIS manifest names, converted into the tree the trainer reads.
+
+    Resumable in the same sense as the fetch: a row whose image and label are both already
+    on disk is skipped, so an interrupted conversion costs the rows it had not reached and
+    nothing else. It is deliberately NOT recorded in ``data/fetch_receipt.json`` -- the
+    receipt pins what the ARCHIVE served, and these files are derived from the shards it
+    already covers. Hashing a derived tree there would make a change of this function look
+    like a change in the corpus.
+    """
+    out_root = data_root / (manifest.get("local_root") or _LOCAL_ROOT_BY_ARM["pyrosdis"])
+    totals: dict[str, dict[str, int]] = {}
+    seen: set[str] = set()
+    for window in manifest.get("windows", []):
+        for shard_name in window["frames"]:
+            shard = out_root / str(window["sequence_id"]) / shard_name
+            if not shard.is_file():
+                raise FetchError(
+                    f"{shard} is missing after its own fetch reported success -- the "
+                    f"conversion will not invent the rows it cannot read."
+                )
+            split = pyrosdis_split(shard_name)
+            written, skipped = explode_pyrosdis_shard(shard, out_root, seen)
+            bucket = totals.setdefault(split, {"written": 0, "skipped": 0, "shards": 0})
+            bucket["written"] += written
+            bucket["skipped"] += skipped
+            bucket["shards"] += 1
+    if not totals:
+        raise FetchError(
+            "the Pyro-SDIS manifest named no shards, so there is no training corpus. An "
+            "empty conversion that exits zero is how a model gets trained on nothing."
+        )
+    return totals
+
+
+# ---------------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------------
 
@@ -883,6 +1052,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     mismatches: list[str] = []
     hashes: dict[str, dict] = dict(receipt)
     dev_manifest: dict | None = None
+    pyrosdis_manifest: dict | None = None
 
     # Every manifest in the group is loaded and planned BEFORE the first byte is requested.
     # Doing it lazily meant `--corpus all` could spend forty minutes pulling FIgLib, hit an
@@ -914,6 +1084,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         _report(name, result, len(planned))
         if manifest.get("arm") == "dev":
             dev_manifest = manifest
+        if manifest.get("arm") == "pyrosdis":
+            pyrosdis_manifest = manifest
 
     if mismatches:
         # The receipt is NOT rewritten here. Recording the hashes of a run that
@@ -931,6 +1103,23 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     write_receipt(receipt_path, hashes)
     print(f"receipt: {len(hashes)} files in {receipt_path}")
+
+    if pyrosdis_manifest is not None:
+        # After the receipt and before the micro build: the conversion reads only files
+        # this run has just verified, and a failure here must not cost the FIgLib bytes
+        # their receipt entry.
+        try:
+            totals = explode_pyrosdis(data_root, pyrosdis_manifest)
+        except FetchError as exc:
+            print(f"FAILED  pyrosdis conversion: {exc}", file=sys.stderr)
+            return 2
+        for split in sorted(totals):
+            counts = totals[split]
+            print(
+                f"pyrosdis: {split:<5} {counts['written']:6d} images written   "
+                f"{counts['skipped']:6d} already on disk   "
+                f"from {counts['shards']} shard(s)"
+            )
 
     if dev_manifest is not None:
         micro = build_micro(dev_manifest, data_root)

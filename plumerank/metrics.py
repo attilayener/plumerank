@@ -48,6 +48,7 @@ __all__ = [
     "summarise",
     "alerts_per_camera_night",
     "Latency",
+    "pin_opencv_threads",
 ]
 
 
@@ -234,6 +235,50 @@ def alerts_per_camera_night(n_alerts: int, window_lengths: Sequence[int]) -> flo
 def budget_ceiling(n_cameras: int) -> int:
     """Total alerts a night may contain before the budget is spent everywhere."""
     return n_cameras * ALERTS_PER_CAMERA_PER_NIGHT
+
+
+# ---------------------------------------------------------------------------------
+# Thread pinning -- a latency property, which is why it lives beside Latency
+# ---------------------------------------------------------------------------------
+
+
+def pin_opencv_threads(n: int = 1) -> int:
+    """Pin OpenCV's internal thread pool, and return the count that was set.
+
+    Called once by every process that does sustained CV work: the replay loop and the
+    benchmark. It is not a micro-optimisation and it is not decoration.
+
+    The deployment target is a t4g.small: **2 vCPUs**, shared between the replay loop, the
+    Uvicorn worker serving the SSE stream, and whatever batch job is running. Left to
+    itself OpenCV sizes its pool from the visible core count and every `morphologyEx`,
+    `Laplacian` and `calc` spawns work across both, so the tick latency this module exists
+    to measure acquires a variance that has nothing to do with the pipeline -- it is
+    contention with the process's own web server. On a burstable instance that variance is
+    also spend: threads that fight each other still burn CPU credits.
+
+    One thread per frame, with the parallelism instead across cameras, gives a per-frame
+    number that is stable enough to publish and to compare against OpenCV's own zoo
+    benchmarks -- which are themselves single-core figures, so an unpinned measurement
+    would not even be in the same units as the anchor it is quoted against.
+
+    Returns what ``cv2.getNumThreads()`` reports afterwards, so a caller can record it
+    beside its timings -- but **that number is not always the cap, and pretending it is
+    would be the lie this function exists to avoid.** OpenCV's parallel framework is
+    build-dependent: under pthreads or TBB (the linux/aarch64 wheel this deploys on)
+    ``getNumThreads`` returns the configured limit, while under Apple's GCD (the macOS
+    wheel this is developed on) it returns the pool's capacity and reports 10 whatever the
+    cap is set to.
+
+    The cap takes under both, which was measured rather than assumed: six
+    ``morphologyEx`` closes over a 3072x2048 frame run in 185.2 ms pinned to one thread and
+    33.9 ms unpinned on the same GCD build -- a 5.5x difference behind an unchanged
+    ``getNumThreads()`` of 10. So the effect is real and the read-back is merely
+    informational; a caller that needs the truth should publish a timing, not this number.
+    """
+    if n < 1:
+        raise ValueError(f"thread count must be at least 1, got {n}")
+    cv2.setNumThreads(n)
+    return int(cv2.getNumThreads())
 
 
 # ---------------------------------------------------------------------------------

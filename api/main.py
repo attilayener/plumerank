@@ -83,7 +83,7 @@ from plumerank.constants import (
     freeze_hash,
 )
 from plumerank.escalate import TileClassifier, should_escalate
-from plumerank.metrics import alerts_per_camera_night
+from plumerank.metrics import alerts_per_camera_night, pin_opencv_threads
 from plumerank.rank import BudgetState, draw_evidence, emit, fuse
 from plumerank.segment import Segmenter
 from plumerank.stabilise import stabilise
@@ -1178,6 +1178,13 @@ async def _heartbeat() -> None:
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # One OpenCV thread for the whole process, set before anything can do CV work.
+    # t4g.small has 2 vCPUs and this process is both the replay loop and the web server:
+    # letting OpenCV size its pool from the core count makes every morphologyEx and
+    # Laplacian contend with the SSE writer, which shows up as tick-latency variance that
+    # has nothing to do with the pipeline -- and on a burstable instance, contention is
+    # spend. Parallelism belongs across cameras, not inside one frame.
+    app.state.opencv_threads = pin_opencv_threads()
     app.state.started_at = time.time()
     app.state.started_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     beat = asyncio.create_task(_heartbeat(), name="plumerank-heartbeat")

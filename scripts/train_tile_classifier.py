@@ -6,8 +6,8 @@ torch in its dependency tree at all -- OpenCV's ``dnn`` is inference-only, which
 honest limitation and is written down in opencv5-defense.md section 8.3 rather than being
 quietly absent from the "Built With" list.
 
-Three decisions are worth more than the code
---------------------------------------------
+Four decisions are worth more than the code
+-------------------------------------------
 **1. Pyro-SDIS train, and nothing else.** The tile classifier never sees a FIgLib pixel.
 That is what makes every FIgLib number in this project out-of-sample *by construction* --
 a property of the data plumbing rather than a claim in a README -- and it is the first
@@ -27,6 +27,16 @@ model, so a bigger one would make both arms better and the comparison no more in
 ``WORK_WIDTH x WORK_HEIGHT`` frame at inference, so it is cut the same way here. Training
 on 96 px of a 1280x720 source would train the model at a ~2.7x different pixels-per-metre
 than it is ever asked to work at, and no amount of validation accuracy would show it.
+
+**4. The training corpus is balanced by construction; the val split is not.** Only about
+4% of Pyro-SDIS images carry a smoke box big enough to fill ``POSITIVE_OVERLAP_MIN`` of a
+96 px tile at the working resolution, so drawing negatives from every image on the disk
+produced 645 positives against 59,046 negatives and a net that learned to answer "no
+smoke" to everything. ``build_pyrosdis_corpus(balanced=True)`` therefore takes tiles only
+from images that can give both classes -- which is what ``TILE_POS_PER_IMAGE`` and
+``TILE_NEG_PER_IMAGE`` mean in constants.py, and moves no threshold. The val split is
+built with ``balanced=False``: the published precision is measured at Pyro-SDIS's own
+class prior, because a rebalanced val split reports a precision no deployment ever sees.
 
 Preprocessing is read from ``plumerank.constants`` rather than restated here, so the train
 path and the ``cv2.dnn.blobFromImage`` path cannot drift and both are inside the surface
@@ -249,18 +259,30 @@ def build_pyrosdis_corpus(
     limit: int | None = None,
     n_pos: int = TILE_POS_PER_IMAGE,
     n_neg: int = TILE_NEG_PER_IMAGE,
+    balanced: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Tiles, labels and the source paths they came from.
 
     The source list is returned rather than logged because it is the manifest, and the
     manifest is the evidence for the out-of-sample claim.
+
+    ``balanced`` builds the corpus constants.py specifies -- ``TILE_POS_PER_IMAGE``
+    positives and ``TILE_NEG_PER_IMAGE`` negatives from each source image the corpus is
+    made of -- by taking nothing at all from an image that cannot give a positive. It is
+    TRUE for the training split and FALSE for the validation split, and that asymmetry is
+    the point: balance is a training-time decision, made instead of reweighting the loss,
+    while a val split rebalanced the same way would report a precision measured against a
+    class prior no deployment ever sees. The published number is measured on Pyro-SDIS's
+    own val split, whole and undoctored, at its own prior.
     """
     crops: list[np.ndarray] = []
     labels: list[int] = []
     sources: list[str] = []
+    scanned = 0
     for i, (image_path, label_path) in enumerate(_iter_pyrosdis(root, split)):
         if limit is not None and i >= limit:
             break
+        scanned += 1
         raw = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
         if raw is None:
             raise OSError(f"unreadable image {image_path} -- a truncated fetch, not a bad label")
@@ -269,11 +291,41 @@ def build_pyrosdis_corpus(
         c, y = tiles_from_image(frame, boxes, rng, n_pos, n_neg)
         if not c:
             continue
+        if balanced and 1 not in y:
+            # An image that cannot give a positive tile gives no negative ones either.
+            # This is not squeamishness about class balance, it is what constants.py
+            # specifies: TILE_POS_PER_IMAGE and TILE_NEG_PER_IMAGE are "tiles sampled per
+            # source image" and the corpus is "balanced by construction rather than by
+            # reweighting the loss". Taking two negatives from every image on the disk
+            # delivers neither -- the per-image recipe is applied to images the recipe
+            # cannot be applied to.
+            #
+            # Measured, on the corpus this ships against, because the size of the effect
+            # is the reason the line exists. A positive tile needs a smoke box covering
+            # POSITIVE_OVERLAP_MIN of a TILE_SIZE tile -- 2,765 px^2 at
+            # WORK_WIDTH x WORK_HEIGHT -- and Pyro-SDIS's median annotated box is 15x11 px
+            # at that scale, so 150 of its 4,099 val images carry a box big enough for one.
+            # Sampling negatives from the other 96% built 645 positives against 59,046
+            # negatives; six epochs on that drove the loss to 0.0479 by learning to answer
+            # "no smoke" to everything, val precision came back None because the net
+            # predicted no positive at all, and the run stopped. That refusal was correct
+            # and it is not a model. Dropping the unusable images is the fix that moves no
+            # threshold: POSITIVE_OVERLAP_MIN is frozen and is not touched here.
+            continue
         crops.extend(c)
         labels.extend(y)
         sources.append(str(image_path.relative_to(_REPO_ROOT)) if image_path.is_relative_to(_REPO_ROOT) else str(image_path))
     if not crops:
-        raise RuntimeError(f"no tiles built from {root / 'images' / split} -- corpus is empty or mislaid")
+        raise RuntimeError(
+            f"no tiles built from {root / 'images' / split}: not one positive tile in the "
+            f"{scanned} source image(s) scanned"
+            + (
+                " -- and a balanced corpus takes negatives only from images that also gave "
+                "a positive, so there is nothing left."
+                if balanced
+                else " -- the corpus is empty or mislaid."
+            )
+        )
     if 1 not in labels:
         raise RuntimeError(
             f"{len(crops)} tiles from {root / 'images' / split} and not one positive -- the "
@@ -561,7 +613,15 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--split and --val-split are the same; that is not a held-out number")
         print(f"building tiles from {args.data_root / 'images' / args.split} ...")
         x, y, sources = build_pyrosdis_corpus(args.data_root, args.split, rng, args.limit)
-        x_val, y_val, _ = build_pyrosdis_corpus(args.data_root, args.val_split, rng, args.limit)
+        # balanced=False, and it is the one asymmetry in this script. The training corpus
+        # is balanced by construction because constants.py says so; the val split is the
+        # dataset's own, taken whole, at its own class prior -- roughly one positive tile
+        # in fifty-six. Rebalancing it would raise the published precision by moving the
+        # prior rather than by improving the model, which is the same trick as reporting
+        # accuracy on a corpus you chose.
+        x_val, y_val, _ = build_pyrosdis_corpus(
+            args.data_root, args.val_split, rng, args.limit, balanced=False
+        )
         corpus = "pyro-sdis"
 
     assert_no_figlib(sources)
@@ -571,6 +631,12 @@ def main(argv: list[str] | None = None) -> int:
         "train_positive": int((y == 1).sum()),
         "train_negative": int((y == 0).sum()),
         "val_tiles": int(len(y_val)),
+        # The val class counts are published beside the precision they produced, because
+        # precision is a function of the prior: 0.4 on a split that is 2% positive and 0.4
+        # on one that is 50% positive are different claims, and only the counts say which
+        # one this is.
+        "val_positive": int((y_val == 1).sum()),
+        "val_negative": int((y_val == 0).sum()),
     }
     print(f"corpus {corpus}: {counts}")
 
@@ -589,8 +655,17 @@ def main(argv: list[str] | None = None) -> int:
     worst = _accept(torch, model, out_path, x_val if len(y_val) else x)
     print(f"ONNX accepted under ENGINE_NEW: max |onnx - torch| = {worst:.2e}")
 
+    digest = _sha256(out_path)
+    # The sidecar is written HERE and not by hand afterwards. It is the committed claim
+    # about the one binary in this repository, and the only step that can keep it true is
+    # the step that produced the bytes: a hash typed in later is a hash of whatever
+    # happened to be on disk at the time, which is exactly the thing it exists to rule out.
+    sha_path = out_path.with_name(out_path.name + ".sha256")
+    sha_path.write_text(f"{digest}  {out_path.name}\n")
+
     write_manifest(args.manifest, sources, counts, out_path, corpus, args.synthetic, val)
     print(f"wrote {out_path} and {args.manifest}")
+    print(f"sha256 {digest}  ({sha_path.name})")
     return 0
 
 

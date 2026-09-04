@@ -15,7 +15,7 @@
     "hold": 0
   },
   "no_hold_rule": "The wall reads DEV and CONFUSE only. It is built and re-run from D31, nine days before the constants freeze lets anyone open HOLD, so a HOLD tile here would make test_hold_untouched_until_freeze fail against this project's own build order. The rule has no exemption for the demo, and tests/test_corpus_integrity.py:test_wall_manifest_has_no_hold_id enforces it on this file.",
-  "caption": "demo sequence: DEV arm -- the system's constants were fit on this fire. The headline number is measured on 54 HOLD sequences it has never seen.",
+  "caption": "demo sequence: DEV arm -- the system's constants were fit on this fire. The headline number is measured on 54 held-out sequences it has never seen: 60 windows in data/manifest_hold.json, 6 excluded by data/excluded.json.",
   "hold_denominator": {
     "manifest_windows": 60,
     "excluded": 6,
@@ -28,7 +28,8 @@
       "20250107_EatonFire_wilson-s-mobo-c",
       "20250123_Border2Fire_om-w-mobo-m"
     ],
-    "note": "The caption above quotes measured_on, not manifest_windows. data/manifest_hold.json names 60 windows and data/excluded.json drops 6 of them, so the held-out arm the headline is actually measured on is 54 sequences. Saying 60 on screen would quote a denominator this repo's own exclusion list had already reduced -- the caption is the line a judge hears in the video, so it carries the number the bench will really divide by. test_wall_caption_quotes_the_surviving_denominator recomputes all three of these from the two manifests and fails if they drift apart."
+    "note": "The caption above quotes all three numbers and never one of them alone. data/manifest_hold.json names 60 windows, data/excluded.json drops 6 of them, and the headline is measured on the 54 that remain. Saying 60 on screen would quote a denominator this repo's own exclusion list had already reduced; saying 54 on screen without the other two makes six sequences look as though they went missing. The caption is the line a judge hears in the video, so it carries the subtraction rather than either end of it. scripts/bench.py:arm_denominator recomputes these three from the same two files at run time and refuses to publish a denominator they do not produce; tests/test_corpus_integrity.py:test_wall_caption_quotes_the_surviving_denominator and tests/test_denominator.py fail if this block drifts from them.",
+    "disclosure": "Producing data/excluded.json required a human to look at the FIRST FRAME of every HOLD window -- one frame per window, about 40 minutes before ignition -- against criteria stated before the pass ran. It is disclosed in data/excluded.json under hold_note, and it is repeated here because that is where the exclusion count is published. Nothing in plumerank/constants.py was chosen from it, and results/hold_access.log correctly records no HOLD read: no HOLD pixel has been scored."
   },
   "fire_tile_selection": "20240622_Border58Fire_om-w-mobo-c, chosen by looking at t0-120s, t0, t0+360s, t0+720s and t0+1200s of all five DEV sequences whose frames are on disk. It is the one that matches the beat the demo is built on: nothing visible at t0 or t0+6 min, a faint smudge over the ridge by t0+12 min, and by t0+20 min a plume whose foot is pinned on the ridgeline and whose top has climbed -- which is S1 and S2 happening where a viewer can see them. It is also a full 81-frame window.",
   "credit": "Imagery: HPWREN, http://hpwren.ucsd.edu/",

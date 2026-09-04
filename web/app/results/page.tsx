@@ -52,6 +52,15 @@ function Section({
 export default function ResultsPage() {
   const { data, loading, error } = useBenchmark();
 
+  // The denominator, said in full. run.n_sequences is what the bench divided by AFTER the
+  // exclusion list was applied, and printing it alone under "read exactly once" reads as
+  // sequences that went missing. The manifest's own count is the sum of the two figures
+  // bench.py publishes against the same arm, added here rather than read as a third
+  // field: a third field could disagree with the two it summarises, and this cannot.
+  const measuredOn = data?.run.n_sequences ?? null;
+  const excluded = data?.exclusions.count ?? null;
+  const manifestWindows = measuredOn === null || excluded === null ? null : measuredOn + excluded;
+
   return (
     <>
       <TopBar />
@@ -72,8 +81,9 @@ export default function ResultsPage() {
             <header>
               <p className="label">
                 median time-to-detection, {data.run.arm ?? ABSENT} arm,{" "}
-                {count(data.run.n_sequences)} sequences read exactly once after the
-                constants were frozen
+                {count(measuredOn)} of the {count(manifestWindows)} sequences the manifest
+                names, read exactly once after the constants were frozen --{" "}
+                {count(excluded)} excluded by the pre-stated criteria below
               </p>
               <div style={{ display: "flex", gap: 34, alignItems: "flex-end", flexWrap: "wrap" }}>
                 <span>

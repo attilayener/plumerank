@@ -1,8 +1,14 @@
 # PlumeRank -- TRAINING dependencies. Never installed on the server.
-# One script uses these: scripts/train_tile_classifier.py. It runs once, on CPU, on a
-# laptop, and its only output is models/tile_classifier.onnx. The endpoint executes that
-# ONNX through cv2.dnn and has no torch in its dependency tree at all.
+# Two scripts use these: scripts/train_tile_classifier.py, and the pyrosdis path of
+# scripts/fetch.py. They run once, on CPU, on a laptop, and their only output the endpoint
+# ever sees is models/tile_classifier.onnx. The endpoint executes that ONNX through cv2.dnn
+# and has no torch in its dependency tree at all.
 
 torch==2.5.1
 onnx==1.17.0
 pillow==11.0.0
+
+# Pyro-SDIS is published only as HuggingFace parquet, so scripts/fetch.py's pyrosdis path
+# reads parquet to write the images/ + labels/ tree the trainer expects. Training-only for
+# the same reason as torch: the server never converts a corpus.
+pyarrow==25.0.1

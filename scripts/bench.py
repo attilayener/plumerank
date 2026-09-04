@@ -99,6 +99,7 @@ from plumerank.metrics import (  # noqa: E402
     Latency,
     TTDSummary,
     alerts_per_camera_night,
+    pin_opencv_threads,
     summarise,
     time_to_detection,
 )
@@ -436,8 +437,12 @@ def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
     Tolerant about the file's shape and intolerant about an unrecognised one: whoever
     writes ``data/excluded.json`` decides between a list of ids, a list of records and a
     map from id to reason, and every one of those is unambiguous. A shape this cannot
-    read is a raise, because silently excluding nothing would publish a denominator of 60
-    over an arm that was meant to be 57.
+    read is a raise, because silently excluding nothing would publish the manifest's own
+    window count as the denominator over an arm this file had already reduced -- and the
+    two numbers must always be published together (``arm_denominator``). A **missing**
+    file is the one hole left open -- see the comment on that branch: it reaches the same
+    wrong denominator more quietly, and today it is recorded in the returned source
+    string rather than refused.
 
     The **reason** is carried rather than dropped. The exclusion pass is a manual
     eyeballing of a contact sheet (complexity.md D6) and "why was this sequence dropped"
@@ -448,6 +453,18 @@ def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
     """
     path = root / "data" / "excluded.json"
     if not path.is_file():
+        # KNOWN GAP, deliberately not closed here. On the committed repo this cannot
+        # happen -- the file is tracked -- but if it ever did, every arm would be
+        # published over its full manifest window count and ``arm_denominator`` would
+        # render "60 sequences, 0 excluded from the 60 in manifest_hold.json": the exact
+        # overstated denominator this unit exists to prevent, internally consistent and
+        # therefore invisible. The obvious guard (raise here) cannot land yet because
+        # tests/test_results_contract.py runs a real HOLD arm over a synthetic tree that
+        # has no exclusion list, and that fixture is another unit's file. Closing it =
+        # write an empty data/excluded.json in that fixture, then raise here.
+        # Until then the absence is at least NOT silent: this string is published
+        # verbatim as ``exclusions.source`` in every payload, and
+        # tests/test_denominator.py pins that it says so.
         return [], f"{path.name} absent -- nothing excluded"
     blob = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(blob, dict) and "excluded" in blob:
@@ -486,6 +503,67 @@ def manifest_sequence_ids(root: pathlib.Path, arm: str) -> set[str]:
         return set()
     blob = json.loads(path.read_text(encoding="utf-8"))
     return {str(entry["sequence_id"]) for entry in blob["windows"]}
+
+
+#: How the exclusion criteria were applied, carried beside every count they reduced.
+#: It belongs next to the number rather than in a footnote: producing data/excluded.json
+#: meant a human looking at the first frame of every HOLD window, which is a pre-freeze
+#: read of HOLD imagery, and a denominator that moved for a reason a reader has to go
+#: looking for reads like a denominator that moved for no reason.
+DENOMINATOR_DISCLOSURE: str = (
+    "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per "
+    "window, roughly 40 minutes before ignition -- against the mechanical criteria stated "
+    "in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was "
+    "chosen from it, and results/hold_access.log records no HOLD read because no HOLD "
+    "pixel has been scored."
+)
+
+
+def arm_denominator(
+    root: pathlib.Path, arm: str, exclusion_records: Sequence[dict[str, str]]
+) -> dict[str, Any]:
+    """The three numbers that must never be published apart, computed from the two files.
+
+    Derived rather than declared, on purpose. A count written down beside the thing it
+    counts is a count that drifts the moment either file is regenerated, and the drift is
+    silent: "60 held-out sequences" stays literally true of ``manifest_hold.json`` for as
+    long as anybody cares to leave it there, while the bench divides by 54. Reading both
+    files here means the only way the published denominator can be wrong is for the
+    manifest or the exclusion list to be wrong, which is a thing a reader can check.
+
+    ``excluded`` counts only the exclusions this arm's manifest actually named: the file
+    spans every arm, and reporting its whole length beside one arm's denominator gives a
+    reader an addition that does not come out.
+
+    ``statement`` is the settled wording, built here so that every surface quoting it
+    quotes the same sentence -- and so that it cannot quote one number without the other.
+    """
+    manifest_ids = manifest_sequence_ids(root, arm)
+    dropped = sorted(
+        str(record["sequence_id"])
+        for record in exclusion_records
+        if str(record["sequence_id"]) in manifest_ids
+    )
+    manifest_windows = len(manifest_ids)
+    measured_on = manifest_windows - len(dropped)
+    manifest_name = _manifest_path(root, arm).name
+    return {
+        "arm": arm,
+        "manifest": manifest_name,
+        "manifest_windows": manifest_windows,
+        "excluded": len(dropped),
+        "measured_on": measured_on,
+        "excluded_sequence_ids": dropped,
+        "criteria": "data/excluded.json",
+        "disclosure": DENOMINATOR_DISCLOSURE,
+        # The settled wording, and the only place it is written. Both numbers or neither:
+        # "54 sequences" alone reads as though six went missing, and "60" alone overstates
+        # a denominator this repo's own exclusion list had already reduced.
+        "statement": (
+            f"{measured_on} sequences, {len(dropped)} excluded from the "
+            f"{manifest_windows} in {manifest_name}, see data/excluded.json"
+        ),
+    }
 
 
 def load_arm(root: pathlib.Path, arm: str, excluded: Sequence[str] = ()) -> list[Window]:
@@ -1037,11 +1115,9 @@ def headline_block(payload: dict[str, Any]) -> str:
     lines = [
         f"PlumeRank -- median time-to-detection @ "
         f"{payload['budget_alerts_per_camera_night']:.2f} alerts/camera-night",
-        _row(
-            "arm",
-            f"{payload['arm']} ({payload['n_windows']} sequences, "
-            f"{payload['exclusions']['count']} excluded, see data/excluded.json)",
-        ),
+        # The row a judge checks with a calculator, so it carries all three numbers and
+        # the file each came from -- never the surviving count on its own.
+        _row("arm", f"{payload['arm']} ({payload['denominator']['statement']})"),
     ]
     for system in SYSTEMS:
         row = results[system]
@@ -1378,6 +1454,12 @@ def _seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed % (2**32))
     cv2.setRNGSeed(seed)
+    # Pinned here rather than at import: the thread count is part of what makes a run
+    # reproducible, not just fast. OpenCV's pool size comes from the visible core count,
+    # so an unpinned bench measured on a 2-vCPU t4g and one measured on a laptop are not
+    # the same experiment, and the per-frame latency this script publishes is quoted
+    # against OpenCV's own single-core zoo anchors.
+    pin_opencv_threads()
 
 
 def _classifier(root: pathlib.Path) -> TileClassifier:
@@ -1397,6 +1479,7 @@ def run_arm(
     # dropped from this arm's denominator, and only those may be counted beside it.
     in_this_arm = manifest_sequence_ids(root, args.arm)
     arm_exclusions = [r for r in exclusion_records if r["sequence_id"] in in_this_arm]
+    denominator = arm_denominator(root, args.arm, exclusion_records)
     commit = git_commit(root)
     facts = instance_facts()
 
@@ -1412,12 +1495,25 @@ def run_arm(
 
     windows = load_arm(root, args.arm, excluded)
     calibration_windows = load_calibration(root, args.arm, excluded)
+    if len(windows) != denominator["measured_on"]:
+        # Two routes to one number: load_arm resolves every frame on disk, arm_denominator
+        # subtracts the exclusion list from the manifest. They agree or the run stops --
+        # a manifest entry silently skipped here is a denominator nobody can reconstruct
+        # from the committed files, which is the exact defect this block exists to close.
+        raise SystemExit(
+            f"arm {args.arm!r}: replayed {len(windows)} windows but "
+            f"{denominator['manifest']} minus data/excluded.json is "
+            f"{denominator['measured_on']} ({denominator['manifest_windows']} - "
+            f"{denominator['excluded']}). Refusing to publish a denominator the "
+            f"committed files do not produce."
+        )
 
     if args.arm == "hold":
         log_hold_access(
             root,
             commit,
-            f"arm=hold windows={len(windows)} bg={args.bg} budget={args.budget} "
+            f"arm=hold windows={len(windows)} manifest={denominator['manifest_windows']} "
+            f"excluded={denominator['excluded']} bg={args.bg} budget={args.budget} "
             f"constants={constants_sha[:12]}",
         )
 
@@ -1506,6 +1602,12 @@ def run_arm(
         "budget_alerts_per_camera_night": args.budget,
         "budget_slots_per_camera": per_camera,
         "n_windows": len(windows),
+        # The manifest count and the exclusion count published beside the count actually
+        # divided by, because the published denominator has to be reconstructable from
+        # the committed files without downloading a frame. Every surface that names a
+        # sequence count -- the headline block, /api/benchmark, /results, the wall caption
+        # -- reads it from here rather than restating a literal.
+        "denominator": denominator,
         "n_fire_windows": sum(1 for w in windows if w.is_fire),
         "n_calibration_windows": len(calibration_windows),
         "frames_per_window": matrix.frames_per_window,
@@ -1579,6 +1681,13 @@ def run_arm(
         "exclusions": {
             "source": exclusions_source,
             "count": len(arm_exclusions),
+            # The count never travels without what it was subtracted from, or without the
+            # note saying how the list was made. A judge reading "6 excluded" beside a
+            # denominator of 54 should not have to open another file to learn that the
+            # pass was a human looking at one pre-ignition frame per window.
+            "of_manifest_windows": denominator["manifest_windows"],
+            "measured_on": denominator["measured_on"],
+            "disclosure": DENOMINATOR_DISCLOSURE,
             # ``items`` and ``count`` are the spellings web/lib/read.ts:readExclusions
             # already reads; ``sequence_ids`` is kept beside them because it is the plain
             # answer to "which ones", and a reader of the raw file should not have to walk
@@ -1748,8 +1857,10 @@ def run_micro(
     Exactly two blocks, and the labels are load-bearing. Block 1 is a measurement made
     here and checked against a committed expectation. Block 2 is a quotation with the
     command that produces it printed beside it. Nothing in this function may describe the
-    three-minute command as reproducing the sixty-sequence headline; that confusion is the
-    one way the project's strongest asset becomes its most attackable claim.
+    three-minute command as reproducing the HOLD headline; that confusion is the one way
+    the project's strongest asset becomes its most attackable claim. The count is not
+    spelled out here either -- the denominator moves with data/excluded.json, and a
+    docstring carrying "sixty" is a hardcoded corpus count wearing a word.
     """
     payload = run_arm(root, args, replay=replay)
     expected_path = root / "results" / "verify_micro.json"

@@ -28,6 +28,7 @@ export function Wall({
   framesSeen,
   compact,
   holdSequences,
+  holdExcluded,
 }: {
   meta: WatchMeta | null;
   rows: WatchRow[];
@@ -44,6 +45,13 @@ export function Wall({
    *  the wall's whole job here is to say the demo is NOT the measurement, and a number
    *  typed into the caption could disagree with the one on /results. */
   holdSequences: number | null;
+  /** How many the exclusion list dropped, from the same document. It is a SECOND prop
+   *  and not a nicety: this caption is the line the demo video says out loud, and the
+   *  surviving count on its own reads as sequences that went missing, while the manifest
+   *  count on its own overstates a denominator the exclusion list has already reduced.
+   *  Both or neither -- with neither, the caption drops the arithmetic rather than
+   *  publishing half of it. */
+  holdExcluded: number | null;
 }) {
   const byCamera = new Map(rows.map((r) => [r.camera_id, r]));
   const roster = meta?.cameras ?? rows.map((r) => r.camera_id);
@@ -168,8 +176,14 @@ export function Wall({
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", marginTop: 10 }}>
         demo sequence: DEV arm -- constants were fit on this fire. The headline is
         measured on{" "}
-        {holdSequences === null ? "the" : `${holdSequences}`} HOLD sequences the system
-        has never seen.
+        {holdSequences === null || holdExcluded === null
+          ? "the"
+          : `${holdSequences} of the ${holdSequences + holdExcluded}`}{" "}
+        HOLD sequences the system has never seen
+        {holdExcluded === null
+          ? ""
+          : ` -- ${holdExcluded} excluded by the pre-stated criteria in data/excluded.json, listed with their reasons on /results`}
+        .
       </p>
     </section>
   );
