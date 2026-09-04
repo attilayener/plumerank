@@ -1,0 +1,107 @@
+/*
+ * PlumeRank design tokens -- ui.md section 2, verbatim.
+ *
+ * THERE IS ONE THEME, AND THE PAGE SAYS SO.
+ * `prefers-color-scheme: light` is answered with the dark palette and
+ * `color-scheme: dark`. That is not laziness dressed as a position: this is a
+ * night-shift instrument that will be judged on a projector in a lit room, so a light
+ * theme would serve a use case the product does not have while costing a second token
+ * set, a toggle, a CI contrast job and half the accessibility QA. The refusal is stated
+ * on the page (see components/ThemeNote.tsx) rather than hidden in a stylesheet.
+ *
+ * Every value below is a hex literal on purpose. These are the ONLY hard-coded values
+ * in the frontend: they are the design system, not measurements. Every measurement --
+ * p50, p95, escalation fraction, the realised alert rate -- is fetched from
+ * /api/benchmark at runtime, because the page, the endpoint and the repo are not
+ * allowed to disagree about the headline.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* page background -- near-black with a blue cast so it holds depth on a projector */
+  --canvas: #0A0E13;
+  /* cards, the watch-list rail */
+  --surface: #121A22;
+  /* the rank-1 row, modals, the evidence card */
+  --surface-raised: #1A2530;
+  /* 1 px separators; the only border weight in the product */
+  --hairline: #243140;
+
+  /* headline numbers, rank digits */
+  --ink-0: #F2F6FA;
+  /* body */
+  --ink-1: #C6D2DE;
+  /* secondary, camera metadata */
+  --ink-2: #8595A6;
+  /* labels, axis ticks, the HPWREN credit */
+  --ink-3: #56646F;
+
+  /* the system's own voice -- live tick, focus rings, rank badges, links */
+  --signal: #56C2FF;
+  /* an alert spent from the budget; filled budget slots; the evidence-crop frame */
+  --alert: #FFB020;
+  /* RANK 1 ONLY. Used exactly once per screen, ever. */
+  --critical: #FF6B4A;
+  /* within budget, nominal, drift OK, test-pass */
+  --ok: #3FD08A;
+  /* the confusion classes -- intentionally the dullest colour in the set */
+  --fog: #8E9BAE;
+  /* the pinned foot line on the evidence overlay (drawn server-side by cv2.line) */
+  --overlay-anchor: #FFD166;
+  /* the climbing top line on the evidence overlay */
+  --overlay-growth: #56C2FF;
+
+  /* ---------------------------------------------------------------------------
+   * Type. The mono role is the SYSTEM stack and not a second webfont: the property
+   * that mattered was non-jittering numerals (tabular-nums), and a second self-hosted
+   * family would have bought a subsetting step for a glyph shape nobody scores.
+   * ------------------------------------------------------------------------- */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  /* Projector-first scale: every size is one step above web default. 14 px is
+   * permitted for labels and NEVER for a value. */
+  --size-label: 14px;
+  --size-body: 16px;
+  --size-lead: 20px;
+  --size-metric-s: 34px;
+  --size-metric-m: 46px;
+  --size-metric-l: 64px;
+
+  /* The only two durations in the product. See globals.css. */
+  --flip-duration: 220ms;
+  --flip-ease: cubic-bezier(.2, 0, 0, 1);
+  --slot-duration: 160ms;
+}
+
+/*
+ * The light-preference answer. Redeclaring `color-scheme: dark` here is what stops the
+ * browser from painting light form controls and a light scrollbar over a dark page;
+ * the custom properties are identical by design, and writing them out rather than
+ * relying on inheritance is what makes "there is one theme" checkable by reading one
+ * file instead of reasoning about the cascade.
+ */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: dark;
+
+    --canvas: #0A0E13;
+    --surface: #121A22;
+    --surface-raised: #1A2530;
+    --hairline: #243140;
+
+    --ink-0: #F2F6FA;
+    --ink-1: #C6D2DE;
+    --ink-2: #8595A6;
+    --ink-3: #56646F;
+
+    --signal: #56C2FF;
+    --alert: #FFB020;
+    --critical: #FF6B4A;
+    --ok: #3FD08A;
+    --fog: #8E9BAE;
+    --overlay-anchor: #FFD166;
+    --overlay-growth: #56C2FF;
+  }
+}

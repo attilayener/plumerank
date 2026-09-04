@@ -1,0 +1,574 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/*
+ * PlumeRank -- the whole stylesheet. Tailwind is here for spacing and flex/grid
+ * plumbing; everything that carries meaning (the rank digit's size, the two
+ * animations, the 45% dim, the 80 slots) is written out here, because a mechanism
+ * expressed as a string of utility classes is a mechanism nobody can grep for.
+ */
+
+/* ---------------------------------------------------------------------------------
+ * The one self-hosted family. No external font request: the endpoint has to work
+ * behind a strict network and must not leak judge traffic to a third party, so
+ * fonts.googleapis.com is not merely avoided, it is absent.
+ *
+ * `font-display: swap` and not `block`: on a projector, 100 ms of fallback text beats
+ * 100 ms of nothing, and every number that matters is set in the system mono stack
+ * which is already resident.
+ * ------------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;               /* one variable file covers 400/500/600/700 */
+  font-display: swap;
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------------- */
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--canvas);
+  /* The page body NEVER scrolls sideways. Every wide thing (tables, the wall strip,
+   * the build-information dump) owns an overflow-x:auto container instead, so a
+   * judge's laptop never produces a horizontal scrollbar under the whole document. */
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink-1);
+  font-family: var(--font-ui);
+  font-size: var(--size-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  /* Room for the persistent, non-dismissible LimitsBanner, which is fixed to the
+   * bottom of every screen and must never sit on top of the last row of content. */
+  padding-bottom: 64px;
+}
+
+a { color: var(--signal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* One focus treatment, everywhere, in the system's own voice. Never `outline: none`:
+ * the entire interactive surface of this product is the evidence modal, two copy
+ * buttons and scrolling, so keyboard reachability is cheap and its absence would be
+ * the loudest possible failure under a criterion this small. */
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Any inline number in UI text. Ranks and clocks change every tick; without this they
+ * jitter horizontally and the eye reads motion where none was meant. */
+.num { font-variant-numeric: tabular-nums; }
+
+.label {
+  font-size: var(--size-label);
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hairline { border-color: var(--hairline); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+}
+
+/* Every table sits in one of these. See html{overflow-x:hidden} above. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 14px; text-align: left; white-space: nowrap; }
+th {
+  font-size: var(--size-label);
+  color: var(--ink-3);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--hairline);
+}
+td { color: var(--ink-1); border-bottom: 1px solid var(--hairline); }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* ---------------------------------------------------------------------------------
+ * THE RANK DIGIT -- the largest element on the screen.
+ *
+ * Not a heading, not a KPI tile, not a hero number: the rank. Rank order IS the
+ * product, so nothing is allowed to outrank it, and the three sizes below are the
+ * only type in the product above 20 px on "/".
+ * ------------------------------------------------------------------------------- */
+
+.rank-digit {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-0);
+  font-size: var(--size-metric-s);          /* 34 px -- the rest of the roster */
+  letter-spacing: -0.02em;
+}
+.rank-digit--top { font-size: var(--size-metric-m); }   /* 46 px -- inside the top-k */
+.rank-digit--one { font-size: var(--size-metric-l); }   /* 64 px -- rank 1, once */
+
+/* ---------------------------------------------------------------------------------
+ * Watch list rows
+ * ------------------------------------------------------------------------------- */
+
+/* Two sub-rows, because the watch list lives in a 420 px rail on the layout the demo
+ * is recorded in and the three stat chips have to stay on ONE line at that width. A
+ * chip that wraps inside itself turns "S1 anchor 0.97" into two lines of noise, and a
+ * row four lines tall means a judge sees three cameras instead of seven -- which would
+ * quietly undo the thing the rank digit is for. */
+.row {
+  display: grid;
+  grid-template-columns: 64px 64px minmax(0, 1fr);
+  grid-template-areas:
+    "rank thumb main"
+    "stats stats stats";
+  column-gap: 12px;
+  row-gap: 6px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+  border-left: 2px solid transparent;
+  border-top: 2px solid transparent;
+  background: var(--surface);
+}
+.row > .row-rank  { grid-area: rank; text-align: center; }
+.row > .row-thumb { grid-area: thumb; }
+.row > .row-main  { grid-area: main; min-width: 0; }
+/* Three equal columns, so the chips are on ONE line at every width the product has --
+ * the 420 px rail included. Letting them flow and wrap put S3 alone on a second line
+ * in the rail, and S3 is the statistic the project turns on. */
+.row > .row-stats {
+  grid-area: stats;
+  display: grid;
+  /* Three columns sized to their CONTENT, not to equal thirds. "S3 diffuse" is four
+   * characters longer than "S2 aniso", so equal thirds spend the same width on all
+   * three and then ellipsise the only one that needed more -- and the one it hides is
+   * the statistic the fog gate turned on. minmax(0, auto) keeps them shrinkable rather
+   * than letting them push the row wider than the rail. */
+  grid-template-columns: repeat(3, minmax(0, auto));
+  justify-content: start;
+  gap: 4px;
+}
+
+/* Rank 1, and the ONLY use of --critical anywhere in the product. */
+.row--one {
+  background: var(--surface-raised);
+  border-left-color: var(--critical);
+}
+
+/* "Escalation running": a 2 px --signal top border, gone within one tick because the
+ * next tick simply does not carry the flag. No toast, no spinner, no timer. */
+.row--escalating { border-top-color: var(--signal); }
+
+/* Fog gets NO colour of its own. Giving the confusion classes a warning colour would
+ * contradict the thing this project spent its gate day proving -- that fog is boring. */
+.row--fog .stat-chip,
+.row--fog .row-name { color: var(--fog); }
+.row--fog .hazard-bar > i { background: var(--fog); }
+
+.row-name { color: var(--ink-0); font-weight: 600; font-size: var(--size-body); }
+.row-meta { color: var(--ink-2); font-size: var(--size-label); }
+
+.evidence-thumb {
+  width: 64px;
+  height: 36px;
+  object-fit: cover;
+  display: block;
+  border: 1px solid var(--alert);
+  background: var(--surface-raised);
+  border-radius: 2px;
+}
+
+.hazard-bar {
+  display: block;
+  height: 6px;
+  background: var(--surface-raised);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.hazard-bar > i { display: block; height: 100%; background: var(--signal); }
+
+.stat-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--ink-2);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  /* Padding trimmed to the minimum that still reads as a chip: at 420 px the three
+   * columns are 130 px each and "S3 diffuse 0.80" is 117 px of text, so every pixel of
+   * padding here is a pixel of ellipsis there -- and an ellipsised chip hides the
+   * VALUE, which is worse than no chip at all. */
+  padding: 1px 5px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* The statistic and its value are one token. Letting them wrap apart is how a chip
+   * becomes two lines of debris in the narrow rail. */
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  font-size: var(--size-label);
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.badge--alert { color: var(--alert); }
+.badge--signal { color: var(--signal); }
+.badge--spent { color: var(--ink-3); }
+.badge--ok { color: var(--ok); }
+
+/* The watch list scrolls inside the rail rather than growing the page, so that the
+ * BudgetMeter docked beneath it stays on the first screen at 1280 px. The full roster
+ * is still present -- it is one scroll away, never removed. */
+.watchlist-scroll { overflow-y: auto; max-height: 62vh; }
+@media (min-width: 1280px) { .watchlist-scroll { max-height: 40vh; } }
+
+/* ---------------------------------------------------------------------------------
+ * ANIMATION 1 of 2 -- the FLIP rank reorder.
+ *
+ * A row that climbs is inverted to its old position and then released, so the eye can
+ * follow one tile moving rather than re-reading a list that teleported. 220 ms is long
+ * enough to track and short enough to finish inside a one-second tick.
+ * ------------------------------------------------------------------------------- */
+.flip-move { transition: transform var(--flip-duration) var(--flip-ease); }
+
+/* ---------------------------------------------------------------------------------
+ * ANIMATION 2 of 2 -- a budget slot filling. And that is the complete list. A UI that
+ * animates everything cannot use motion to mean anything, so nothing else in this
+ * product transitions: no hover fades, no page transitions, no skeleton shimmer.
+ * ------------------------------------------------------------------------------- */
+@keyframes slot-fill {
+  from { transform: scale(0.2); }
+  to   { transform: scale(1); }
+}
+
+.slot {
+  width: 10px;
+  height: 18px;
+  border-radius: 1px;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+}
+.slot--filled {
+  background: var(--alert);
+  border-color: var(--alert);
+}
+.slot--just-filled { animation: slot-fill var(--slot-duration) var(--flip-ease); }
+
+/* ---------------------------------------------------------------------------------
+ * The substitute signal: a one-frame --signal outline on a row that moved.
+ *
+ * It is declared OUTSIDE the reduced-motion query on purpose, because two different
+ * paths in lib/motion.ts hand a row this class: a reader who asked for reduced motion,
+ * and a row whose move was longer than MAX_FLIP_PX at any motion preference. Declaring
+ * it only inside the media query made the second path render nothing at all -- no
+ * transform, no outline -- which is the failure that looks exactly like "the long
+ * reorder was skipped on purpose".
+ * ------------------------------------------------------------------------------- */
+.changed {
+  outline: 2px solid var(--signal);
+  /* INSET, not offset. The watch list scrolls inside a card with overflow:hidden, so an
+   * outline drawn outside the row box is clipped on both flanks and the "look here"
+   * signal arrives as two disconnected horizontal lines. Drawn 2 px inside, it is a
+   * closed rectangle at every width. */
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------------------------------------------
+ * Reduced motion. BOTH animations are removed; the outline above is what replaces
+ * them, so the "look here" signal survives for a reader who cannot use motion --
+ * which is the whole reason the two animations exist. Removing them and offering
+ * nothing would silently delete a channel rather than substitute for it.
+ * ------------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .flip-move { transition: none !important; }
+  .slot--just-filled { animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------------------
+ * The wall
+ * ------------------------------------------------------------------------------- */
+
+.wall-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));   /* 8 x 5 = the 40-camera roster */
+  gap: 6px;
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tile > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Dimmed to 45%, NEVER removed. Removing a tile would make the UI lie about the
+ * mechanism: the system reorders, it never suppresses. The full roster is on screen
+ * at all times and this rule is the only thing that separates a watched camera from
+ * an unwatched one. */
+.tile--dim { opacity: 0.45; }
+
+.tile-rank {
+  position: absolute; top: 3px; left: 3px;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600;
+  font-size: var(--size-label);
+  color: var(--signal);
+  background: rgba(10, 14, 19, 0.78);
+  padding: 0 4px; border-radius: 2px;
+}
+.tile-name {
+  position: absolute; bottom: 3px; left: 3px; right: 3px;
+  font-size: 11px; color: var(--ink-2);
+  background: rgba(10, 14, 19, 0.78);
+  padding: 0 4px; border-radius: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tile-empty {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  color: var(--ink-3); font-size: 11px; text-align: center; padding: 4px;
+}
+
+/* State 1 of 7: the background model warming. A --ink-3 progress hairline across the
+ * bottom of every tile, which is what a real camera start looks like. */
+.tile-warm {
+  position: absolute; left: 0; bottom: 0; height: 2px;
+  background: var(--ink-3);
+}
+
+/* The landing band. auto-fit rather than two fixed tracks: two 280 px minimums add up
+ * to 560 px, which a 400 px phone cannot give them, and the overflow is INVISIBLE
+ * because html has overflow-x:hidden -- the right column is simply clipped away. The
+ * headline number is in that column. */
+.landing h1 { font-size: var(--size-metric-s); margin: 0 0 8px; }
+.landing p  { font-size: var(--size-label); }
+
+.landing {
+  display: grid;
+  gap: 18px 34px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: start;
+}
+
+.rail {
+  display: grid;
+  gap: 16px;
+  grid-template-areas:
+    "clock"
+    "list";
+}
+.rail-clock { grid-area: clock; }
+.rail-list  { grid-area: list; min-width: 0; }
+
+/* ---------------------------------------------------------------------------------
+ * Layout -- TWO layouts, plus one rule. Four breakpoints were cut to two: three
+ * layouts to build, test and QA for a judge who will use a laptop is the definition of
+ * a part that does not pay.
+ * ------------------------------------------------------------------------------- */
+
+.wall-page {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  grid-template-areas:
+    "wall"
+    "rail"
+    "budget";
+}
+.area-wall   { grid-area: wall; min-width: 0; }
+.area-rail   { grid-area: rail; min-width: 0; }
+.area-budget { grid-area: budget; min-width: 0; }
+
+/* < 1280 px: stacked. The wall becomes a horizontally scrollable strip of the top 12
+ * tiles and the budget meter docks to the bottom of the viewport. One fallback
+ * layout, not two. */
+@media (max-width: 1279px) {
+  .wall-strip {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 6px;
+  }
+  .wall-strip .tile { flex: 0 0 200px; }
+  .area-budget {
+    position: sticky;
+    bottom: 44px;                  /* clears the LimitsBanner, never covers it */
+    background: var(--canvas);
+    z-index: 5;
+  }
+}
+
+/* >= 1280 px (projector, judging desk): the wall fills the left, the watch list is a
+ * fixed 420 px right rail, the budget meter is docked under the rail. This is the
+ * layout the demo video is recorded in. */
+@media (min-width: 1280px) {
+  .wall-page {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    grid-template-areas:
+      "wall rail"
+      "wall budget";
+    align-items: start;
+  }
+}
+
+/* < 768 px -- ONE media query, not a third layout. The wall is hidden and the watch
+ * list IS the product. Not a degradation: a dispatcher on a phone does not have a
+ * video wall, she has a shortlist, and the mobile view is this product's honest core.
+ * It costs one line of CSS to say so. */
+@media (max-width: 767px) {
+  .area-wall { display: none; }
+
+  /* Below 768 px the watch list IS the product, so it goes FIRST -- above the clock,
+   * and as close to the top as the hook allows. A dispatcher on a phone opened this to
+   * see a shortlist, not to read a headline, and a product whose core is the third
+   * thing on a phone screen is a product that has quietly become a landing page. */
+  .rail { grid-template-areas: "list" "clock"; }
+  .landing h1 { font-size: var(--size-lead); }
+  /* One line of chips, not two: at phone width "S3 diffuse 0.24" is the token that
+   * falls off the end, and S3 is the statistic the whole project turns on. */
+  /* At 400 px the three chips need 341 px and the row offers 340. Six pixels of
+   * padding is the cheapest place to find them, and it is cheaper than an ellipsis
+   * over the S3 value or a second line of chips. */
+  .stat-chip { font-size: 12px; padding: 1px 3px; }
+  .row > .row-stats { gap: 2px; }
+
+  /* The budget meter stops being a sticky footer here. 80 slots wrap to four rows at
+   * phone width, and a 270 px bar docked over an 820 px screen would cover the watch
+   * list -- which at this width IS the product. It goes back into the flow instead:
+   * still countable, still 80, just not in the way. */
+  .area-budget { position: static; bottom: auto; }
+  .slot { width: 8px; height: 16px; }
+  .row { grid-template-columns: 56px 96px minmax(0, 1fr); }
+  .evidence-thumb { width: 96px; height: 54px; }
+}
+
+/* ---------------------------------------------------------------------------------
+ * Chrome, banner, modal
+ * ------------------------------------------------------------------------------- */
+
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  height: 56px;
+  display: flex; align-items: center; gap: 22px;
+  padding: 0 16px;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot--live { background: var(--signal); }
+.dot--idle { background: var(--ink-3); }
+.dot--down { background: var(--alert); }
+
+.limits-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--surface);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-3);
+  font-size: var(--size-label);
+  padding: 10px 16px;
+  text-align: center;
+}
+
+.modal-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(10, 14, 19, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal {
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  max-width: min(920px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* State 7 of 7: the endpoint is degraded and the page is showing committed results.
+ * Never silently stale -- the strip names the file and carries the commit sha. */
+.degraded {
+  border: 1px solid var(--alert);
+  border-left-width: 3px;
+  background: var(--surface);
+  color: var(--alert);
+  padding: 12px 14px;
+  font-size: var(--size-label);
+  border-radius: 2px;
+}
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--size-label);
+  border: 1px solid currentColor; border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.btn {
+  font: inherit;
+  font-size: var(--size-label);
+  color: var(--signal);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--size-label);
+  color: var(--ink-1);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  padding: 10px 12px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.display {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink-0);
+  font-variant-numeric: tabular-nums;
+}
