@@ -29,16 +29,20 @@ without re-reading the archive.
 How the archive is walked, and why it is not walked
 ---------------------------------------------------
 The MTA is ``https://cdn.hpwren.ucsd.edu/MTA/<camera>/large/<YYYYMMDD>/Q<n>/<epoch>.jpg``,
-where the date and the quarter are **UTC** and ``Q<n>`` is the six-hour quarter of the day
-numbered from 1 (verified against all 60 URLs in ``spike/urls_fog.txt``). It has no
-directory index: the bucket answers ``AccessDenied`` to a bare directory, to
-``?list-type=2`` and to ``index.html`` alike, and the origin host 404s. So enumeration
-cannot list; it probes. Frames land on a 60 s grid at a per-camera phase -- one camera
-writes 31 s past the minute, another 55 s -- so the first slot of a window is searched
-across a whole minute to discover that phase and every later slot is searched only within
-``JITTER_SECONDS`` of it, carrying the phase forward as it drifts. Roughly a
-quarter of slots on a healthy day are simply absent, which is why a candidate window is
-cheaply screened on ``PROBE_SLOTS`` frames before anything commits to enumerating all 81.
+where the **file name** is a UTC epoch but the **directory** is San Diego local: the date
+is the local date and ``Q<n>`` is the local three-hour block numbered from 1 at local
+midnight, so n runs 1..8. See ``quarter_directory`` -- the 60 URLs in
+``spike/urls_fog.txt`` all sit in the one band where the older UTC six-hour reading
+happened to give the same answer, so they could not have caught this. The bucket has no
+directory index: it answers ``AccessDenied`` to a bare directory, to ``?list-type=2`` and
+to ``index.html`` alike, and the origin host 404s. So enumeration cannot list; it probes.
+Frames land on a 60 s grid at a per-camera phase -- one camera writes 31 s past the
+minute, another 55 s -- so the first slot of a window is searched across a whole minute to
+discover that phase and every later slot is searched only within ``JITTER_SECONDS`` of it,
+carrying the phase forward as it drifts. Some cameras in the HOLD roster are absent from
+the MTA altogether, which is why a candidate window is cheaply screened on ``PROBE_SLOTS``
+frames before anything commits to enumerating all 81. On a camera that IS present the
+minute grid is complete: an 81-frame window on hp-s-mobo-c enumerated 81 of 81.
 
 Degrading honestly
 ------------------
@@ -56,14 +60,16 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import math
 import pathlib
 import sys
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Iterable, Sequence
 from zoneinfo import ZoneInfo
 
@@ -96,7 +102,13 @@ from plumerank.types import Component  # noqa: E402
 # fetch.py owns the HTTP client and the polite-client settings. Importing it rather than
 # copying them keeps the User-Agent and the retry policy in one place; the build contract
 # fixes scripts/ at six files, so there is no seventh module for them to live in.
-from fetch import USER_AGENT, FetchError, fetch_with_retry  # noqa: E402
+from fetch import (  # noqa: E402
+    RETRY_ATTEMPTS,
+    RETRY_BACKOFF_SECONDS,
+    USER_AGENT,
+    FetchError,
+    fetch_with_retry,
+)
 
 __all__ = [
     "CLASS_QUOTAS",
@@ -153,6 +165,16 @@ JITTER_SECONDS: int = 3
 #: window so a hole at either end is seen.
 PROBE_SLOTS: int = 7
 PROBE_MIN_PRESENT: int = 5
+
+#: Sockets held open against the CDN while probing. Measured on the live archive: a HEAD
+#: costs ~0.6 s of round trip whether or not the connection is reused -- keep-alive changes
+#: nothing, so the walk is latency-bound and not bandwidth-bound. One request at a time
+#: makes the sweep arithmetically impossible: enumerating one 81-frame window alone is 203
+#: HEADs and 45 of them is the smallest thing this script does. Six is fetch.py's
+#: politeness budget minus a margin, and it is a cap on a public academic service rather
+#: than a tuning knob: raising it is a decision about somebody else's bandwidth, so it is
+#: written into the manifest with the rest of the search budget.
+MAX_PROBE_CONCURRENCY: int = 6
 
 #: Days back from ``--end-date``, and the stride between them. Consecutive days are highly
 #: correlated -- the same marine layer sits over the same camera for a week -- so the sweep
@@ -288,14 +310,34 @@ def frame_epoch(frame_name: str) -> int:
     return int(stem.split("_")[0])
 
 
-def quarter_directory(epoch: int) -> str:
-    """``<YYYYMMDD>/Q<n>`` for one epoch, in UTC.
+#: The archive bins a camera's day into EIGHT three-hour directories, not four six-hour
+#: ones, and it bins them by San Diego local time rather than by UTC. Probed against the
+#: live bucket rather than assumed: on hp-s-mobo-c, 2026-08-26, one frame per local hour
+#: was found at every hour of the day under ``local_date/Q(local_hour // 3 + 1)``, and the
+#: Q3/Q4 edge was walked minute by minute to 08:59 -> Q3, 09:00 -> Q4.
+QUARTER_HOURS: int = 3
 
-    UTC and one-based: checked against all 60 real URLs in ``spike/urls_fog.txt``, which
-    are the only ground truth available for a bucket that will not list itself.
+
+def quarter_directory(epoch: int) -> str:
+    """``<YYYYMMDD>/Q<n>`` for one epoch, in San Diego local time.
+
+    **Corrected against the live archive.** The 60 URLs in ``spike/urls_fog.txt`` were the
+    only ground truth this file originally had, and they are not enough to pin the rule:
+    every one of them falls in local hours 06-08, where ``UTC hour // 6 + 1`` and
+    ``local hour // 3 + 1`` happen to agree on Q3. They disagree everywhere else, and the
+    disagreement is silent -- a wrong quarter answers 403, which this file's own
+    ``probe_exists`` reads as "the archive does not have that frame". The first run against
+    the real bucket therefore reported a sparse archive with hour-long holes and no data
+    at all after local noon, all of which was this function.
+
+    The rule that fits every hour of a probed day is local: the date directory is the
+    LOCAL date, and Q is the local three-hour block numbered from 1 at local midnight, so
+    Q runs 1..8 and not 1..4. Local also makes the DST transition correct for free -- the
+    quarter follows the camera's own clock, which is the clock the archive names its
+    directories with.
     """
-    moment = datetime.fromtimestamp(int(epoch), timezone.utc)
-    return f"{moment:%Y%m%d}/Q{moment.hour // 6 + 1}"
+    moment = datetime.fromtimestamp(int(epoch), PACIFIC)
+    return f"{moment:%Y%m%d}/Q{moment.hour // QUARTER_HOURS + 1}"
 
 
 def frame_path(epoch: int) -> str:
@@ -316,23 +358,37 @@ def probe_exists(url: str, timeout: float = 15.0) -> bool:
     """Does this key exist? A HEAD, because the answer is one bit and the file is 500 KB.
 
     A missing key answers 403 rather than 404 on this bucket (listing is disabled, so S3
-    will not confirm absence), and both are treated as "no". A 5xx or a transport error is
-    NOT treated as "no" -- it is raised, because reading a flaky network as an empty
-    archive is precisely how this script would quietly build a smaller corpus than it
-    claims.
+    will not confirm absence), and both are treated as "no" on the first answer -- there
+    is nothing transient about them and asking again is neither useful nor polite. A 5xx
+    or a transport error is NOT treated as "no": it is retried on the same exponential
+    backoff ``fetch_with_retry`` uses and then raised, because reading a flaky network as
+    an empty archive is precisely how this script would quietly build a smaller corpus
+    than it claims.
+
+    The retry is not decoration. A full sweep is tens of thousands of HEADs over a couple
+    of hours across six sockets, and one transient DNS failure -- observed, ``[Errno 8]
+    nodename nor servname provided`` -- would otherwise discard the whole run at whatever
+    minute it happened to land on.
     """
     request = urllib.request.Request(
         url, method="HEAD", headers={"User-Agent": USER_AGENT}
     )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-            return 200 <= response.status < 300
-    except urllib.error.HTTPError as exc:
-        if exc.code in (403, 404):
-            return False
-        raise FetchError(f"HEAD {url} -> HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise FetchError(f"HEAD {url} failed: {exc}") from exc
+    last: Exception | None = None
+    for attempt in range(RETRY_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(  # noqa: S310
+                request, timeout=timeout
+            ) as response:
+                return 200 <= response.status < 300
+        except urllib.error.HTTPError as exc:
+            if exc.code in (403, 404):
+                return False
+            last = exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last = exc
+        if attempt + 1 < RETRY_ATTEMPTS:
+            time.sleep(RETRY_BACKOFF_SECONDS * (2**attempt))
+    raise FetchError(f"HEAD {url} failed after {RETRY_ATTEMPTS} attempts: {last}")
 
 
 def _jitter_order(limit: int) -> list[int]:
@@ -351,12 +407,52 @@ def _slot_epochs(centre_epoch: int, n_frames: int) -> list[int]:
     ]
 
 
+def _chunks(items: Sequence[int], size: int) -> Iterable[Sequence[int]]:
+    """``items`` in fixed-size groups, order preserved."""
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+def _search_slot(camera_id: str, base_epoch: int, width: int) -> int | None:
+    """The epoch nearest ``base_epoch`` that exists within ``width`` seconds, or None.
+
+    Sequential inside one worker and concurrent across workers, rather than the reverse:
+    "nearest wins" is an ordering constraint, and a slot that hits on its first probe --
+    the common case once the phase is known -- must not have paid for six more.
+    """
+    for delta in _jitter_order(width):
+        epoch = base_epoch + delta
+        if probe_exists(frame_url(camera_id, epoch)):
+            return epoch
+    return None
+
+
+def _first_existing(camera_id: str, epochs: Sequence[int]) -> int | None:
+    """The first epoch of ``epochs`` that exists, probing ahead under a bounded pool.
+
+    Used only for the full-minute phase discovery, where ``epochs`` is 61 long and the
+    answer is uniformly distributed inside it, so probing strictly one at a time spends
+    thirty seconds of wall clock to save a handful of HEADs. Chunked and not fully
+    speculative, so a hit in the first chunk still costs six requests and not sixty-one:
+    the result is identical to the sequential scan, only the wasted tail differs.
+    """
+    for chunk in _chunks(epochs, MAX_PROBE_CONCURRENCY):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(chunk)) as pool:
+            hits = list(pool.map(lambda e: probe_exists(frame_url(camera_id, e)), chunk))
+        for epoch, hit in zip(chunk, hits):
+            if hit:
+                return epoch
+    return None
+
+
 def enumerate_window(
     camera_id: str,
     centre_epoch: int,
     slots: Sequence[int],
     n_frames: int = FRAMES_PER_WINDOW,
     known: dict[int, int] | None = None,
+    phase: int | None = None,
+    min_present: int | None = None,
 ) -> dict[int, int]:
     """Which of ``slots`` exist, as ``{slot index: actual epoch}``.
 
@@ -368,26 +464,75 @@ def enumerate_window(
     would be 5,000 requests at somebody else's expense for information already in hand.
 
     ``known`` seeds that phase from a candidate's screening probes, so the full
-    enumeration does not re-discover what the screen already paid for.
+    enumeration does not re-discover what the screen already paid for. ``phase`` seeds it
+    from a DIFFERENT window on the same camera, which is legitimate because the phase is a
+    property of the camera and not of the day: a predicted epoch is always a whole local
+    minute and the archive's offsets are whole hours, so the phase is just the second of
+    the minute each camera writes at. Measured across two months of the live archive it
+    moves by one or two seconds and no more -- hp-s writes at :31 in July and at :31 in
+    September -- which is well inside ``JITTER_SECONDS``. Without it every candidate day
+    on the sweep re-pays the full-minute discovery, and the sweep does not finish.
+
+    ``min_present`` abandons a candidate as soon as it cannot reach that many slots. It is
+    lossless -- the abandoned candidate would have been discarded by the same number -- and
+    it caps an empty camera-day at three slots instead of seven. Two of the 45 HOLD cameras
+    (ml-n-mobo-c, ml-w-mobo-c) are absent from the MTA entirely, so every one of their
+    sixty candidate days runs this path.
     """
     predicted = _slot_epochs(centre_epoch, n_frames)
     found: dict[int, int] = dict(known or {})
-    phase: int | None = None
     if found:
         first = min(found)
         phase = found[first] - predicted[first]
 
-    for index in slots:
-        if index in found:
-            continue
-        width = JITTER_SECONDS if phase is not None else PHASE_SEARCH_SECONDS
-        base = predicted[index] + (phase or 0)
-        for delta in _jitter_order(width):
-            epoch = base + delta
-            if probe_exists(frame_url(camera_id, epoch)):
+    pending = [index for index in slots if index not in found]
+
+    # Phase discovery. The original walked slot by slot at full width until something was
+    # found, and so does this: a camera-day can be missing its first slot and hold the
+    # rest.
+    while phase is None and pending:
+        index = pending.pop(0)
+        epoch = _first_existing(
+            camera_id,
+            [predicted[index] + d for d in _jitter_order(PHASE_SEARCH_SECONDS)],
+        )
+        if epoch is not None:
+            found[index] = epoch
+            phase = epoch - predicted[index]
+        elif min_present is not None and len(found) + len(pending) < min_present:
+            return found
+
+    while pending:
+        if min_present is not None and len(found) + len(pending) < min_present:
+            break
+        # Never probe further into the window than the point at which the candidate could
+        # already be abandoned. A screening pass allows ``len(slots) - min_present``
+        # misses, so once that many have accumulated the next miss ends the candidate and
+        # a full chunk of six would have bought five answers nobody reads.
+        width = MAX_PROBE_CONCURRENCY
+        if min_present is not None:
+            width = min(width, max(1, len(found) + len(pending) - min_present + 1))
+        chunk = pending[:width]
+        pending = pending[width:]
+        assert phase is not None  # the loop above either set it or emptied ``pending``
+        carried = phase
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(chunk)) as pool:
+            hits = list(
+                pool.map(
+                    lambda i: _search_slot(
+                        camera_id, predicted[i] + carried, JITTER_SECONDS
+                    ),
+                    chunk,
+                )
+            )
+        for index, epoch in zip(chunk, hits):
+            if epoch is not None:
                 found[index] = epoch
-                phase = (phase or 0) + delta
-                break
+                # Carry the drift forward from the latest slot resolved, as the sequential
+                # walk did. Slots are handed out in increasing order, so this is the same
+                # carry to within one chunk -- and the drift over one chunk is under a
+                # second on every camera measured.
+                phase = epoch - predicted[index]
     return found
 
 
@@ -746,6 +891,11 @@ def _score_camera(
     minutes = local_minutes_of_day(t0_epoch)
     slots = _probe_slot_indices()
     scored: list[_Scored] = []
+    #: Learned once from whichever candidate day first yields a frame, then reused for
+    #: every later day on this camera. See ``enumerate_window``: the phase is the camera's
+    #: second-of-the-minute, not the day's, and re-discovering it 60 times per camera is
+    #: 60 full-minute searches spent on a number that does not change.
+    phase: int | None = None
 
     for day in days:
         if len(scored) >= MAX_CANDIDATES_PER_CAMERA:
@@ -763,7 +913,12 @@ def _score_camera(
             )
             if (camera_id, candidate.date) in excluded:
                 continue
-            probes = enumerate_window(camera_id, centre, slots)
+            probes = enumerate_window(
+                camera_id, centre, slots, phase=phase, min_present=PROBE_MIN_PRESENT
+            )
+            if probes and phase is None:
+                first = min(probes)
+                phase = probes[first] - _slot_epochs(centre, FRAMES_PER_WINDOW)[first]
             if len(probes) < PROBE_MIN_PRESENT:
                 continue
             frames = [
@@ -922,8 +1077,12 @@ def build(
         "url_note": (
             "Frame URL = window url_prefix + frame, with '+' percent-encoded as %2B. "
             "A frame name carries its own quarter directory because an 81-minute window "
-            "can straddle two of them; the date and the Q<n> quarter are UTC, Q numbered "
-            "from 1, verified against spike/urls_fog.txt."
+            "can straddle two of them. The file name is a UTC epoch but the directory is "
+            "San Diego local: the date is the local date and Q<n> is the local three-hour "
+            "block numbered from 1 at local midnight, so n runs 1..8. Probed hour by hour "
+            "against the live bucket; spike/urls_fog.txt alone cannot pin this, because "
+            "all 60 of its URLs fall in the one band where a UTC six-hour reading gives "
+            "the same answer."
         ),
         "local_root": "corpus/mta",
         "catalogue": (
@@ -972,6 +1131,7 @@ def build(
             "JITTER_SECONDS": JITTER_SECONDS,
             "PROBE_SLOTS": PROBE_SLOTS,
             "PROBE_MIN_PRESENT": PROBE_MIN_PRESENT,
+            "MAX_PROBE_CONCURRENCY": MAX_PROBE_CONCURRENCY,
             "CANDIDATE_DAYS": CANDIDATE_DAYS,
             "CANDIDATE_DAY_STRIDE": CANDIDATE_DAY_STRIDE,
             "TOD_OFFSETS_MINUTES": list(TOD_OFFSETS_MINUTES),

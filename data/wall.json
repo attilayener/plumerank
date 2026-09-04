@@ -1,0 +1,59 @@
+{
+  "generated": "2026-09-04",
+  "purpose": "The forty tiles of the demo wall, so the video can be re-cut without re-recording and so forty tile positions do not live in JSX.",
+  "status": "incomplete",
+  "grid": {
+    "cols": 8,
+    "rows": 5,
+    "tiles": 40,
+    "numbering": "row-major from 1"
+  },
+  "fire_tile": 17,
+  "arms": {
+    "dev": 1,
+    "confuse": 0,
+    "hold": 0
+  },
+  "no_hold_rule": "The wall reads DEV and CONFUSE only. It is built and re-run from D31, nine days before the constants freeze lets anyone open HOLD, so a HOLD tile here would make test_hold_untouched_until_freeze fail against this project's own build order. The rule has no exemption for the demo, and tests/test_corpus_integrity.py:test_wall_manifest_has_no_hold_id enforces it on this file.",
+  "caption": "demo sequence: DEV arm -- the system's constants were fit on this fire. The headline number is measured on 54 HOLD sequences it has never seen.",
+  "hold_denominator": {
+    "manifest_windows": 60,
+    "excluded": 6,
+    "measured_on": 54,
+    "excluded_ids": [
+      "20240806_Border68FireMayBeHardToFind_om-w-mobo-m",
+      "20241021_PalomarRidge_hp-s-mobo-c",
+      "20241031_MontezumaFire_sm-w-mobo-c",
+      "20250101_Border1Fire_om-e-mobo-c",
+      "20250107_EatonFire_wilson-s-mobo-c",
+      "20250123_Border2Fire_om-w-mobo-m"
+    ],
+    "note": "The caption above quotes measured_on, not manifest_windows. data/manifest_hold.json names 60 windows and data/excluded.json drops 6 of them, so the held-out arm the headline is actually measured on is 54 sequences. Saying 60 on screen would quote a denominator this repo's own exclusion list had already reduced -- the caption is the line a judge hears in the video, so it carries the number the bench will really divide by. test_wall_caption_quotes_the_surviving_denominator recomputes all three of these from the two manifests and fails if they drift apart."
+  },
+  "fire_tile_selection": "20240622_Border58Fire_om-w-mobo-c, chosen by looking at t0-120s, t0, t0+360s, t0+720s and t0+1200s of all five DEV sequences whose frames are on disk. It is the one that matches the beat the demo is built on: nothing visible at t0 or t0+6 min, a faint smudge over the ridge by t0+12 min, and by t0+20 min a plume whose foot is pinned on the ridgeline and whose top has climbed -- which is S1 and S2 happening where a viewer can see them. It is also a full 81-frame window.",
+  "credit": "Imagery: HPWREN, http://hpwren.ucsd.edu/",
+  "licence_note": "FIgLib carries no SPDX licence and requires a credit reference. It is used for EVALUATION ONLY and never for training -- test_no_figlib_in_training enforces that, and it is what makes every Californian number cross-network out-of-sample by construction.",
+  "tiles": [
+    {
+      "tile": 17,
+      "row": 3,
+      "col": 1,
+      "arm": "dev",
+      "role": "ignition",
+      "sequence_id": "20240622_Border58Fire_om-w-mobo-c",
+      "camera_id": "om-w-mobo-c",
+      "class": "ignition",
+      "n_frames": 81,
+      "t0_index": 40,
+      "first_frame_local": "2024-06-22T14:24:58-07:00",
+      "hardness_raw_s3": null
+    }
+  ],
+  "pending": {
+    "unfilled_tiles": 39,
+    "blocked_on": "data/manifest_confuse.json",
+    "produced_by": "python scripts/build_confusion_set.py",
+    "note": "The 39 non-fire tiles are real non-fire mornings on real cameras and they are not invented here. This file is honest about being short rather than carrying thirty-nine sequence ids that name nothing on HPWREN's servers. Regenerate it once the CONFUSE manifest exists."
+  },
+  "confuse_selection": "39 of the 45 CONFUSE windows: the hardest window of every confusion class first, so no class falls off the wall, then filled by raw-S3 hardness descending. The six dropped windows are the six softest of the largest classes. Stated here whether or not the manifest exists yet, so a regeneration follows the same rule rather than inventing one."
+}

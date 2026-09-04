@@ -119,6 +119,15 @@ __all__ = ["main"]
 
 SYSTEMS: tuple[str, ...] = ("plumerank", "b1_cnn_grid", "b2_frame_diff")
 
+#: The system the word "headline" refers to in the published file. Named once, here,
+#: because three readers address the headline the same way -- web/lib/read.ts renders
+#: ``headline.p50_minutes`` as THE number, api/main.py calibrates the live wall off
+#: ``calibration.threshold``, and check_submission_readiness.py compares the served
+#: ``headline`` against the committed one field for field. A per-system map under either
+#: name would make each of them choose which system the headline is, and choosing the
+#: headline is not a decision a reader gets to take.
+HEADLINE_SYSTEM = "plumerank"
+
 #: The exact spellings production-plan.md section 7 prints. They are keys as well as
 #: labels: /results renders them and DEMO.md quotes them, so they are fixed here once.
 SYSTEM_LABELS: dict[str, str] = {
@@ -245,6 +254,60 @@ def instance_facts() -> dict[str, str | None]:
     return {
         "instance_id": _imds("meta-data/instance-id", token),
         "instance_type": _imds("meta-data/instance-type", token),
+    }
+
+
+def classifier_facts(root: pathlib.Path) -> dict[str, Any]:
+    """What the one tile classifier scored on its held-out split, QUOTED from disk.
+
+    Quoted and never recomputed: there is no torch in the runtime lockfile and no
+    Pyro-SDIS val split on the box that runs the bench, so the only honest source for a
+    precision/recall pair is the file ``scripts/train_tile_classifier.py`` wrote beside
+    the model. It is published here rather than left to the frontend because /results
+    shows the classifier row directly under the escalation fraction, and an empty
+    precision cell next to a full benchmark is what makes B1 read as a strawman -- which
+    is the one reading this project cannot afford, since B1 IS the escalation model.
+
+    Every field is ``None`` when ``data/tile_manifest.json`` is absent or unreadable. The
+    ``dataset`` field carries the corpus name the training run recorded, ``synthetic``
+    included, so a throwaway model's numbers arrive on the page already labelled as
+    coming from a throwaway corpus rather than looking like Pyro-SDIS results.
+    """
+    empty: dict[str, Any] = {
+        "source": None,
+        "dataset": None,
+        "throwaway": None,
+        "val_precision": None,
+        "val_recall": None,
+        "val_tiles": None,
+        "onnx_sha256": None,
+    }
+    path = root / "data" / "tile_manifest.json"
+    if not path.is_file():
+        return empty
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        # Loud, and then null -- not a raise. A malformed training manifest is a real
+        # defect and it is named on stderr, but it is not a reason to abandon a
+        # sixty-minute HOLD run whose numbers do not depend on it in any way.
+        print(f"WARNING: {path} is unreadable ({exc}); the classifier row is null", file=sys.stderr)
+        return empty
+    if not isinstance(manifest, dict):
+        print(f"WARNING: {path} is not a JSON object; the classifier row is null", file=sys.stderr)
+        return empty
+    val = manifest.get("val")
+    val = val if isinstance(val, dict) else {}
+    model = manifest.get("model")
+    model = model if isinstance(model, dict) else {}
+    return {
+        "source": "data/tile_manifest.json",
+        "dataset": manifest.get("corpus"),
+        "throwaway": manifest.get("throwaway"),
+        "val_precision": val.get("precision"),
+        "val_recall": val.get("recall"),
+        "val_tiles": val.get("n_tiles"),
+        "onnx_sha256": model.get("sha256"),
     }
 
 
@@ -1063,6 +1126,11 @@ def sensitivity_rows(
             row["n_out_of_window"] = dropped
             summary = summarise(ttds) if ttds else None
             row[f"{system}_p50_minutes"] = None if summary is None else _finite(summary.p50)
+            # p95 beside p50 at every offset, because it costs nothing here -- the summary
+            # is already computed -- and because the strip's claim is about how much of the
+            # headline is the label. A reader who wants to ask that of the tail rather than
+            # of the median should not have to re-run a 60-minute arm to do it.
+            row[f"{system}_p95_minutes"] = None if summary is None else _finite(summary.p95)
         row["advantage_minutes"] = _advantage(
             row.get("b1_cnn_grid_p50_minutes"), row.get("plumerank_p50_minutes")
         )
@@ -1448,8 +1516,36 @@ def run_arm(
             "calibrated on. emit()'s alerted flag is budget-CAPPED and is reported "
             "separately as budget_slots_spent."
         ),
-        "headline": {s: results[s].to_json()["ttd"] for s in SYSTEMS},
+        # THE number, and only it. Every system's full TTD summary is already in
+        # ``baselines``, so a per-system map under this name was those same rows published
+        # twice -- and it left web/lib/read.ts, api/main.py and the readiness check's
+        # headline-field comparison all addressing ``headline.p50_minutes`` against a
+        # document in which that path did not exist. ``headline_system`` names whose
+        # summary it is so the frontend never has to assume.
+        "headline_system": HEADLINE_SYSTEM,
+        "headline": results[HEADLINE_SYSTEM].to_json()["ttd"],
         "baselines": [results[s].to_json() for s in SYSTEMS],
+        # The deployed operating point, with a top-level home because it needs one:
+        # ``api/main.py:_calibrated_threshold`` reads exactly ``calibration.threshold`` and
+        # then exactly ``threshold``, and refuses to walk the document looking for a number
+        # by that name -- deliberately, since a search would happily calibrate the live wall
+        # off an ablation cell. Every value below comes off the same SystemResult object
+        # ``baselines`` is built from, so the wall's threshold and the published row cannot
+        # be two different numbers.
+        "calibration": {
+            "system": HEADLINE_SYSTEM,
+            "threshold": round(results[HEADLINE_SYSTEM].threshold, 6),
+            "target_alerts_per_camera_night": args.budget,
+            "realised_alerts_per_camera_night_uncapped": round(
+                results[HEADLINE_SYSTEM].calibration_rate, 4
+            ),
+            "realised_on": "micro non-fire windows" if args.arm == "micro" else "confuse",
+            "n_calibration_windows": len(calibration_windows),
+            "slots_per_camera": per_camera,
+            # The CloudWatch drift alarm's band, published beside the rate it watches: an
+            # alarm threshold nobody can read is an operational claim taken on trust.
+            "drift_tolerance": K.BUDGET_DRIFT_TOLERANCE,
+        },
         # The measured fraction is published beside BOTH the roster it is a fraction of
         # and the ceiling that roster structurally imposes. The gate is rank <= TOP_K, so
         # at most TOP_K of N cameras escalate per tick and the fraction cannot fall below
@@ -1476,6 +1572,7 @@ def run_arm(
             s: round(results[s].model_calls_per_camera_night, 3)
             for s in ("plumerank", "b1_cnn_grid")
         },
+        "classifier": classifier_facts(root),
         "sensitivity": sensitivity,
         "operating_curve": curve,
         "ablation": ablation,
@@ -1609,7 +1706,10 @@ def verify_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "n_windows": payload["n_windows"],
         "n_fire_windows": payload["n_fire_windows"],
         "frames_per_window": payload["frames_per_window"],
-        "headline": payload["headline"],
+        # Every system's summary, not only the headline system's: a micro run that
+        # reproduced PlumeRank byte-for-byte while B1 had moved would print MATCH over a
+        # changed comparison, and the comparison is what the arm exists to check.
+        "ttd": {r["system"]: r["ttd"] for r in payload["baselines"]},
         "thresholds": {r["system"]: r["threshold"] for r in payload["baselines"]},
         "realised_rate_uncapped": {
             r["system"]: r["arm_realised_rate_uncapped"] for r in payload["baselines"]
@@ -1667,8 +1767,11 @@ def run_micro(
             f"{payload['frames_per_window']} frames)",
         )
     )
+    # Off the per-system rows, because ``headline`` is now the headline system's summary
+    # alone -- which is what makes the word mean something in the published file.
+    ttds = {row["system"]: row["ttd"] for row in payload["baselines"]}
     for system in SYSTEMS:
-        summary = payload["headline"][system]
+        summary = ttds[system]
         body = (
             "no ignition clock in this arm -- rate only"
             if summary is None

@@ -479,3 +479,182 @@ def test_micro_refuses_to_build_from_frames_that_are_not_there(tmp_path) -> None
     data_root.mkdir()
     with pytest.raises(fetch.FetchError, match="missing or unreadable"):
         fetch.build_micro(_manifest("dev", n_windows=5, n_frames=2), data_root)
+
+
+# ---------------------------------------------------------------------------------
+# The cut, on a source that actually has a pre-ignition half
+#
+# Every ``tree``-based test above runs against a fixture whose windows carry
+# ``t0_index == 0``, i.e. no pre-ignition frames at all. The cut degrades correctly there
+# -- an empty pre half yields a fire window only -- but that means the fixture exercises
+# NONE of what ``micro_windows`` exists to do, and ``n_windows == MICRO_SEQUENCES`` in
+# those tests is the shape of the corpus BEFORE the split, which could not calibrate a
+# threshold and made `make verify` exit. The tests below are what stops that shape coming
+# back green.
+# ---------------------------------------------------------------------------------
+
+
+def _source(sequence_id: str, camera_id: str, n_frames: int, t0: int) -> dict:
+    """One DEV-schema window with a real mid-sequence ignition."""
+    return {
+        "sequence_id": sequence_id,
+        "camera_id": camera_id,
+        "date": sequence_id[:8],
+        "t0_index": t0,
+        "t0_offset_seconds": 0,
+        "n_frames": n_frames,
+        "frames": [f"f{i:03d}_{i - t0:+05d}.jpg" for i in range(n_frames)],
+    }
+
+
+def test_a_source_with_a_pre_ignition_half_becomes_two_windows() -> None:
+    sources = [_source(f"2024062{i}_X_cam{i}-n-mobo-c", f"cam{i}-n-mobo-c", 80, 40) for i in range(5)]
+    planned = fetch.micro_windows(sources)
+
+    assert len(planned) == 2 * len(sources)
+    fires = [w for w in planned if w["t0_index"] is not None]
+    calm = [w for w in planned if w["t0_index"] is None]
+    # An arm of fires only has no false-alarm denominator, so bench.load_calibration
+    # exits. The corpus must ship its own non-fire half or `make verify` cannot run.
+    assert len(fires) == len(calm) == len(sources)
+    assert {w["class"] for w in fires} == {"fire"}
+    assert {w["class"] for w in calm} == {"non-fire"}
+
+
+def test_the_two_halves_of_a_sequence_share_no_frame() -> None:
+    sources = [_source("20240622_X_cam-n-mobo-c", "cam-n-mobo-c", 80, 40)]
+    pre, blaze = fetch.micro_windows(sources)
+    assert set(pre["frames"]).isdisjoint(set(blaze["frames"]))
+
+
+def test_the_fire_window_is_warm_at_its_own_ignition() -> None:
+    sources = [_source("20240622_X_cam-n-mobo-c", "cam-n-mobo-c", 80, 40)]
+    _, blaze = fetch.micro_windows(sources)
+    # t0_index is an index into the window's OWN frame list, not the source's, and the
+    # lead-in is what puts the background model past WARMUP_FRAMES before it moves.
+    assert blaze["t0_index"] == fetch.MICRO_FIRE_LEAD_IN_FRAMES
+    assert blaze["frames"][blaze["t0_index"]] == sources[0]["frames"][40]
+
+
+def test_every_planned_window_is_the_same_length() -> None:
+    sources = [
+        _source("20240622_X_a-n-mobo-c", "a-n-mobo-c", 81, 40),
+        _source("20240625_X_b-n-mobo-c", "b-n-mobo-c", 80, 39),
+        _source("20240701_X_c-n-mobo-c", "c-n-mobo-c", 80, 44),
+    ]
+    planned = fetch.micro_windows(sources)
+    # bench.load_arm refuses a ragged arm: one window is one camera-night, and a mixed
+    # length makes "alerts per camera-night" a different unit per row.
+    assert len({len(w["frames"]) for w in planned}) == 1
+    assert all(w["n_frames"] == len(w["frames"]) for w in planned)
+    # Non-fire trims from the front, so what survives is the span closest to the fire.
+    pre = next(w for w in planned if w["sequence_id"].endswith(fetch.MICRO_NON_FIRE_SUFFIX))
+    assert pre["frames"][-1] == sources[0]["frames"][40 - fetch.MICRO_FIRE_LEAD_IN_FRAMES - 1]
+
+
+def test_a_source_that_begins_at_ignition_yields_a_fire_window_only() -> None:
+    # The degenerate case the `tree` fixture is made of, asserted on purpose rather than
+    # as a side effect, so that its shape can never be mistaken for the real one.
+    planned = fetch.micro_windows([_source("20240622_X_cam-n-mobo-c", "cam-n-mobo-c", 8, 0)])
+    assert [w["class"] for w in planned] == ["fire"]
+    assert planned[0]["t0_index"] == 0
+
+
+# ---------------------------------------------------------------------------------
+# The committed corpus itself -- these read data/micro/, not a fixture
+# ---------------------------------------------------------------------------------
+
+_MICRO = _DATA / "micro"
+
+_committed = pytest.mark.skipif(
+    not (_MICRO / "manifest_micro.json").is_file(),
+    reason="data/micro/manifest_micro.json is not present in this checkout",
+)
+
+
+def _micro_manifest() -> dict:
+    return json.loads((_MICRO / "manifest_micro.json").read_text())
+
+
+@_committed
+def test_the_committed_micro_corpus_can_calibrate_a_threshold() -> None:
+    """The regression that made `make verify` exit before it read a pixel.
+
+    ``bench.load_calibration(root, "micro", ...)`` keeps ``not w.is_fire`` and exits on an
+    empty result. A micro manifest of fires only passes every other test in this file.
+    """
+    manifest = _micro_manifest()
+    calm = [w for w in manifest["windows"] if w["t0_index"] is None]
+    assert calm, "the committed micro manifest has no non-fire window to calibrate on"
+    assert len(calm) == manifest["n_calibration_windows"]
+    assert manifest["n_fire_windows"] == len(manifest["windows"]) - len(calm)
+
+
+@_committed
+def test_the_committed_micro_manifest_reproduces_from_the_dev_manifest() -> None:
+    """Selection rule and cut re-derived here, not read out of the file being checked."""
+    dev = json.loads((_DATA / "manifest_dev.json").read_text())
+    planned = fetch.micro_windows(fetch.micro_sequences(dev))
+    committed = _micro_manifest()["windows"]
+    assert [w["sequence_id"] for w in planned] == [w["sequence_id"] for w in committed]
+    for want, got in zip(planned, committed):
+        assert want["frames"] == got["frames"], got["sequence_id"]
+        assert want["t0_index"] == got["t0_index"], got["sequence_id"]
+        assert want["source_sequence_id"] == got["source_sequence_id"]
+
+
+@_committed
+def test_every_frame_the_committed_manifest_names_is_on_disk_at_working_resolution() -> None:
+    for window in _micro_manifest()["windows"]:
+        directory = _MICRO / window["sequence_id"]
+        listed = list(window["frames"])
+        assert len(listed) == window["n_frames"]
+        on_disk = sorted(p.name for p in directory.glob("*.jpg"))
+        # Both directions: a named frame that is missing, and a frame nobody named.
+        assert on_disk == sorted(listed), window["sequence_id"]
+        image = cv2.imread(str(directory / listed[0]))
+        assert image is not None
+        assert image.shape == (WORK_HEIGHT, WORK_WIDTH, 3)
+
+
+@_committed
+def test_the_committed_fire_windows_share_no_frame_with_the_calibration_windows() -> None:
+    manifest = _micro_manifest()
+    calm: set[tuple[str, str]] = set()
+    fire: set[tuple[str, str]] = set()
+    for window in manifest["windows"]:
+        target = fire if window["t0_index"] is not None else calm
+        target.update((window["source_sequence_id"], f) for f in window["frames"])
+    assert calm and fire
+    assert calm.isdisjoint(fire), "the threshold would be solved on frames it then times"
+
+
+@_committed
+def test_the_committed_micro_corpus_touches_no_hold_sequence() -> None:
+    hold = json.loads((_DATA / "manifest_hold.json").read_text())
+    hold_ids = {w["sequence_id"] for w in hold["windows"]}
+    hold_cameras = {w["camera_id"] for w in hold["windows"]}
+    manifest = _micro_manifest()
+    sources = {w["source_sequence_id"] for w in manifest["windows"]}
+    cameras = {w["camera_id"] for w in manifest["windows"]}
+    # micro is the only imagery in git, so it is the only imagery anybody looks at. A HOLD
+    # camera in it would make the held-out arm something that had been looked at.
+    assert sources.isdisjoint(hold_ids)
+    assert cameras.isdisjoint(hold_cameras)
+
+
+@_committed
+def test_the_committed_corpus_says_what_it_calibrates_on_in_both_files() -> None:
+    """The attackable claim has to be in the manifest AND beside the pixels.
+
+    A judge who opens data/micro/ and nothing else must find the sentence, and so must a
+    reader who only ever parses the manifest.
+    """
+    manifest = _micro_manifest()
+    note = manifest["calibration_note"]
+    assert "pre-ignition halves of its own fire sequences" in note
+    assert "never claims to be the held-out headline" in note
+    provenance = (_MICRO / "PROVENANCE.md").read_text()
+    assert "pre-ignition halves of its own fire sequences" in provenance
+    # And the three-minute command must never be offered as the headline's reproducer.
+    assert "make fetch && make bench" in provenance

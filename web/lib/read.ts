@@ -1,18 +1,30 @@
 /**
  * Reading /api/benchmark without inventing anything.
  *
- * The endpoint serves results/bench_<date>.json VERBATIM from disk, which is what
- * makes the page, the endpoint and the repo unable to disagree about the headline. The
- * price of "verbatim" is that the frontend does not get to specify the file's exact
- * key names -- scripts/bench.py owns those -- so this module looks each quantity up
- * under the handful of spellings the file could plausibly use and returns `null` when
- * it finds none.
+ * The endpoint serves results/bench_<date>.json VERBATIM from disk, which is what makes
+ * the page, the endpoint and the repo unable to disagree about the headline. The price of
+ * "verbatim" is that the frontend does not get to choose the file's key names --
+ * scripts/bench.py owns those -- so THIS FILE IS THE OTHER HALF OF A CONTRACT, and the
+ * contract is written down rather than guessed at.
  *
- * `null` is a load-bearing value here, not a shrug. Every consumer of a null renders
- * "not published in results/bench_<date>.json" in --ink-3. That is a worse-looking
- * page than a zero and an infinitely better one: a zero p50 would read as "detects
- * instantly", which is the single most attackable wrong number this project could put
- * on a screen.
+ * The rule, after the schema reconciliation: every quantity is published exactly once,
+ * under the name that says which quantity it is, and the spelling below is that name --
+ * not a plausible one. Where bench.py's spelling was more specific than the frontend's
+ * wish (`calibration_realised_rate_uncapped` against a bare `alerts_per_camera_night`)
+ * the reader moved, because the specific one is what build-contract.md requires of a
+ * document that publishes two different rates. Where bench.py had no addressable name at
+ * all (a per-system map called `headline`, a solved threshold with no top-level home)
+ * bench.py moved, because api/main.py and check_submission_readiness.py address those the
+ * same way this file does and bench was the single disagreeing party.
+ *
+ * `null` is still a load-bearing value, and every consumer of one renders "not published
+ * in results/bench_<date>.json" in --ink-3. That is a worse-looking page than a zero and
+ * an infinitely better one: a zero p50 would read as "detects instantly", which is the
+ * single most attackable wrong number this project could put on a screen. What is NOT
+ * acceptable is that state appearing against a real file, which is why
+ * tests/test_results_contract.py runs bench.py and asserts every spelling below against a
+ * payload the script actually produced. A rename in bench.py fails that test; it does not
+ * silently empty a panel on the 30%-weighted screen.
  */
 
 import type {
@@ -30,7 +42,7 @@ function isDict(v: unknown): v is Dict {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** Dotted lookup: `at(doc, "budget.target")`. */
+/** Dotted lookup: `at(doc, "calibration.threshold")`. */
 function at(doc: unknown, path: string): unknown {
   let cur: unknown = doc;
   for (const key of path.split(".")) {
@@ -73,97 +85,109 @@ function list(doc: unknown, ...paths: string[]): unknown[] | null {
 
 /* -------------------------------------------------------------------------------- */
 
+/** Fallback display names, used only when a row carries no `label` of its own.
+ *  bench.py publishes one on every row -- these are the spellings production-plan.md
+ *  section 7 prints -- so this map exists for a document written by an older commit. */
 const SYSTEM_LABELS: Record<string, string> = {
   plumerank: "PlumeRank",
-  b1: "B1 -- the same CNN on every frame",
-  b2: "B2 -- frame differencing",
+  b1_cnn_grid: "B1 CNN grid -- the same ONNX on every frame",
+  b2_frame_diff: "B2 frame-diff",
 };
 
-function readSystems(doc: unknown): SystemResult[] {
-  // Two shapes are accepted because both are natural for bench.py to write: a list of
-  // per-system records, or an object keyed by system. Neither is guessed at -- a
-  // document carrying neither yields an empty list and the table says so.
-  const raw = list(doc, "systems", "arms", "results");
-  const entries: [string, unknown][] = raw
-    ? raw.map((r) => [str(r, "key", "system", "name") ?? "", r])
-    : Object.entries((at(doc, "systems") as Dict) ?? {});
+/** The system `headline` is about when the file does not name one. bench.py publishes
+ *  `headline_system`, and that is read first: which system carries the headline is the
+ *  benchmark's decision to record, never the frontend's to assume. */
+const DEFAULT_HEADLINE_SYSTEM = "plumerank";
 
-  return entries
-    .filter(([key]) => key !== "")
-    .map(([key, r]) => ({
+function readSystems(doc: unknown): SystemResult[] {
+  // `baselines` is what bench.py writes -- one record per system, PlumeRank included.
+  // `systems` is accepted beside it because the list is not only baselines and the file
+  // may yet be renamed; neither name is guessed at, and a document carrying neither
+  // yields an empty list and the table says so.
+  const raw = list(doc, "baselines", "systems") ?? [];
+
+  return raw
+    .map((r) => ({
+      key: str(r, "system", "key") ?? "",
+      label: str(r, "label") ?? "",
+      r,
+    }))
+    .filter((e) => e.key !== "")
+    .map(({ key, label, r }) => ({
       key,
-      label: str(r, "label") ?? SYSTEM_LABELS[key] ?? key,
-      p50_minutes: num(r, "p50_minutes", "p50", "ttd.p50_minutes", "ttd_p50_minutes"),
-      p95_minutes: num(r, "p95_minutes", "p95", "ttd.p95_minutes", "ttd_p95_minutes"),
-      n_missed: num(r, "n_missed", "missed", "ttd.n_missed"),
-      alerts_per_camera_night: num(
-        r,
-        "alerts_per_camera_night",
-        "realised_alerts_per_camera_night",
-        "realised_rate",
-      ),
-      model_invocations_per_camera_night: num(
-        r,
-        "model_invocations_per_camera_night",
-        "invocations_per_camera_night",
-        "model_invocations",
-      ),
+      label: label || SYSTEM_LABELS[key] || key,
+      // The percentiles live in the row's `ttd` object -- metrics.py's TTDSummary.to_json
+      // -- and it is `null` on an arm with no ignition clock, which num() reads as absent.
+      p50_minutes: num(r, "ttd.p50_minutes"),
+      p95_minutes: num(r, "ttd.p95_minutes"),
+      n_missed: num(r, "ttd.n_missed"),
+      // The CONFUSE-set rate, not the arm's own, and the choice is the same one
+      // headline_block makes: this column exists to show the operating point all three
+      // systems were calibrated to, and on a fire arm the uncapped rate is legitimately
+      // higher because a fire SHOULD alert. Printing the arm rate under a bare "alerts /
+      // camera-night" heading would read as a false-alarm rate to every reader who did
+      // not check which arm it came from. Both are in the file; this is the one the
+      // printed block quotes, so page and block agree.
+      alerts_per_camera_night: num(r, "calibration_realised_rate_uncapped"),
+      model_invocations_per_camera_night: num(r, "model_calls_per_camera_night"),
     }));
 }
 
-function readOperating(doc: unknown): CurveSeries[] {
-  const raw = list(doc, "operating_curve.series", "operating_curve", "operating.series");
-  if (!raw) return [];
-  return raw
-    .map((s) => {
-      const key = str(s, "key", "system", "name") ?? "";
-      const pts = list(s, "points", "curve") ?? [];
-      return {
-        key,
-        label: str(s, "label") ?? SYSTEM_LABELS[key] ?? key,
-        points: pts
-          .map((p) => ({
-            budget: num(p, "budget", "alerts_per_camera_night", "x"),
-            p50_minutes: num(p, "p50_minutes", "p50", "y"),
-          }))
-          .filter((p): p is { budget: number; p50_minutes: number } =>
-            p.budget !== null && p.p50_minutes !== null,
-          )
-          .sort((a, b) => a.budget - b.budget),
-      };
-    })
-    .filter((s) => s.key !== "" && s.points.length > 1);
+/** The operating curve, pivoted.
+ *
+ *  bench.py publishes one row PER BUDGET carrying a column per system
+ *  (`plumerank_p50_minutes`, ...), because that is the shape the sweep produces and the
+ *  shape a reader opening the raw file wants: one line, one operating point, every system
+ *  on it. The chart wants one series per system. The pivot happens here rather than in
+ *  bench.py so the file stays the tabular artefact, and the system roster comes from the
+ *  published `baselines` rather than from sniffing key suffixes -- a chart that discovered
+ *  its own series names would draw whatever a future column happened to be called. */
+function readOperating(doc: unknown, systems: SystemResult[]): CurveSeries[] {
+  const rows = list(doc, "operating_curve");
+  if (!rows) return [];
+  return systems
+    .map((s) => ({
+      key: s.key,
+      label: s.label,
+      points: rows
+        .map((r) => ({
+          budget: num(r, "budget_alerts_per_camera_night"),
+          p50_minutes: num(r, `${s.key}_p50_minutes`),
+        }))
+        .filter((p): p is { budget: number; p50_minutes: number } =>
+          p.budget !== null && p.p50_minutes !== null,
+        )
+        .sort((a, b) => a.budget - b.budget),
+    }))
+    .filter((s) => s.points.length > 1);
 }
 
-function readSensitivity(doc: unknown): SensitivityPoint[] {
-  const raw = list(doc, "sensitivity.points", "sensitivity", "sensitivity_curve");
-  if (!raw) return [];
-  return raw
-    .map((p) => ({
-      offset_minutes: num(p, "offset_minutes", "offset", "t0_offset_minutes", "x"),
-      p50_minutes: num(p, "p50_minutes", "p50", "y"),
-      p95_minutes: num(p, "p95_minutes", "p95"),
+/** The +/-5 min strip, for the headline system.
+ *
+ *  bench.py's rows carry a p50 and a p95 per system per offset. The strip draws ONE line
+ *  and it has to be the headline's, because the question it answers -- "how much of that
+ *  number is the label?" -- is a question about the number on the screen above it. */
+function readSensitivity(doc: unknown, headlineSystem: string): SensitivityPoint[] {
+  const rows = list(doc, "sensitivity.rows");
+  if (!rows) return [];
+  return rows
+    .map((r) => ({
+      offset_minutes: num(r, "offset_minutes"),
+      p50_minutes: num(r, `${headlineSystem}_p50_minutes`),
+      p95_minutes: num(r, `${headlineSystem}_p95_minutes`),
     }))
     .filter((p): p is SensitivityPoint => p.offset_minutes !== null && p.p50_minutes !== null)
     .sort((a, b) => a.offset_minutes - b.offset_minutes);
 }
 
 /** The ablation grid, rendered as whatever table the CSV-turned-JSON actually is.
- *  Columns are derived from the union of the row keys rather than declared here: the
- *  grid is {MOG2, LSBP, GSOC} x {S4 on/off} x {escalation on/off} today and the point
- *  of shipping it is that a judge reads the cells, not that the frontend knows their
- *  names. */
+ *  bench.py re-reads its own committed `results/ablation_<date>.csv` and publishes the
+ *  rows verbatim, so the columns are derived from the union of the row keys rather than
+ *  declared here: the grid is {MOG2, LSBP, GSOC} x {S4 on/off} x {escalation on/off}
+ *  today and the point of shipping it is that a judge reads the cells, not that the
+ *  frontend knows their names. `null` when the run carried no --ablation. */
 function readAblation(doc: unknown): AblationGrid | null {
-  const declaredCols = list(doc, "ablation.columns");
-  const declaredRows = list(doc, "ablation.rows");
-  if (declaredCols && declaredRows) {
-    return {
-      columns: declaredCols.map((c) => String(c)),
-      rows: declaredRows.map((r) => (Array.isArray(r) ? r.map((c) => String(c)) : [String(r)])),
-    };
-  }
-
-  const records = list(doc, "ablation.cells", "ablation", "ablation_grid");
+  const records = list(doc, "ablation");
   if (!records || records.length === 0) return null;
 
   const columns: string[] = [];
@@ -176,87 +200,118 @@ function readAblation(doc: unknown): AblationGrid | null {
   const rows = records.map((rec) =>
     columns.map((c) => {
       const v = isDict(rec) ? rec[c] : undefined;
-      if (v === undefined || v === null) return "--";
-      return typeof v === "number" ? String(v) : String(v);
+      if (v === undefined || v === null || v === "") return "--";
+      return String(v);
     }),
   );
   return { columns, rows };
 }
 
 function readExclusions(doc: unknown): Exclusions {
-  const items = list(doc, "exclusions.items", "exclusions.sequences", "excluded") ?? [];
+  // Objects carrying `sequence_id` and `reason`, because "why" is the question a count
+  // invites and a list of bare ids answers none of it.
+  const items = list(doc, "exclusions.items") ?? [];
   return {
-    count: num(doc, "exclusions.count", "exclusions.n", "n_excluded"),
-    contact_sheet_url: str(doc, "exclusions.contact_sheet_url", "exclusions.contact_sheet"),
+    count: num(doc, "exclusions.count"),
+    // Not published by bench.py today: data/contact_sheet.jpg is committed to the repo
+    // but is not served by the static site, and a link that 404s beside an exclusion
+    // count is worse than the count alone. `null` renders no link at all, not an error.
+    contact_sheet_url: str(doc, "exclusions.contact_sheet_url"),
     items: items
       .map((i) => ({
-        sequence_id: str(i, "sequence_id", "id") ?? "",
-        reason: str(i, "reason", "why") ?? "",
+        sequence_id: str(i, "sequence_id") ?? "",
+        reason: str(i, "reason") ?? "",
       }))
       .filter((i) => i.sequence_id !== ""),
   };
 }
 
+/** The corpus label on the tile-classifier row, carrying the throwaway flag.
+ *
+ *  `corpus` and `throwaway` are INDEPENDENT fields in the manifest
+ *  scripts/train_tile_classifier.py writes -- `write_manifest(corpus=..., throwaway=...)`
+ *  -- so a five-minute model trained on real Pyro-SDIS is published as
+ *  `{corpus: "pyro-sdis", throwaway: true}`. Reading `corpus` alone would put
+ *  "0.83 / 0.67 on pyro-sdis" on the screen that carries the technical-execution
+ *  criterion, with nothing on it saying the pair came from a throwaway run. The flag is
+ *  folded into the label rather than added to the type because the label is what
+ *  /results actually prints, and a field nothing renders protects nobody. */
+function readClassifierDataset(doc: unknown): string | null {
+  const corpus = str(doc, "classifier.dataset");
+  if (corpus === null) return null;
+  return at(doc, "classifier.throwaway") === true ? `${corpus} (throwaway model)` : corpus;
+}
+
 /* -------------------------------------------------------------------------------- */
 
 export function readBenchmark(doc: unknown): Benchmark {
+  const systems = readSystems(doc);
+  const headlineSystem = str(doc, "headline_system") ?? DEFAULT_HEADLINE_SYSTEM;
+
   return {
     run: {
-      commit: str(doc, "run.commit", "commit", "git_commit"),
-      instance: str(doc, "run.instance", "instance", "instance_type"),
-      date: str(doc, "run.date", "date", "generated", "generated_at"),
-      wall_clock_seconds: num(doc, "run.wall_clock_seconds", "wall_clock_seconds", "elapsed_seconds"),
-      arm: str(doc, "run.arm", "arm"),
-      n_sequences: num(doc, "run.n_sequences", "n_sequences", "n_windows", "headline.n_sequences"),
-      constants_sha256: str(doc, "run.constants_sha256", "constants_sha256", "budget.constants_sha256"),
+      commit: str(doc, "run.commit"),
+      instance: str(doc, "run.instance"),
+      date: str(doc, "run.date"),
+      wall_clock_seconds: num(doc, "run.wall_clock_seconds"),
+      // Top level, not under `run`: which arm was replayed is a property of the
+      // experiment, and bench.py files it beside the arm's own counts.
+      arm: str(doc, "arm"),
+      n_sequences: num(doc, "n_windows"),
+      constants_sha256: str(doc, "run.constants_sha256"),
     },
+    // THE number. `headline` is the headline system's TTDSummary and nothing else --
+    // every system's summary is in `systems` -- so this reads it flat.
     headline: {
-      p50_minutes: num(doc, "headline.p50_minutes", "headline.p50", "p50_minutes"),
-      p95_minutes: num(doc, "headline.p95_minutes", "headline.p95", "p95_minutes"),
-      n_missed: num(doc, "headline.n_missed", "n_missed"),
+      p50_minutes: num(doc, "headline.p50_minutes"),
+      p95_minutes: num(doc, "headline.p95_minutes"),
+      n_missed: num(doc, "headline.n_missed"),
     },
     budget: {
-      target: num(
-        doc,
-        "budget.target_alerts_per_camera_night",
-        "budget.target",
-        "budget_target",
-      ),
-      // The UNCAPPED rate, and the JSON must label it: rank.realised_rate counts
-      // threshold crossings without the budget cap, because a capped count makes every
-      // threshold satisfy 2.0/camera-night and the solver degenerates. That is the
-      // quantity solve_threshold was calibrated on, so it is the one shown here.
-      realised_uncapped: num(
-        doc,
-        "budget.realised_alerts_per_camera_night_uncapped",
-        "budget.realised_uncapped",
-        "budget.realised_alerts_per_camera_night",
-        "realised_alerts_per_camera_night",
-      ),
-      threshold: num(doc, "budget.threshold", "threshold"),
-      drift_tolerance: num(doc, "budget.drift_tolerance", "drift_tolerance"),
+      target: num(doc, "calibration.target_alerts_per_camera_night", "budget_alerts_per_camera_night"),
+      // The UNCAPPED rate, and the file labels it so: rank.realised_rate counts threshold
+      // crossings without the budget cap, because a capped count makes every threshold
+      // satisfy 2.0/camera-night and the solver degenerates. That is the quantity
+      // solve_threshold was calibrated on, so it is the one shown here.
+      realised_uncapped: num(doc, "calibration.realised_alerts_per_camera_night_uncapped"),
+      // `calibration.threshold` first and `threshold` second, in that order, because
+      // api/main.py reads exactly these two spellings to calibrate the live wall. Three
+      // surfaces reading one number by one pair of names is what stops the wall and the
+      // results page running at two different operating points.
+      threshold: num(doc, "calibration.threshold", "threshold"),
+      drift_tolerance: num(doc, "calibration.drift_tolerance"),
     },
-    systems: readSystems(doc),
+    systems,
     operating: {
-      series: readOperating(doc),
+      series: readOperating(doc, systems),
+      // The annotated rule on the curve is the operating point the project is calibrated
+      // to, which is the budget the headline was measured at -- read from the file, never
+      // typed into the chart.
       operating_point: num(
         doc,
-        "operating_curve.operating_point",
-        "operating_point",
-        "budget.target_alerts_per_camera_night",
-        "budget.target",
+        "calibration.target_alerts_per_camera_night",
+        "budget_alerts_per_camera_night",
       ),
     },
-    sensitivity: readSensitivity(doc),
+    sensitivity: readSensitivity(doc, headlineSystem),
     ablation: readAblation(doc),
     escalation: {
-      fraction: num(doc, "escalation.fraction", "escalation_fraction"),
-      max: num(doc, "escalation.max", "escalation_fraction_max"),
+      fraction: num(doc, "escalation.fraction"),
+      // The STRUCTURAL ceiling, not the design target. `rank <= ESCALATION_TOP_K` caps
+      // how many cameras can escalate per tick, so the realised fraction cannot fall
+      // below TOP_K/roster however good the statistic is -- and bench.py says out loud
+      // that exceeding the 2% design target on a small roster is arithmetic rather than a
+      // defect. Rendering "asserted at or under 2%" beside a measured 3.3% would print a
+      // contradiction on the screen that carries the technical-execution criterion; the
+      // ceiling is the bound the run actually asserts and can actually meet.
+      max: num(doc, "escalation.structural_ceiling", "escalation.max_allowed"),
     },
     classifier: {
-      precision: num(doc, "classifier.val_precision", "classifier.precision", "val_precision"),
-      recall: num(doc, "classifier.val_recall", "classifier.recall", "val_recall"),
-      dataset: str(doc, "classifier.dataset", "classifier.corpus"),
+      // Quoted by bench.py out of data/tile_manifest.json, which the training run wrote.
+      // Null on a box with no training manifest, and the page renders its dashes.
+      precision: num(doc, "classifier.val_precision"),
+      recall: num(doc, "classifier.val_recall"),
+      dataset: readClassifierDataset(doc),
     },
     exclusions: readExclusions(doc),
     raw: isDict(doc) ? doc : {},

@@ -71,7 +71,7 @@ _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from plumerank.constants import WORK_HEIGHT, WORK_WIDTH  # noqa: E402
+from plumerank.constants import WARMUP_FRAMES, WORK_HEIGHT, WORK_WIDTH  # noqa: E402
 
 __all__ = [
     "FetchError",
@@ -84,6 +84,9 @@ __all__ = [
     "load_manifest",
     "plan_manifest",
     "fetch_planned",
+    "micro_sequences",
+    "split_at_ignition",
+    "micro_windows",
     "build_micro",
     "main",
 ]
@@ -109,16 +112,40 @@ HTTP_TIMEOUT_SECONDS: float = 30.0
 RETRY_ATTEMPTS: int = 3
 RETRY_BACKOFF_SECONDS: float = 1.5
 
-#: Five DEV sequences, about 400 frames -- 402 today, because three of the five windows the
-#: selection rule picks are 80 frames rather than 81: the archive is missing one minute in
-#: each and the manifest records that rather than papering over it. This is the whole reason
-#: `make verify` finishes in three minutes with no network and no credentials.
+#: Five DEV *source* sequences, about 400 frames -- 402 today, because three of the five
+#: windows the selection rule picks are 80 frames rather than 81: the archive is missing one
+#: minute in each and the manifest records that rather than papering over it. Each source
+#: sequence is then cut in two (see ``micro_windows``), so the committed corpus is ten
+#: windows and fewer frames than 402. This is the whole reason `make verify` finishes in
+#: three minutes with no network and no credentials.
 MICRO_SEQUENCES: int = 5
+
+#: How the two halves of a cut source sequence are named. A visibly artificial double
+#: underscore, because these ids are NOT FIgLib sequence ids and nothing downstream may
+#: match them against the archive: ``source_sequence_id`` carries the real one.
+MICRO_NON_FIRE_SUFFIX: str = "__pre"
+MICRO_FIRE_SUFFIX: str = "__fire"
+
+#: Pre-ignition frames the fire half keeps as lead-in. ``WARMUP_FRAMES`` and not zero:
+#: MOG2's output means nothing until it has seen that many frames, so a fire window that
+#: began exactly at t0 would spend the first eight minutes of every time-to-detection
+#: warming a background model instead of detecting -- an artefact of where the corpus was
+#: cut, reported as if it were a property of the detector. Imported rather than repeated as
+#: an 8, so the cut and the segmenter cannot drift apart.
+MICRO_FIRE_LEAD_IN_FRAMES: int = WARMUP_FRAMES
 
 #: The micro frames are committed, so this quality setting is baked into bytes that are in
 #: the repository -- it is read once, by whoever regenerates them, and never by the judge
 #: path. High enough that the downscale, not the encoder, is what the pipeline sees.
-MICRO_JPEG_QUALITY: int = 92
+#:
+#: 98 and not 92, and the reason is measured rather than assumed: the round trip through
+#: the encoder costs a mean absolute error of 1.67 grey levels at 92 against 1.09 at 98,
+#: and on a five-window arm that difference is large enough to change which windows the
+#: ranking admits -- so at 92 the committed corpus was measurably not the array the
+#: pipeline computes from the archive frame, which is the one thing it exists to be. 98 is
+#: the highest setting whose committed tree still fits the <=25 MB envelope seed-data.md
+#: section 8 states for data/micro/ (about 19 MB at 310 frames; quality 100 is 28 MB).
+MICRO_JPEG_QUALITY: int = 98
 
 #: The fetch group named by ``--corpus``. The spelling is fixed by the Makefile and the
 #: build contract; the grouping is by *what a run needs*, not by which archive the bytes
@@ -466,12 +493,131 @@ def micro_sequences(dev_manifest: dict, n_sequences: int = MICRO_SEQUENCES) -> l
     return chosen
 
 
+def split_at_ignition(window: dict) -> tuple[list[str], list[str]]:
+    """One FIgLib window cut in two at its ignition frame: ``(pre_ignition, from_ignition)``.
+
+    A FIgLib window spans -2400 s to +2400 s around the reported ignition, so its first
+    half is not padding: it is a real camera-night on the same camera at the same time of
+    day, with no fire in it. That is where the micro corpus gets its false-alarm
+    denominator without a second download, and it is the only honest way to get one out of
+    a corpus made entirely of fires.
+
+    A window with no ignition clock (``t0_index`` absent or null) is already non-fire and
+    is returned whole in the second slot rather than raising: the caller decides what a
+    half-empty split means, and the test corpora legitimately contain windows that begin at
+    ignition.
+    """
+    frames = [str(name) for name in window["frames"]]
+    t0 = window.get("t0_index")
+    if t0 is None:
+        return [], frames
+    t0 = int(t0)
+    if not 0 <= t0 < len(frames):
+        raise FetchError(
+            f"{window.get('sequence_id')}: t0_index={t0} is outside its own "
+            f"{len(frames)} frames, so the window cannot be cut at its ignition."
+        )
+    return frames[:t0], frames[t0:]
+
+
+def micro_windows(
+    chosen: Sequence[dict],
+    lead_in: int = MICRO_FIRE_LEAD_IN_FRAMES,
+) -> list[dict]:
+    """The split windows the micro manifest names, planned before a pixel is written.
+
+    Each source sequence becomes **two** windows -- a non-fire one before the ignition and
+    a fire one from just before it onwards -- because ``bench.py --arm micro`` calibrates
+    its threshold on the non-fire windows and measures time-to-detection on the fire ones.
+    A micro corpus of fires only has no false-alarm denominator, so no threshold can be
+    solved on it and ``make verify`` has nothing to reproduce.
+
+    Three properties this cut has to hold, and none of them is free:
+
+    * **Equal length.** ``bench.load_arm`` refuses an arm of ragged windows, and it is
+      right to: one window is one camera-night, and a mixed-length arm makes that unit
+      mean a different thing per row. Every window is therefore trimmed to the shortest
+      half in the set -- from the *front* for the non-fire windows, so what survives is the
+      span closest in time to the fire, under the same light.
+    * **Disjoint.** The fire half borrows ``lead_in`` frames from the end of the
+      pre-ignition half and the non-fire half gives them up, so the two halves share no
+      frame: nothing the threshold is solved on is also part of a time-to-detection
+      measurement. Note what this does NOT say. ``bench.load_arm(root, "micro")`` returns
+      all ten windows, the calibration ones included, so the micro arm's own false-alarm
+      rate is measured partly on the frames its threshold was solved on -- read
+      ``run_arm`` and you will see the pre halves replayed a second time. The TTDs are
+      clean; the arm rate is not, and it is not the published one.
+    * **Warm at t0.** The lead-in exists so the background model is past ``WARMUP_FRAMES``
+      when the fire starts; see ``MICRO_FIRE_LEAD_IN_FRAMES``.
+
+    What it costs is written down rather than discovered: the two halves are cut from the
+    same five sequences, so micro's calibration set is that corpus's own quiet hours. It
+    proves the pipeline runs and that its committed numbers are self-consistent. It is not,
+    and never claims to be, the held-out headline -- that is 60 unseen HOLD sequences and
+    ``make fetch && make bench``.
+    """
+    if lead_in < 0:
+        raise FetchError(f"lead_in must be non-negative, got {lead_in!r}")
+    if not chosen:
+        raise FetchError("micro_windows() got no source sequences -- nothing to cut")
+
+    planned: list[dict] = []
+    for source in chosen:
+        pre, blaze = split_at_ignition(source)
+        lead = min(lead_in, len(pre))
+        calm, borrowed = pre[: len(pre) - lead], pre[len(pre) - lead :]
+        if calm:
+            planned.append(_micro_window(source, MICRO_NON_FIRE_SUFFIX, "non-fire", calm, None))
+        planned.append(
+            _micro_window(source, MICRO_FIRE_SUFFIX, "fire", borrowed + blaze, lead)
+        )
+
+    length = min(len(window["frames"]) for window in planned)
+    for window in planned:
+        frames = window["frames"]
+        # Non-fire windows are trimmed from the front and fire windows from the back, so
+        # the fire window keeps its ignition at index ``lead`` and the aftermath behind it.
+        window["frames"] = frames[-length:] if window["t0_index"] is None else frames[:length]
+        window["n_frames"] = length
+    return planned
+
+
+def _micro_window(
+    source: dict,
+    suffix: str,
+    kind: str,
+    frames: Sequence[str],
+    t0_index: int | None,
+) -> dict:
+    """One half of a cut source sequence, in the committed manifest schema.
+
+    Every key of the source window survives so that anything able to read
+    ``manifest_dev.json`` reads this one without a branch; ``sequence_id`` is the only one
+    that changes meaning, which is why ``source_sequence_id`` is added beside it rather
+    than the original being overwritten and lost.
+    """
+    window = {key: value for key, value in source.items() if key != "frames"}
+    window["sequence_id"] = f"{source['sequence_id']}{suffix}"
+    window["source_sequence_id"] = str(source["sequence_id"])
+    window["class"] = kind
+    window["t0_index"] = t0_index
+    # A non-fire window has no ignition, so it carries no ignition clock either. Inheriting
+    # the source's ``t0_offset_seconds`` would leave a 0 sitting in a field that means
+    # "seconds from ignition" on a window that has none -- a number that looks measured and
+    # is not. build_confusion_set.py writes None here for the same reason.
+    if t0_index is None:
+        window["t0_offset_seconds"] = None
+    window["n_frames"] = len(frames)
+    window["frames"] = list(frames)
+    return window
+
+
 def build_micro(
     dev_manifest: dict,
     data_root: pathlib.Path,
     n_sequences: int = MICRO_SEQUENCES,
 ) -> dict:
-    """Downscale five DEV sequences to working resolution and commit them.
+    """Cut five DEV sequences in two, downscale both halves to working resolution, commit.
 
     This is the only part of the corpus that lives in git, and it is why the judge's
     one-liner needs no network and no credentials. The frames are re-encoded rather than
@@ -482,6 +628,8 @@ def build_micro(
     reduction, where bilinear samples four source pixels out of forty and aliases exactly
     the thin high-contrast structure -- ridgelines, tower guy-wires -- that the boundary
     statistic then reads as texture.
+
+    Why both halves: ``micro_windows``.
     """
     micro_root = data_root / "micro"
     micro_root.mkdir(parents=True, exist_ok=True)
@@ -489,14 +637,12 @@ def build_micro(
         dev_manifest.get("local_root") or _LOCAL_ROOT_BY_ARM["dev"]
     )
 
-    windows: list[dict] = []
-    for window in micro_sequences(dev_manifest, n_sequences):
-        sequence_id = window["sequence_id"]
-        out_dir = micro_root / sequence_id
+    windows = micro_windows(micro_sequences(dev_manifest, n_sequences))
+    for window in windows:
+        out_dir = micro_root / window["sequence_id"]
         out_dir.mkdir(parents=True, exist_ok=True)
-        written: list[str] = []
         for frame in window["frames"]:
-            src = source_root / sequence_id / frame
+            src = source_root / window["source_sequence_id"] / frame
             image = cv2.imread(str(src))
             if image is None:
                 raise FetchError(
@@ -512,31 +658,34 @@ def build_micro(
             if not ok:
                 raise FetchError(f"cv2.imencode refused {src}")
             _atomic_write(out_dir / frame, encoded.tobytes())
-            written.append(frame)
 
-        micro_window = {key: window[key] for key in window if key != "frames"}
-        micro_window["n_frames"] = len(written)
-        micro_window["frames"] = written
-        windows.append(micro_window)
+    fires = [w for w in windows if w["t0_index"] is not None]
+    sources = sorted({str(w["source_sequence_id"]) for w in windows})
+    frames_per_window = windows[0]["n_frames"] if windows else 0
 
     manifest = {
         "arm": "micro",
         "n_windows": len(windows),
+        "n_fire_windows": len(fires),
+        "n_calibration_windows": len(windows) - len(fires),
+        "frames_per_window": frames_per_window,
         "generated": date.today().isoformat(),
-        "source": "HPWREN FIgLib, downscaled",
+        "source": "HPWREN FIgLib, cut at the ignition frame and downscaled",
         "credit": dev_manifest["credit"],
         "licence_note": dev_manifest["licence_note"],
         "base_url": "",
         "url_note": (
             "No URL: these frames are local and committed. They are cut from the DEV "
-            "windows named below by scripts/fetch.py, at "
+            "windows named in source_sequence_id by scripts/fetch.py, at "
             f"{WORK_WIDTH}x{WORK_HEIGHT} with INTER_AREA and JPEG quality "
             f"{MICRO_JPEG_QUALITY}."
         ),
         "local_root": "micro",
         "catalogue": (
-            f"{len(windows)} DEV windows on {len(windows)} distinct cameras, "
-            f"{sum(len(w['frames']) for w in windows)} frames."
+            f"{len(sources)} DEV source sequences on {len(sources)} distinct cameras, cut "
+            f"into {len(windows)} windows ({len(fires)} fire, "
+            f"{len(windows) - len(fires)} non-fire) of {frames_per_window} frames each, "
+            f"{sum(len(w['frames']) for w in windows)} frames in total."
         ),
         "selection": [
             "The DEV windows sorted by sequence_id, first per camera, first "
@@ -544,7 +693,30 @@ def build_micro(
             "reproducible from the committed DEV manifest alone.",
             "DEV and never HOLD: the micro corpus is the one part of the imagery that is "
             "committed and therefore looked at, and HOLD is read exactly once.",
+            "Each source sequence is then cut in two at its ignition frame. A FIgLib "
+            "window spans -2400 s to +2400 s around ignition, so its pre-ignition half is "
+            "a real non-fire camera-night on the same camera at the same time of day. The "
+            "fire half keeps "
+            f"{MICRO_FIRE_LEAD_IN_FRAMES} pre-ignition frames of lead-in so the "
+            "background model is warm at t0; the non-fire half gives those frames up, so "
+            "the two halves share no frame.",
         ],
+        "calibration_note": (
+            "THE ONE THING TO READ BEFORE QUOTING ANY NUMBER FROM THIS ARM: micro's "
+            "calibration windows are the pre-ignition halves of its own fire sequences. "
+            "They are real non-fire pixels on the real cameras, but they are not an "
+            "independent adversary -- the CONFUSE arm is, and it is 45 windows chosen by "
+            "confusion class in data/manifest_confuse.json. So the micro arm proves that "
+            "the pipeline runs and that its committed numbers are self-consistent, and it "
+            "is NOT and never claims to be the held-out headline: that is 60 unseen HOLD "
+            "sequences, measured by `make fetch && make bench`. Nor is its "
+            "time-to-detection an estimate of anything: five fire windows is too few for a "
+            "median, and the count that detects at all is chaotic with respect to noise "
+            "far below one grey level -- re-encoding these same frames at JPEG quality "
+            "92/95/98/100 gives 0, 2, 2 and 1 detections of 5 and moves the solved "
+            "threshold from 0.30 to 0.41, with identical code and an identical cut. What "
+            "reproduces here is the bytes, not the science."
+        ),
         "sha256_note": (
             "These frames are committed, so git is their receipt. "
             "data/fetch_receipt.json covers the fetched arms only."
@@ -568,34 +740,99 @@ def _write_provenance(
     reference in return for the data; carrying it in the manifest alone would put it in a
     file nobody opens.
     """
-    credit = dev_manifest["credit"]
+    windows = micro_manifest["windows"]
+    fires = [w for w in windows if w["t0_index"] is not None]
+    calm = [w for w in windows if w["t0_index"] is None]
+    sources = sorted({str(w["source_sequence_id"]) for w in windows})
+    frames = sum(len(w["frames"]) for w in windows)
+    per_window = micro_manifest["frames_per_window"]
+
     text = "\n".join(
         [
             "# data/micro/ -- provenance",
             "",
-            credit,
+            dev_manifest["credit"],
             "",
             dev_manifest["licence_note"],
             "",
             "## What these files are",
             "",
-            f"{micro_manifest['n_windows']} HPWREN FIgLib windows "
-            f"({sum(len(w['frames']) for w in micro_manifest['windows'])} frames), "
-            f"downscaled from 3072x2048 to {WORK_WIDTH}x{WORK_HEIGHT} with "
-            "cv2.INTER_AREA and re-encoded as JPEG at quality "
-            f"{MICRO_JPEG_QUALITY} by scripts/fetch.py.",
+            f"{len(windows)} replay windows ({len(fires)} fire, {len(calm)} non-fire) of "
+            f"{per_window} frames each -- {frames} JPEGs in total -- cut from "
+            f"{len(sources)} HPWREN FIgLib sequences on {len(sources)} distinct cameras.",
+            "",
+            f"Each frame was downscaled from 3072x2048 to {WORK_WIDTH}x{WORK_HEIGHT} "
+            f"(6.4x in x, 7.6x in y -- the pipeline's working raster, which is 16:9 where "
+            "the source is 3:2) with cv2.INTER_AREA, and re-encoded as JPEG at quality "
+            f"{MICRO_JPEG_QUALITY} by scripts/fetch.py. INTER_AREA and not the default "
+            "bilinear: at this reduction bilinear samples four source pixels out of forty "
+            "and aliases exactly the thin high-contrast structure the boundary statistic "
+            "reads.",
             "",
             "They exist so that `make verify` recomputes real numbers on real pixels in "
-            "three minutes with no network and no credentials. They are NOT the "
-            "evaluation corpus: the published headline is measured on the 60 HOLD "
-            "windows by `make fetch && make bench`, and `make verify` never claims "
-            "otherwise.",
+            "three minutes with no network and no credentials.",
+            "",
+            "## Source sequences",
+            "",
+            *[f"- {source}" for source in sources],
+            "",
+            "Each one was cut in two at its ignition frame, giving a `__pre` window and a "
+            "`__fire` window. Every window's `source_sequence_id` in "
+            "manifest_micro.json names the sequence above that it came from.",
+            "",
+            "## Why the calibration windows are the pre-ignition halves, and what that means",
+            "",
+            "`scripts/bench.py --arm micro` solves an alert threshold on the non-fire "
+            "windows and measures time-to-detection on the fire ones. A corpus of fires "
+            "only has no false-alarm denominator, so no threshold can be solved on it at "
+            "all.",
+            "",
+            "A FIgLib window spans -2400 s to +2400 s around the reported ignition, so its "
+            "pre-ignition half is a real non-fire camera-night -- same camera, same time "
+            "of day, same light. **micro's calibration windows are therefore the "
+            "pre-ignition halves of its own fire sequences.** The fire half keeps "
+            f"{MICRO_FIRE_LEAD_IN_FRAMES} pre-ignition frames of lead-in so the background "
+            "model is warm when the fire starts, and the non-fire half gives those frames "
+            "up, so the two halves share no frame -- nothing the threshold is solved on is "
+            "also part of a time-to-detection measurement. What that does not say: the "
+            "micro *arm* is all "
+            f"{len(windows)} windows, the calibration ones included, so micro's arm "
+            "false-alarm rate is measured partly on the frames its threshold was solved "
+            "on. The time-to-detection numbers are clean; that rate is not, and it is not "
+            "the published one.",
+            "",
+            "One more thing this arm is not. Its time-to-detection is not an estimate: "
+            f"{len(fires)} fire windows is too few for a median, and which of them detect "
+            "at all is chaotic with respect to noise well below one grey level. "
+            "Re-encoding these same frames at JPEG quality 92/95/98/100 -- differences "
+            "invisible on screen -- gives 0, 2, 2 and 1 detections of 5 and moves the "
+            "solved threshold from 0.30 to 0.41, with identical code and an identical cut. "
+            "What `make verify` reproduces is the committed bytes, byte for byte. It is a "
+            "determinism check, not a measurement.",
+            "",
+            "**This is why the micro arm proves that the pipeline runs and that its "
+            "committed numbers are self-consistent, and why it is NOT -- and never claims "
+            "to be -- the held-out headline.** The headline is measured on 60 unseen HOLD "
+            "sequences against the 45-window CONFUSE adversary set, by "
+            "`make fetch && make bench` (about 95 minutes). `make verify` prints that "
+            "number in a block labelled PUBLISHED, NOT RECOMPUTED HERE, quoted verbatim "
+            "from results/.",
+            "",
+            "## Licence",
+            "",
+            "FIgLib carries no SPDX licence. Its terms ask for a credit reference, which "
+            "is the line at the top of this file and appears again in the README, in the "
+            "UI footer and in the SSE stream's meta event. This imagery is used for "
+            "EVALUATION ONLY and never for training -- the one trained model in this "
+            "project sees Pyro-SDIS (Apache-2.0) and nothing else, and "
+            "`test_no_figlib_in_training` is what enforces it.",
             "",
             "## Regenerating them",
             "",
             "    python scripts/fetch.py --corpus figlib",
             "",
-            "The selection rule is in data/micro/manifest_micro.json under `selection`.",
+            "The selection rule is in data/micro/manifest_micro.json under `selection`, "
+            "and the cut is `micro_windows` in scripts/fetch.py.",
             "",
         ]
     )
@@ -699,9 +936,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         micro = build_micro(dev_manifest, data_root)
         frames = sum(len(w["frames"]) for w in micro["windows"])
         print(
-            f"micro:   {micro['n_windows']} windows, {frames} frames in "
-            f"{data_root / 'micro'}"
+            f"micro:   {micro['n_windows']} windows "
+            f"({micro['n_fire_windows']} fire, {micro['n_calibration_windows']} "
+            f"non-fire), {frames} frames in {data_root / 'micro'}"
         )
+        if not micro["n_calibration_windows"]:
+            # Said here rather than left for bench.py, because this is the run that could
+            # have produced a calibration set and did not, and it is the run whose output
+            # somebody is reading. bench.py --arm micro will refuse the corpus outright.
+            print(
+                "WARNING  no non-fire micro window: every source sequence began at its "
+                "ignition, so there is nothing to calibrate a threshold on and "
+                "`bench.py --arm micro` will refuse this corpus.",
+                file=sys.stderr,
+            )
     return 0
 
 

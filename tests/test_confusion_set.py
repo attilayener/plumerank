@@ -290,12 +290,28 @@ def test_the_quarter_directory_is_derived_correctly_from_the_epoch() -> None:
         assert bcs.quarter_directory(int(epoch)) == f"{day}/Q{quarter}"
 
 
-def test_the_quarter_boundary_is_utc_and_one_based() -> None:
-    # 18:00 UTC exactly is the first second of Q4, and 17:59:59 is the last of Q3. An
-    # off-by-one here silently loses every window that straddles a six-hour boundary.
-    boundary = int(datetime(2026, 7, 26, 18, 0, 0, tzinfo=timezone.utc).timestamp())
+def test_the_quarter_boundary_is_local_and_one_based() -> None:
+    """The archive buckets by SAN DIEGO LOCAL date and a LOCAL three-hour block numbered
+    from 1, so Q runs 1..8 -- not by a six-hour UTC block, which is what this test
+    asserted until it was checked against the live bucket.
+
+    Decisive evidence, measured rather than reasoned: epoch 1785092431 on hp-s-mobo-c
+    returns HTTP 200 under .../20260726/Q5/ and HTTP 403 under .../20260726/Q4/. The
+    local-DATE half holds too: an epoch at local 2026-07-26 19:00 (UTC 2026-07-27 02:00)
+    is served under 20260726/Q7, while both 20260727/Q1 and 20260727/Q7 return 403.
+
+    Why the fixture could not catch this: every one of the 60 URLs in spike/urls_fog.txt
+    falls in local hours 6, 7 or 8 -- the single band where the UTC rule and the local
+    rule agree on Q3. A round-trip test over that file therefore passed under both, which
+    is a good reminder that a fixture drawn from one narrow slice proves one narrow slice.
+    """
+    boundary = int(datetime(2026, 7, 26, 9, 0, 0, tzinfo=bcs.PACIFIC).timestamp())
     assert bcs.quarter_directory(boundary) == "20260726/Q4"
     assert bcs.quarter_directory(boundary - 1) == "20260726/Q3"
+
+    # Local evening stays on the local date rather than rolling into the next UTC day.
+    evening = int(datetime(2026, 7, 26, 19, 0, 0, tzinfo=bcs.PACIFIC).timestamp())
+    assert bcs.quarter_directory(evening) == "20260726/Q7"
 
 
 # ---------------------------------------------------------------------------------
