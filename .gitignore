@@ -1,0 +1,45 @@
+# --- secrets, never ---
+.env
+.env.*
+*.pem
+credentials
+
+# --- environments ---
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# --- build output ---
+.next/
+out/
+dist/
+coverage/
+.coverage
+htmlcov/
+
+# --- third-party imagery: NEVER in the history of a repo that flips public ---
+# HPWREN FIgLib / MTA frames. Regenerable from the committed manifests and urls.txt.
+spike/frames/
+data/corpus/
+data/pyrosdis/
+web/evidence/
+
+# --- macOS ---
+.DS_Store
+
+# --- committed exceptions (belt and braces: these are IN the repo on purpose) ---
+!data/micro/
+!data/manifest_dev.json
+!data/manifest_hold.json
+!data/manifest_confuse.json
+!data/excluded.json
+!data/contact_sheet.jpg
+!data/wall.json
+!results/
+!spike/s3_separation.py
+!spike/urls.txt
+!spike/boxes.json

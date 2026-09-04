@@ -1,0 +1,8 @@
+# PlumeRank — TRAINING dependencies. Never installed on the server.
+# One script uses these: scripts/train_tile_classifier.py. It runs once, on CPU, on a
+# laptop, and its only output is models/tile_classifier.onnx. The endpoint executes that
+# ONNX through cv2.dnn and has no torch in its dependency tree at all.
+
+torch==2.5.1
+onnx==1.17.0
+pillow==11.0.0

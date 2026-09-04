@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PlumeRank — S3 gate box tool</title>
+<style>
+  :root { --smoke:#e2703a; --fog:#4aa3df; --ok:#6ed49a; --line:#2b3238; }
+  * { box-sizing: border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:#14171a; color:#e6e9ec;
+         font:14px/1.45 -apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+         display:flex; flex-direction:column; overflow:hidden; }
+
+  /* progress */
+  #bar { height:3px; background:var(--line); flex:none; }
+  #barfill { height:100%; background:var(--ok); width:0; transition:width .18s ease; }
+
+  /* header: what to do, how far along — nothing else */
+  header { flex:none; display:flex; align-items:center; gap:14px; padding:12px 18px; }
+  .pill { padding:4px 12px; border-radius:14px; font-weight:700; font-size:12px;
+          letter-spacing:.06em; }
+  .smoke { background:var(--smoke); color:#1a1005; }
+  .fog   { background:var(--fog);   color:#04151f; }
+  .task { font-size:16px; font-weight:500; }
+  .task b { color:#fff; }
+  .stat { color:#8b949c; font-variant-numeric:tabular-nums; font-size:13px; }
+  .stat b { color:#e6e9ec; }
+  .sep { color:#3b444c; }
+
+  /* the picture gets the room */
+  #stage { flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+           min-height:0; padding:0 18px 8px; }
+  #imgwrap { position:relative; line-height:0; }
+  #img { display:block; max-width:100%; max-height:calc(100vh - 150px);
+         cursor:crosshair; border-radius:4px; }
+  #rect { position:absolute; border:2px solid var(--smoke); background:rgba(226,112,58,.16);
+          pointer-events:none; display:none; border-radius:2px; }
+  body.isfog #rect { border-color:var(--fog); background:rgba(74,163,223,.16); }
+
+  /* controls live at the bottom, out of the way of the work */
+  footer { flex:none; display:flex; align-items:center; gap:10px; padding:10px 18px 14px;
+           border-top:1px solid var(--line); }
+  button { background:#242a30; color:#cfd6dd; border:1px solid #39424a; border-radius:7px;
+           padding:7px 14px; cursor:pointer; font-size:13px; }
+  button:hover { background:#2f373f; }
+  button.ghost { background:transparent; border-color:#2f363d; color:#7d868e; }
+  button.ghost:hover { background:#1e2429; }
+  .fname { color:#5b646c; font-size:11px; font-family:ui-monospace,Menlo,monospace; }
+  kbd { background:#242a30; border:1px solid #39424a; border-bottom-width:2px; border-radius:4px;
+        padding:1px 5px; font-family:ui-monospace,Menlo,monospace; font-size:11px; color:#aeb6bd; }
+  .tip { color:#7d868e; font-size:12px; }
+  .note { color:var(--ok); font-size:12px; padding:0 18px 6px; display:none; flex:none; }
+
+  /* finish screen — the only place Save exists */
+  #done { display:none; flex:1; flex-direction:column; align-items:center; justify-content:center;
+          text-align:center; padding:24px; }
+  #done h2 { font-size:26px; margin:0 0 6px; }
+  #done .sum { color:#9aa4ad; font-size:15px; margin-bottom:26px; }
+  #done .sum b { color:#e6e9ec; }
+  #save { background:#2f6f4f; border-color:#3d8c65; color:#eafff4; font-size:17px;
+          font-weight:600; padding:15px 34px; border-radius:9px; }
+  #save:hover { background:#38845e; }
+  #save:disabled { background:#22272c; color:#5d666e; border-color:#2f363d; cursor:not-allowed; }
+  #done .then { color:#7d868e; font-size:13px; margin-top:20px; max-width:440px; }
+  #done code { background:#22272c; padding:2px 6px; border-radius:4px;
+               font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="bar"><div id="barfill"></div></div>
+<div class="note" id="note"></div>
+
+<header>
+  <span id="cls" class="pill smoke">SMOKE</span>
+  <span class="task"><b id="step">Click one corner</b> of <span id="what">the smoke plume</span>,
+    then the opposite corner</span>
+  <span style="flex:1"></span>
+  <span class="stat"><b id="i">1</b> / <span id="n">120</span></span>
+  <span class="sep">·</span>
+  <span class="stat">boxed <b id="nb">0</b></span>
+</header>
+
+<div id="stage"><div id="imgwrap"><img id="img" alt=""><div id="rect"></div></div></div>
+
+<div id="done">
+  <h2>All done.</h2>
+  <p class="sum"><b id="dboxed">0</b> boxed · <b id="dskipped">0</b> skipped
+     · <b id="dsplit"></b></p>
+  <button id="save" disabled>Save boxes.json</button>
+  <p class="then">Then move the downloaded file into <code>spike/</code> and say <b>done</b>.</p>
+  <p><button id="back2" class="ghost">← Back to the last image</button></p>
+</div>
+
+<footer>
+  <button id="skip">Skip — no clear region <kbd>S</kbd></button>
+  <button id="undo">Back <kbd>⌫</kbd></button>
+  <span class="tip"><kbd>Esc</kbd> cancels · dragging works too</span>
+  <span class="fname" id="fn"></span>
+  <span style="flex:1"></span>
+  <span class="tip" id="quality"></span>
+  <button id="save2" disabled>Save &amp; stop here</button>
+  <button id="reset" class="ghost" title="Discard all boxes and start from image 1">Start over</button>
+</footer>
+
+<script src="manifest.js"></script>
+<script>
+const boxes = [];
+let idx = 0;
+const STORE = 'plumerank.spike.boxes.v1';
+const img = document.getElementById('img'), rect = document.getElementById('rect');
+const $ = id => document.getElementById(id);
+
+// Work survives a refresh or an accidental tab close — 120 boxes is half an hour.
+function persist() {
+  try { localStorage.setItem(STORE, JSON.stringify({ idx, boxes })); } catch (e) {}
+}
+function restore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (!s || !s.boxes || !s.boxes.length) return;
+    boxes.push(...s.boxes); idx = s.idx;
+    const n = $('note');
+    n.textContent = `Resumed — ${boxes.length} boxes restored from your last session. ` +
+                    `"Start over" discards them.`;
+    n.style.display = 'block';
+  } catch (e) {}
+}
+
+// You may stop early. The set only has to be big enough and balanced enough to
+// resolve the 0.70 cutline: 20/20 is the floor, 40/40 the checkpoint the spec
+// calls D1, 60/60 the full decision set with the narrowest error bar.
+const MIN_PER_CLASS = 20;
+function counts() {
+  const s = boxes.filter(b => b.class === 'smoke').length;
+  return { s, f: boxes.length - s };
+}
+function tier(c) {
+  const n = Math.min(c.s, c.f);
+  if (n >= 60) return ['best',  'full decision set — narrowest error bar'];
+  if (n >= 40) return ['good',  'the checkpoint the plan calls D1'];
+  if (n >= MIN_PER_CLASS) return ['usable', 'enough to answer, with a wider error bar'];
+  return ['', `need ${MIN_PER_CLASS} of each class to save`];
+}
+function syncSave() {
+  const c = counts(), ready = c.s >= MIN_PER_CLASS && c.f >= MIN_PER_CLASS;
+  const [t, why] = tier(c);
+  // The finish-screen button is the real one and stays gated. The footer button is
+  // always live so a few boxes can be saved as a pipeline test before committing
+  // to the full set — it warns that the result will not be decisive.
+  $('save').disabled = !ready;
+  $('save').textContent = ready ? `Save boxes.json (${boxes.length})`
+                                : `Save — ${Math.max(0, MIN_PER_CLASS - c.s)} smoke, ` +
+                                  `${Math.max(0, MIN_PER_CLASS - c.f)} fog to go`;
+  $('save2').disabled = boxes.length === 0;
+  $('save2').textContent = ready ? `Save & stop here (${boxes.length})`
+                                 : `Save ${boxes.length} as a test`;
+  $('quality').textContent = ready ? `${c.s} smoke · ${c.f} fog — ${t}: ${why}` : why;
+  $('quality').style.color = ready ? '#6ed49a' : '#7d868e';
+  $('dboxed').textContent = boxes.length;
+  $('dskipped').textContent = Math.max(0, idx - boxes.length);
+  $('dsplit').textContent = `${c.s} smoke · ${c.f} fog`;
+}
+
+function show() {
+  $('nb').textContent = boxes.length;
+  syncSave();
+  persist();
+  const finished = idx >= MANIFEST.length;
+  $('stage').style.display = finished ? 'none' : 'flex';
+  document.querySelector('header').style.display = finished ? 'none' : 'flex';
+  document.querySelector('footer').style.display = finished ? 'none' : 'flex';
+  $('done').style.display = finished ? 'flex' : 'none';
+  $('barfill').style.width = (100 * idx / MANIFEST.length) + '%';
+  if (finished) return;
+
+  const m = MANIFEST[idx];
+  img.src = 'frames/' + m.file;
+  $('fn').textContent = m.file;
+  $('i').textContent = idx + 1;
+  $('n').textContent = MANIFEST.length;
+  $('cls').textContent = m.class.toUpperCase();
+  $('cls').className = 'pill ' + m.class;
+  document.body.classList.toggle('isfog', m.class === 'fog');
+  $('what').textContent = m.class === 'smoke'
+    ? 'the smoke plume'
+    : 'the fog bank (include its top edge)';
+  $('step').textContent = 'Click one corner';
+  rect.style.display = 'none';
+}
+
+// Two ways to draw the same box: click a corner then click the opposite corner
+// (robust on a trackpad), or press-drag-release. Both land in commit().
+let anchor = null, down = null, moved = false, swallowClick = false;
+
+const at = e => {
+  const r = img.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(e.clientX - r.left, r.width)),
+    y: Math.max(0, Math.min(e.clientY - r.top, r.height)),
+    s: img.naturalWidth / r.width                      // displayed -> native pixels
+  };
+};
+
+function paint(a, b) {
+  Object.assign(rect.style, {
+    display: 'block',
+    left: Math.min(a.x, b.x) + 'px', top: Math.min(a.y, b.y) + 'px',
+    width: Math.abs(b.x - a.x) + 'px', height: Math.abs(b.y - a.y) + 'px'
+  });
+}
+
+function commit(a, b, s) {
+  const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+  if (w < 12 || h < 12) return false;                  // stray click, not a box
+  const m = MANIFEST[idx];
+  boxes.push({
+    file: m.file, class: m.class, prev: m.prev || null,
+    x: Math.round(Math.min(a.x, b.x) * s), y: Math.round(Math.min(a.y, b.y) * s),
+    w: Math.round(w * s), h: Math.round(h * s)
+  });
+  anchor = null; idx++; show();
+  return true;
+}
+
+img.addEventListener('mousedown', e => { down = at(e); moved = false; e.preventDefault(); });
+
+window.addEventListener('mousemove', e => {
+  const p = at(e);
+  if (down) {
+    if (Math.abs(p.x - down.x) > 12 || Math.abs(p.y - down.y) > 12) moved = true;
+    if (moved) paint(down, p);
+  } else if (anchor) {
+    paint(anchor, p);                                   // live preview in two-click mode
+  }
+});
+
+window.addEventListener('mouseup', e => {
+  if (!down) return;
+  const p = at(e), start = down;
+  down = null;
+  if (!moved) return;                                   // a plain click: the click handler takes it
+  // A wobbly click on a trackpad reads as a tiny drag. If it was too small to be a
+  // box, fall through and let the click handler treat it as a corner — otherwise a
+  // shaky hand silently does nothing at all, which is how the first 120 went missing.
+  const ok = commit(start, p, p.s);
+  swallowClick = ok;
+  if (!ok) rect.style.display = 'none';
+});
+
+img.addEventListener('click', e => {
+  if (swallowClick) { swallowClick = false; return; }    // this click ended a drag
+  const p = at(e);
+  if (!anchor) {
+    anchor = p;
+    $('step').textContent = 'Now click the opposite corner';
+    paint(p, p);
+  } else {
+    if (!commit(anchor, p, p.s)) { anchor = null; rect.style.display = 'none'; }
+    $('step').textContent = 'Click one corner';
+  }
+});
+
+$('skip').onclick = () => { anchor = null; idx++; show(); };
+$('undo').onclick = () => {
+  anchor = null;
+  if (boxes.length && boxes[boxes.length - 1].file === MANIFEST[idx - 1]?.file) boxes.pop();
+  idx = Math.max(0, idx - 1); show();
+};
+$('back2').onclick = () => $('undo').click();
+function doSave() {
+  const c = counts();
+  if (c.s < MIN_PER_CLASS || c.f < MIN_PER_CLASS) {
+    if (!confirm(`Only ${c.s} smoke and ${c.f} fog boxed.\n\n` +
+                 `That is fine for testing the pipeline, but too few to decide anything — ` +
+                 `the error bar will be far too wide to place against the 0.70 cutline.\n\n` +
+                 `Save anyway as a test?`)) return;
+  }
+  const blob = new Blob([JSON.stringify(boxes, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'boxes.json'; a.click();
+}
+$('save').onclick = doSave;
+$('save2').onclick = doSave;
+$('reset').onclick = () => {
+  if (boxes.length && !confirm(`Discard all ${boxes.length} boxes and start from image 1?`)) return;
+  boxes.length = 0; idx = 0; anchor = null;
+  try { localStorage.removeItem(STORE); } catch (e) {}
+  $('note').style.display = 'none';
+  show();
+};
+window.addEventListener('keydown', e => {
+  if (e.key === 'Backspace') { e.preventDefault(); $('undo').click(); }
+  if (e.key === 'Escape') { anchor = null; rect.style.display = 'none';
+                            $('step').textContent = 'Click one corner'; }
+  if (e.key.toLowerCase() === 's') $('skip').click();
+});
+restore();
+show();
+</script>
+</body>
+</html>
