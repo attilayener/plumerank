@@ -1236,3 +1236,110 @@ def test_the_shipped_rows_re_derive_their_own_class() -> None:
         assert bcs.classify(features) == window["class"], window["sequence_id"]
         assert window["criterion"]["rule"] == bcs.criterion_rule(window["class"])
 
+
+
+def test_the_selector_is_a_maximum_matching_and_not_a_greedy_walk() -> None:
+    """The property the shortfall record depends on, stated as a case greedy gets wrong.
+
+    ``shortfalls`` claims a class came up short on SUPPLY. That claim is only true if the
+    selector fills as many slots as any assignment could; under a greedy walk a shortfall is
+    part supply and part the order the classes happened to be visited in, and then the
+    published composition is not a statement about the corpus.
+
+    Here ``exposure_hunting`` sorts before ``fog_marine`` on both keys the walk order uses
+    (same candidate count, earlier alphabetically), and its hardest camera is one of only two
+    that can supply fog. A greedy walk takes ``cam0`` for exposure and fills 2 of 3 slots;
+    the maximum matching gives exposure its softer ``cam2`` and fills all 3.
+    """
+    pool = {
+        "cam0": [_scored("cam0", "exposure_hunting", 9.0), _scored("cam0", "fog_marine", 8.0)],
+        "cam1": [_scored("cam1", "fog_marine", 7.0)],
+        "cam2": [_scored("cam2", "exposure_hunting", 1.0)],
+    }
+    quotas = {"exposure_hunting": 1, "fog_marine": 2}
+    chosen, shortfalls = bcs._select(pool, quotas)
+
+    assert len(chosen) == 3, "the selector filled fewer slots than this pool supports"
+    assert shortfalls == []
+    by_camera = {s.candidate.camera_id: s.measurement.label for s in chosen.values()}
+    assert by_camera == {
+        "cam0": "fog_marine",
+        "cam1": "fog_marine",
+        "cam2": "exposure_hunting",
+    }
+
+
+def test_no_camera_is_ever_given_two_slots() -> None:
+    """One window per camera is what makes the denominator span the roster.
+
+    Asserted against the matching directly and not only against a built manifest, because
+    an augmenting-path bug that double-books a camera would show up here first.
+    """
+    pool = {
+        "cam0": [
+            _scored("cam0", "fog_marine", 9.0),
+            _scored("cam0", "low_cloud", 8.0),
+            _scored("cam0", "cloud_shadow", 7.0),
+        ],
+        "cam1": [_scored("cam1", "fog_marine", 1.0)],
+    }
+    chosen, _ = bcs._select(
+        pool, {"fog_marine": 2, "low_cloud": 2, "cloud_shadow": 2}
+    )
+    cameras = [s.candidate.camera_id for s in chosen.values()]
+    assert sorted(cameras) == ["cam0", "cam1"]
+    assert len(cameras) == len(set(cameras))
+
+
+def test_the_shipped_selection_prose_describes_the_selector_that_actually_ran() -> None:
+    """A manifest that describes a selector the code no longer contains is a false record.
+
+    The selector was changed from a scarcest-class-first greedy walk to a
+    maximum-cardinality matching, and the prose a judge reads has to move with it -- not
+    least because the two make DIFFERENT claims about what a shortfall means.
+    """
+    selection = " ".join(_shipped_manifest()["selection"])
+    assert "maximum-cardinality matching" in selection
+    assert "short on SUPPLY" in selection
+    # ...and it must not still claim the guarantee the matching gives up.
+    assert "the hardest were taken" not in selection
+    assert "Classes were filled scarcest-supply first" not in selection
+
+
+def test_the_shipped_manifest_says_how_many_windows_an_earlier_class_took_from_fog() -> None:
+    """classify() has precedence, so "satisfies the fog predicate" is not "clears the cutline".
+
+    Reordering ``_CLASS_ORDER`` is the one lever left that could refill the short fog class
+    without touching a cutline, so the size of that lever belongs in the record rather than
+    waiting to be discovered by a reader who screens the rows on ``deck_fraction`` alone.
+    """
+    manifest = _shipped_manifest()
+    recorded = manifest["class_precedence_note"][
+        "windows_above_the_fog_cutline_claimed_by_an_earlier_class"
+    ]
+    counted: dict[str, int] = {}
+    for window in manifest["windows"]:
+        if window["class"] == "fog_marine":
+            continue
+        if window["criterion"]["features"]["deck_fraction"] >= bcs.FOG_DECK_FRACTION_MIN:
+            counted[window["class"]] = counted.get(window["class"], 0) + 1
+    assert recorded == counted
+    # Every class named here must be one that classify() really does evaluate before fog.
+    fog_at = bcs._CLASS_ORDER.index("fog_marine")
+    for label in recorded:
+        assert bcs._CLASS_ORDER.index(label) < fog_at, label
+
+
+def test_the_shipped_background_sample_records_how_many_draws_are_distinct() -> None:
+    """The bootstrap treats the negative class as n independent draws. It is not, quite.
+
+    ``background_sample`` draws once per labelled fog frame and does not deduplicate, so two
+    labelled frames on the same camera at the same local minute can land on the same
+    background frame. The interval is then very slightly narrower than the sample it
+    describes, and the record has to carry the number that lets a reader see that.
+    """
+    background = _shipped_manifest()["calibration"]["background_class"]
+    distinct = {(row["camera_id"], row["epoch"]) for row in background["frames"]}
+    assert background["n_distinct_frames"] == len(distinct)
+    assert background["n_frames"] == len(background["frames"])
+    assert background["n_distinct_frames"] <= background["n_frames"]

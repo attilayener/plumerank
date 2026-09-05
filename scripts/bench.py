@@ -427,8 +427,42 @@ def _manifest_path(root: pathlib.Path, arm: str) -> pathlib.Path:
     return root / "data" / f"manifest_{arm}.json"
 
 
-def _frame_root(root: pathlib.Path, arm: str) -> pathlib.Path:
-    return root / "data" / "micro" if arm == "micro" else root / "data" / "corpus" / "figlib"
+def _frame_root(root: pathlib.Path, arm: str, manifest: dict[str, Any] | None = None) -> pathlib.Path:
+    """Where this arm's frames actually live on disk.
+
+    Read from the manifest's own ``local_root`` rather than assumed from the arm name.
+    The arms do not share a source: DEV and HOLD are FIgLib ignition sequences under
+    ``corpus/figlib``, while CONFUSE is drawn from the HPWREN medium-term archive under
+    ``corpus/mta`` -- a different bucket with a different URL shape, because a non-fire
+    camera-night is not something FIgLib publishes.
+
+    Hardcoding ``corpus/figlib`` here made the CONFUSE arm unbenchmarkable by committed
+    tooling: every frame resolved under the wrong root and the run died with "81 of 81
+    frames are not on disk. Run `make fetch`" against a corpus that was already fetched.
+    That matters more than an ordinary path bug, because CONFUSE is the arm
+    ``rank.solve_threshold`` calibrates on -- so the operating point every published number
+    is quoted at could not be computed by anything a judge could run.
+
+    ``fetch.py`` already resolves it this way (``_LOCAL_ROOT_BY_ARM``, with the manifest
+    taking precedence); reading the same key here is what keeps the fetcher and the
+    benchmark pointed at one directory.
+    """
+    if arm == "micro":
+        return root / "data" / "micro"
+    local_root = (manifest or {}).get("local_root") or _LOCAL_ROOT_BY_ARM.get(arm, "corpus/figlib")
+    return root.joinpath("data", *str(local_root).split("/"))
+
+
+#: Mirrors scripts/fetch.py's map of the same name. Duplicated rather than imported
+#: because bench.py must run from a clean clone with no assumption about scripts/ being
+#: importable, and a two-entry fallback is cheaper than a sys.path manoeuvre. The manifest
+#: overrides it in every real case, so a drift between the two files cannot change a
+#: published number -- it can only change the message on a corpus that was never fetched.
+_LOCAL_ROOT_BY_ARM: dict[str, str] = {
+    "dev": "corpus/figlib",
+    "hold": "corpus/figlib",
+    "confuse": "corpus/mta",
+}
 
 
 def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
@@ -584,7 +618,7 @@ def load_arm(root: pathlib.Path, arm: str, excluded: Sequence[str] = ()) -> list
             )
         )
     blob = json.loads(path.read_text(encoding="utf-8"))
-    frame_root = _frame_root(root, arm)
+    frame_root = _frame_root(root, arm, blob)
     drop = set(excluded)
 
     windows: list[Window] = []

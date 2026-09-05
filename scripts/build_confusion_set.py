@@ -1328,6 +1328,14 @@ def calibrate_fog_predicate(spike_root: pathlib.Path, end: date) -> dict:
         },
         "background_class": {
             "n_frames": len(drawn),
+            # Draws are made per labelled fog frame and are NOT deduplicated: two labelled
+            # frames on the same camera at the same local minute on different days can
+            # resolve to the same background frame, and on the shipped record two of them
+            # do. Recorded because the bootstrap interval treats the negative class as that
+            # many independent draws, and where this number is below n_frames the interval
+            # is very slightly narrower than the sample it describes. Recomputable from
+            # background_class.frames by anyone who doubts it.
+            "n_distinct_frames": len({(row["camera_id"], row["epoch"]) for row in drawn}),
             "rule": (
                 "For each labelled fog frame, one frame from the SAME camera at the SAME "
                 "local minute of day on a different day, day offsets tried in the order "
@@ -1577,19 +1585,38 @@ def _select(
     pool: dict[str, list[_Scored]],
     quotas: dict[str, int],
 ) -> tuple[dict[str, _Scored], list[dict]]:
-    """Assign one camera to each slot of each class, scarcest class first.
+    """Assign one camera to each slot of each class, filling as many slots as the pool allows.
 
-    Scarcest first and not alphabetical, because the classes are wildly unequal in supply:
-    three cameras in the roster may ever show a lens artefact, and filling the 18 fog slots
-    first would consume the only cameras that could have supplied them. Within a class the
-    order is hardness descending -- the whole point of the arm.
+    One window per camera is the constraint that makes this an assignment problem rather
+    than six independent top-k lists, and the assignment is solved rather than approximated.
+    The previous revision walked the classes scarcest-supply first and took each one's
+    hardest unused camera. That is a greedy heuristic, and on the live sweep it measurably
+    lost: 31 windows filled where the same pool supports 33, with fog_marine at 11 where 13
+    were available, because five cameras that could only have supplied fog were spent on
+    exposure_hunting slots that other cameras could have covered.
 
-    Returns ``({sequence_id: scored}, shortfalls)``. A class the archive cannot fill is
-    REDUCED and recorded, not raised on and not padded. That is a change of policy from the
-    previous revision and it is the honest one: the failure mode this arm was one audit away
-    from was a cutline walked down until 18 fog windows appeared, and a rule that raises on
-    a short class is exactly the pressure that produces it. A 42-window arm whose composition
-    is stated is a denominator a reader can reason about; a 45-window arm with three windows
+    Two windows is not the reason this was changed. The reason is what the shortfall then
+    MEANS. A published "fog_marine short by 7" that is part supply and part the order the
+    classes happened to be walked in is not a statement about the corpus, and this arm's
+    whole value is that its composition is a statement about the corpus. Under a maximum
+    matching a shortfall can only be supply: no assignment of these cameras to these slots
+    fills more.
+
+    Kuhn's augmenting-path algorithm, twenty lines, because that is all a 45-camera roster
+    needs -- min-cost max-flow would let hardness enter the objective properly and is a
+    great deal more code to review for a corpus this size. Cardinality is maximised exactly;
+    hardness is preferred, not optimised, and the preference is expressed twice: each class
+    offers its cameras hardest-first, and a camera contributes only its own hardest window
+    in a class, since the others could never be chosen over it anyway. Classes are still
+    offered slots scarcest-supply first, which no longer decides whether a class is filled
+    -- the matching decides that -- but does decide which camera a class gets when several
+    maximum matchings exist, and a rule is better there than an accident.
+
+    Returns ``({sequence_id: scored}, shortfalls)``. A class the pool cannot fill is REDUCED
+    and recorded, not raised on and not padded. The failure mode this arm was one audit away
+    from was a cutline walked down until 18 fog windows appeared, and a rule that raises on a
+    short class is exactly the pressure that produces it. A 33-window arm whose composition
+    is stated is a denominator a reader can reason about; a 45-window arm with twelve windows
     admitted by a moved threshold is not.
 
     What the caller must then do is publish the realised composition rather than the quota.
@@ -1608,38 +1635,66 @@ def _select(
             key=lambda s: (-s.measurement.hardness, s.candidate.sequence_id)
         )
 
+    # One entry per camera per class -- its hardest window in that class. A camera's
+    # softer candidates in the same class are unreachable by construction (the camera can
+    # hold at most one slot), so carrying them into the matching would only widen the
+    # search.
+    best: dict[str, dict[str, _Scored]] = {}
+    for label, entries in by_class.items():
+        hardest: dict[str, _Scored] = {}
+        for scored in entries:
+            hardest.setdefault(scored.candidate.camera_id, scored)
+        best[label] = hardest
+
     order = sorted(quotas, key=lambda label: (len(by_class[label]), label))
+    slots: list[str] = [label for label in order for _ in range(quotas[label])]
+    held: dict[str, int] = {}
+
+    def _augment(slot: int, seen: set[str]) -> bool:
+        """Give ``slot`` a camera, displacing an earlier slot onto another of its own."""
+        for camera_id in best[slots[slot]]:  # hardest first
+            if camera_id in seen:
+                continue
+            seen.add(camera_id)
+            if camera_id not in held or _augment(held[camera_id], seen):
+                held[camera_id] = slot
+                return True
+        return False
+
+    for slot in range(len(slots)):
+        _augment(slot, set())
+
     chosen: dict[str, _Scored] = {}
-    taken: set[str] = set()
+    filled: dict[str, int] = {label: 0 for label in quotas}
+    for camera_id, slot in held.items():
+        scored = best[slots[slot]][camera_id]
+        chosen[scored.candidate.sequence_id] = scored
+        filled[slots[slot]] += 1
+
     shortfalls: list[dict] = []
     for label in order:
-        need = quotas[label]
-        for scored in by_class[label]:
-            if need == 0:
-                break
-            if scored.candidate.camera_id in taken:
-                continue
-            taken.add(scored.candidate.camera_id)
-            chosen[scored.candidate.sequence_id] = scored
-            need -= 1
-        if need:
-            shortfalls.append(
-                {
-                    "class": label,
-                    "quota": quotas[label],
-                    "selected": quotas[label] - need,
-                    "short_by": need,
-                    "candidates_measured_in_this_class": len(by_class[label]),
-                    "reason": (
-                        f"The sweep measured {len(by_class[label])} candidate windows that "
-                        f"satisfy the {label!r} predicate, and one window is taken per "
-                        f"camera, so {quotas[label] - need} could be selected on cameras "
-                        f"not already used by a scarcer class. The class was reduced. The "
-                        f"predicate was NOT moved: see criterion_thresholds and "
-                        f"calibration."
-                    ),
-                }
-            )
+        short_by = quotas[label] - filled[label]
+        if not short_by:
+            continue
+        shortfalls.append(
+            {
+                "class": label,
+                "quota": quotas[label],
+                "selected": filled[label],
+                "short_by": short_by,
+                "candidates_measured_in_this_class": len(by_class[label]),
+                "cameras_measured_in_this_class": len(best[label]),
+                "reason": (
+                    f"The sweep measured {len(by_class[label])} candidate windows that "
+                    f"satisfy the {label!r} predicate, on {len(best[label])} distinct "
+                    f"cameras, and one window is taken per camera. {filled[label]} slots "
+                    f"were filled, and that is the MAXIMUM over every assignment of these "
+                    f"cameras to these slots -- no ordering fills more, so the deficit is "
+                    f"the archive's and not the selector's. The class was reduced. The "
+                    f"predicate was NOT moved: see criterion_thresholds and calibration."
+                ),
+            }
+        )
     return chosen, shortfalls
 
 
@@ -1803,6 +1858,37 @@ def build(
     for window in windows:
         histogram[window["class"]] += 1
 
+    # The clock record. It is computed rather than asserted because it is the caveat this
+    # arm most needs and the one a reader is least likely to think of: the confusion set's
+    # hour is set by HOLD, HOLD's hour is set by when fires start, and fires start in the
+    # afternoon -- while the labelled set the fog predicate was calibrated on is DAWN
+    # marine layer. Those two facts pull in opposite directions, and the numbers below are
+    # how far apart they ended up. Nothing here is a defence of the arm; it is the
+    # measurement a reader would otherwise have to reconstruct from 33 rows by hand.
+    hold_hours: dict[str, int] = {}
+    for window in paired.values():
+        hour = local_minutes_of_day(hold_t0_epoch(window)) // 60
+        hold_hours[f"{hour:02d}"] = hold_hours.get(f"{hour:02d}", 0) + 1
+    early_cameras = sum(count for hour, count in hold_hours.items() if int(hour) < 10)
+    # How many shipped windows clear the fog cutline but wear another class's label,
+    # because an earlier predicate in _CLASS_ORDER fired first. Computed, because the
+    # shortfall record says "candidate windows that satisfy the 'fog_marine' predicate"
+    # and that phrase means "and no earlier class fired" -- a reader screening on
+    # deck_fraction alone would count more and be entitled to an explanation.
+    above_cutline: dict[str, int] = {}
+    for window in windows:
+        if (
+            window["class"] != "fog_marine"
+            and window["criterion"]["features"]["deck_fraction"] >= FOG_DECK_FRACTION_MIN
+        ):
+            above_cutline[window["class"]] = above_cutline.get(window["class"], 0) + 1
+
+    early_fog = sum(
+        1
+        for window in windows
+        if window["class"] == "fog_marine" and window["local_minutes"] < 10 * 60
+    )
+
     return {
         "arm": "confuse",
         "n_windows": len(windows),
@@ -1841,10 +1927,24 @@ def build(
             "One window per camera, so the denominator spans the roster instead of "
             "concentrating on whichever camera happened to be foggiest.",
             "Within each class, candidates were ranked by raw S3 -- PlumeRank's own fog "
-            "discriminator -- and the hardest were taken. The arm is adversarial to this "
-            "project by construction, which makes the solved threshold conservative.",
-            "Classes were filled scarcest-supply first, because the six classes differ by "
-            "an order of magnitude in how many cameras can supply them.",
+            "discriminator -- and each class offers its cameras hardest-first. The arm is "
+            "adversarial to this project by construction, which makes the solved threshold "
+            "conservative. Read that as a PREFERENCE and not a guarantee: see the next "
+            "point.",
+            "Cameras were assigned to class slots by a maximum-cardinality matching "
+            "(Kuhn's augmenting paths), not by walking the classes in some order and "
+            "taking each one's hardest unused camera. Cardinality is what is optimised "
+            "exactly, so a class that comes up short is short on SUPPLY -- no assignment "
+            "of these cameras to these slots fills more -- and the shortfall is a "
+            "statement about the corpus rather than about the walk order. Hardness enters "
+            "only as the order in which each class offers its cameras and as the "
+            "scarcest-supply order in which slots are offered, which decides WHICH maximum "
+            "matching is found when several exist. So an individual window is not "
+            "guaranteed to be the hardest candidate its class had: the matching may "
+            "displace a harder camera onto another of its own classes in order to fill one "
+            "more slot. Where a shortfall record shows selected == "
+            "cameras_measured_in_this_class, that class took every camera that could "
+            "supply it and no hardness was traded away inside it.",
             "A selected window the archive could not deliver as 81 consecutive minutes was "
             "dropped and its class re-filled from the next-hardest candidate, never "
             "shortened. Every such rejection is listed under incomplete_enumerations, so "
@@ -1869,6 +1969,46 @@ def build(
         ],
         "class_quotas": dict(quotas),
         "class_histogram": histogram,
+        "clock_note": {
+            "paired_hold_t0_local_hour_histogram": dict(sorted(hold_hours.items())),
+            "hold_cameras_igniting_before_10_local": early_cameras,
+            "hold_cameras_total": len(paired),
+            "fog_windows_selected_before_10_local": early_fog,
+            "fog_windows_selected": histogram.get("fog_marine", 0),
+            "note": (
+                "Every window here is within +/-45 min of its camera's paired HOLD "
+                "ignition, which is what stops the arm being a straw man -- and it is also "
+                "the hardest constraint on the fog class. Fires ignite in the afternoon, so "
+                "that is the hour HOLD fixes; coastal marine layer is a DAWN object, and it "
+                "is the hour the labelled set in spike/urls_fog.txt was drawn from. The two "
+                "counts above are how far apart those hours are. Read the fog_marine class "
+                "accordingly: outside the early-morning windows it is not dawn marine "
+                "layer, it is whatever satisfies a deck predicate calibrated on dawn marine "
+                "layer at an hour marine layer has usually burnt off -- a bright, "
+                "textureless surface lying where terrain belongs. That is a legitimate "
+                "adversary for S3, which is what this arm is for, and it is NOT evidence "
+                "about fog. Matching the clock and calling the class fog were always going "
+                "to be in tension; the tension is published rather than resolved by "
+                "quietly relaxing one of them."
+            ),
+        },
+        "class_precedence_note": {
+            "windows_above_the_fog_cutline_claimed_by_an_earlier_class": above_cutline,
+            "note": (
+                "classify() evaluates the six predicates in class_order, so 'satisfies the "
+                "fog_marine predicate' means 'deck_fraction >= FOG_DECK_FRACTION_MIN AND no "
+                "earlier class fired'. A reader who screens these rows on deck_fraction "
+                "alone will therefore count MORE windows above the cutline than the "
+                "fog_marine histogram shows, and the count above is exactly that "
+                "difference, listed per class. The order is a priori and documented on "
+                "_CLASS_ORDER -- a camera with a hunting shutter or a droplet on the glass "
+                "is that, whatever the weather behind it is doing -- and it was NOT chosen "
+                "to move windows between classes. It is recorded here because reordering it "
+                "is the one remaining lever that could refill the fog class without "
+                "touching a cutline, and a reader is entitled to see the size of that lever "
+                "rather than discover it."
+            ),
+        },
         "shortfalls": shortfalls,
         "incomplete_enumerations": incomplete,
         "incomplete_enumerations_note": (

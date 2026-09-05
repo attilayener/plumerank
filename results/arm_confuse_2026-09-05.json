@@ -1,0 +1,232 @@
+{
+  "ablation": null,
+  "arm": "confuse",
+  "background": "mog2",
+  "baselines": [
+    {
+      "arm_realised_rate_uncapped": 2.0,
+      "budget_slots": 66,
+      "budget_slots_spent": 31,
+      "calibration_realised_rate_uncapped": 2.0,
+      "label": "PlumeRank",
+      "model_calls": 57,
+      "model_calls_per_camera_night": 1.727,
+      "system": "plumerank",
+      "threshold": 0.345703,
+      "ttd": null
+    },
+    {
+      "arm_realised_rate_uncapped": 0.0,
+      "budget_slots": 66,
+      "budget_slots_spent": 0,
+      "calibration_realised_rate_uncapped": 0.0,
+      "label": "B1 CNN grid",
+      "model_calls": 120285,
+      "model_calls_per_camera_night": 3645.0,
+      "system": "b1_cnn_grid",
+      "threshold": 1.0,
+      "ttd": null
+    },
+    {
+      "arm_realised_rate_uncapped": 1.9697,
+      "budget_slots": 66,
+      "budget_slots_spent": 16,
+      "calibration_realised_rate_uncapped": 1.9697,
+      "label": "B2 frame-diff",
+      "model_calls": 0,
+      "model_calls_per_camera_night": 0.0,
+      "system": "b2_frame_diff",
+      "threshold": 0.995605,
+      "ttd": null
+    }
+  ],
+  "budget_alerts_per_camera_night": 2.0,
+  "budget_slots_per_camera": 2,
+  "calibration": {
+    "drift_tolerance": 0.15,
+    "n_calibration_windows": 33,
+    "realised_alerts_per_camera_night_uncapped": 2.0,
+    "realised_on": "confuse",
+    "slots_per_camera": 2,
+    "system": "plumerank",
+    "target_alerts_per_camera_night": 2.0,
+    "threshold": 0.345703
+  },
+  "classifier": {
+    "dataset": "pyro-sdis",
+    "onnx_sha256": "8f3e098f1cca0472b26049b1571ffbdb7b2d3b66d3c2bb9ac196ce5feff046bc",
+    "source": "data/tile_manifest.json",
+    "throwaway": false,
+    "val_precision": 0.8498,
+    "val_recall": 0.8021,
+    "val_tiles": 12044
+  },
+  "denominator": {
+    "arm": "confuse",
+    "criteria": "data/excluded.json",
+    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it, and results/hold_access.log records no HOLD read because no HOLD pixel has been scored.",
+    "excluded": 0,
+    "excluded_sequence_ids": [],
+    "manifest": "manifest_confuse.json",
+    "manifest_windows": 33,
+    "measured_on": 33,
+    "statement": "33 sequences, 0 excluded from the 33 in manifest_confuse.json, see data/excluded.json"
+  },
+  "escalation": {
+    "cameras_needed_for_design_target": 100,
+    "design_target_at_scale": 0.02,
+    "fraction": 0.021324,
+    "frames_escalated": 57,
+    "frames_total": 2673,
+    "max_allowed": 0.02,
+    "roster_size": 33,
+    "structural_ceiling": 0.060606,
+    "within_max": false,
+    "within_structural_ceiling": true
+  },
+  "exclusions": {
+    "all_arms_sequence_ids": [
+      "20240806_Border68FireMayBeHardToFind_om-w-mobo-m",
+      "20241021_PalomarRidge_hp-s-mobo-c",
+      "20241031_MontezumaFire_sm-w-mobo-c",
+      "20250101_Border1Fire_om-e-mobo-c",
+      "20250107_EatonFire_wilson-s-mobo-c",
+      "20250121_LiliacFire_rm-s-mobo-c",
+      "20250123_Border2Fire_om-w-mobo-m"
+    ],
+    "count": 0,
+    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it, and results/hold_access.log records no HOLD read because no HOLD pixel has been scored.",
+    "items": [],
+    "measured_on": 33,
+    "of_manifest_windows": 33,
+    "sequence_ids": [],
+    "source": "/Users/edycu/Hackathon/devpost/devpost-opencv26/plume/build/data/excluded.json"
+  },
+  "frames_per_window": 81,
+  "headline": null,
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : confuse (33 sequences, 0 excluded from the 33 in manifest_confuse.json, see data/excluded.json)\n  PlumeRank      : no ignition clock in this arm -- rate only\n  B1 CNN grid    : no ignition clock in this arm -- rate only\n  B2 frame-diff  : no ignition clock in this arm -- rate only\n  realised rate  : 2.00 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 2.13% of frames touched by ONNX\n  model calls    : PlumeRank 2 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit 2b628ffe7f4a8b15643712641e603103d23229e8  instance local (not EC2)  wall clock 4m52s  2026-09-05\n-> results/arm_confuse_2026-09-05.json",
+  "headline_system": "plumerank",
+  "latency_ms": {
+    "b1": {
+      "mean_ms": 54.647,
+      "n": 2673,
+      "p50_ms": 53.637,
+      "p95_ms": 58.288,
+      "total_ms": 146071.637
+    },
+    "b2": {
+      "mean_ms": 0.014,
+      "n": 2673,
+      "p50_ms": 0.013,
+      "p95_ms": 0.017,
+      "total_ms": 36.1
+    },
+    "classical": {
+      "mean_ms": 7.325,
+      "n": 2673,
+      "p50_ms": 7.286,
+      "p95_ms": 9.155,
+      "total_ms": 19580.372
+    },
+    "escalation": {
+      "mean_ms": 1.22,
+      "n": 57,
+      "p50_ms": 1.2,
+      "p95_ms": 1.319,
+      "total_ms": 69.548
+    }
+  },
+  "model_invocations_per_camera_night": {
+    "b1_cnn_grid": 3645.0,
+    "plumerank": 1.727
+  },
+  "n_calibration_windows": 33,
+  "n_fire_windows": 0,
+  "n_windows": 33,
+  "operating_curve": [
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 0.0,
+      "b1_cnn_grid_threshold": 1.0,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 0.4848,
+      "b2_frame_diff_threshold": 0.99762,
+      "budget_alerts_per_camera_night": 0.5,
+      "budget_slots_per_camera": 1,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 0.4848,
+      "plumerank_threshold": 0.549438
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 0.0,
+      "b1_cnn_grid_threshold": 1.0,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 0.9394,
+      "b2_frame_diff_threshold": 0.996338,
+      "budget_alerts_per_camera_night": 1.0,
+      "budget_slots_per_camera": 1,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 1.0,
+      "plumerank_threshold": 0.410461
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 0.0,
+      "b1_cnn_grid_threshold": 1.0,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 1.9697,
+      "b2_frame_diff_threshold": 0.995605,
+      "budget_alerts_per_camera_night": 2.0,
+      "budget_slots_per_camera": 2,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 2.0,
+      "plumerank_threshold": 0.345703
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 3.7879,
+      "b1_cnn_grid_threshold": 0.999878,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 3.9091,
+      "b2_frame_diff_threshold": 0.994873,
+      "budget_alerts_per_camera_night": 4.0,
+      "budget_slots_per_camera": 4,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 4.0,
+      "plumerank_threshold": 0.276245
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 7.9394,
+      "b1_cnn_grid_threshold": 0.997375,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 7.8788,
+      "b2_frame_diff_threshold": 0.993286,
+      "budget_alerts_per_camera_night": 8.0,
+      "budget_slots_per_camera": 8,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 8.0,
+      "plumerank_threshold": 0.180237
+    }
+  ],
+  "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
+  "results_file": "arm_confuse_2026-09-05.json",
+  "run": {
+    "commit": "2b628ffe7f4a8b15643712641e603103d23229e8",
+    "constants_sha256": "36f582f05b7b7e8f0549b27e303d19919289b933f8e6e85e17587f4c581ebfc3",
+    "cpu_credit_balance_after": null,
+    "cpu_credit_balance_before": null,
+    "date": "2026-09-05",
+    "instance": "local (not EC2)",
+    "instance_id": null,
+    "opencv_version": "5.0.0",
+    "python": "3.11.1",
+    "started": "2026-09-05T00:17:10+00:00",
+    "wall_clock_seconds": 292.9
+  },
+  "schema": "plumerank.bench/1",
+  "seed": 20261026,
+  "sensitivity": null,
+  "top_k": 4
+}
