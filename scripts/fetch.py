@@ -679,8 +679,11 @@ def arm_counts(data_root: pathlib.Path) -> dict[str, int]:
 EXCLUSION_DISCLOSURE = (
     "Producing data/excluded.json meant a human looking at the FIRST FRAME of every HOLD "
     "window, about 40 minutes before ignition, against criteria stated before the pass; "
-    "results/hold_access.log still records no HOLD read because no HOLD pixel has been "
-    "scored."
+    "the HOLD access log in results/ still records no HOLD read, because no HOLD pixel has "
+    "been scored."
+    # The log's filename is deliberately NOT spelled here. test_fetch.py asserts the token
+    # appears exactly once in this file -- in the module docstring, as a rule -- so that it
+    # can never appear as a path. Prose that names it would defeat a guard worth keeping.
 )
 
 

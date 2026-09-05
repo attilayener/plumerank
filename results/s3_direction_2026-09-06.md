@@ -79,8 +79,28 @@ But two things survive it:
    preconditions are now known and none is expensive. See `s3_gate_mechanical_attempt.md` §6
    and `fog_class_review.md` §6.
 2. **Fix the synthetic plume** so its boundary is soft *relative to its surroundings* — blur
-   the plume before compositing, not the whole frame afterwards — and re-measure. If the sign
-   corrects, the fixture was the problem. If it does not, S3 is.
+   the plume before compositing, not the whole frame afterwards.
+
+   **Tried on 2026-09-06, and the sign DOES correct.** Compositing a pre-blurred plume onto a
+   sharp background moves the fire's raw_s3 from **0.0798 to 0.1897**, above the hard-edged
+   cloud's 0.1733. So §2(a) was substantially a fixture artefact: blurring the whole frame
+   softened the background and the reference cloud along with the plume, and S3 measures a
+   boundary *relative to its surroundings*. **This partly rehabilitates S3** and is the
+   strongest evidence in this document that the statistic does what it claims.
+
+   Two things stop it being the end of the matter, and the change was **reverted** pending
+   them:
+   - Even corrected, the fitted model barely separates the two: peak hazards come out
+     `fire 0.7454` against `cloud 0.7459` — the cloud still edges it, because S1 now carries
+     only 0.62 and the S3 gap is small once squashed. That is consistent with the fit's
+     leave-one-sequence-out AUC of 0.6387: modest discrimination, honestly measured.
+   - The corrected fixture repairs one failing test and breaks a different one
+     (`test_the_offset_shifts_time_to_detection_by_exactly_the_offset`), because several
+     tests were calibrated against the old fixture's detection pattern. Migrating them is a
+     deliberate piece of work, not an audit-time edit.
+
+   **Recommended: apply the compositing fix and re-calibrate the affected tests in one pass.**
+   The exact edit and its measurements are recorded here so it need not be rediscovered.
 3. **Do not retune S3 to make any of this come out right.** Its parameters (`S3_BAND_FRACTION`,
    `S3_BAND_MIN_PX`) are a priori and the gate's whole authority comes from their being fixed
    before the measurement. Changing them now converts the gate into a search.

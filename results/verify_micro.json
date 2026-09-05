@@ -2,25 +2,25 @@
   "arm": "micro",
   "background": "mog2",
   "budget_alerts_per_camera_night": 2.0,
-  "constants_sha256": "36f582f05b7b7e8f0549b27e303d19919289b933f8e6e85e17587f4c581ebfc3",
-  "escalation_fraction": 0.019355,
+  "constants_sha256": "66f81f057b54de77a89f2bf3bcc92279c3a761c66f69ce38a7f00e331e9145be",
+  "escalation_fraction": 0.006452,
   "frames_per_window": 31,
   "model_invocations_per_camera_night": {
     "b1_cnn_grid": 3645.0,
-    "plumerank": 1.568
+    "plumerank": 0.523
   },
   "n_fire_windows": 5,
   "n_windows": 10,
   "realised_rate_uncapped": {
     "b1_cnn_grid": 3.9194,
     "b2_frame_diff": 0.7839,
-    "plumerank": 2.0903
+    "plumerank": 1.829
   },
   "schema": "plumerank.verify_micro/1",
   "thresholds": {
     "b1_cnn_grid": 0.947388,
     "b2_frame_diff": 0.995178,
-    "plumerank": 0.300598
+    "plumerank": 0.697937
   },
   "ttd": {
     "b1_cnn_grid": {
@@ -42,12 +42,12 @@
       "p95_minutes": null
     },
     "plumerank": {
-      "detection_rate": 0.4,
-      "mean_detected_minutes": 7.0,
+      "detection_rate": 0.6,
+      "mean_detected_minutes": 10.667,
       "n": 5,
-      "n_detected": 2,
-      "n_missed": 3,
-      "p50_minutes": null,
+      "n_detected": 3,
+      "n_missed": 2,
+      "p50_minutes": 18.0,
       "p95_minutes": null
     }
   }

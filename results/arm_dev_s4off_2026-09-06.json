@@ -9,8 +9,8 @@
       "budget_slots_spent": 30,
       "calibration_realised_rate_uncapped": 1.9885,
       "label": "PlumeRank",
-      "model_calls": 0,
-      "model_calls_per_camera_night": 0.0,
+      "model_calls": 4,
+      "model_calls_per_camera_night": 0.141,
       "system": "plumerank",
       "threshold": 0.687561,
       "ttd": {
@@ -101,8 +101,8 @@
   "escalation": {
     "cameras_needed_for_design_target": 100,
     "design_target_at_scale": 0.02,
-    "fraction": 0.0,
-    "frames_escalated": 0,
+    "fraction": 0.001746,
+    "frames_escalated": 4,
     "frames_total": 2291,
     "max_allowed": 0.02,
     "roster_size": 29,
@@ -145,34 +145,41 @@
     "p50_minutes": null,
     "p95_minutes": null
   },
-  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50    n/a min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 0.00% of frames touched by ONNX\n  model calls    : PlumeRank 0 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit 9b82b76ec0be2142b5795149e7458941f01cfac4  instance local (not EC2)  wall clock 8m40s  2026-09-05\n-> results/arm_dev_2026-09-05.json",
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50    n/a min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 0.17% of frames touched by ONNX\n  model calls    : PlumeRank 0 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit 501e06972098fca25e890c27e97f5aa0ec4aa8d5  instance local (not EC2)  wall clock 8m41s  2026-09-05\n-> results/arm_dev_2026-09-05.json",
   "headline_system": "plumerank",
   "latency_ms": {
     "b1": {
-      "mean_ms": 52.946,
+      "mean_ms": 52.917,
       "n": 2291,
-      "p50_ms": 52.9,
-      "p95_ms": 53.382,
-      "total_ms": 121300.229
+      "p50_ms": 52.909,
+      "p95_ms": 53.61,
+      "total_ms": 121233.209
     },
     "b2": {
       "mean_ms": 0.013,
       "n": 2291,
       "p50_ms": 0.013,
       "p95_ms": 0.015,
-      "total_ms": 29.735
+      "total_ms": 29.555
     },
     "classical": {
-      "mean_ms": 6.817,
+      "mean_ms": 6.807,
       "n": 2291,
-      "p50_ms": 6.745,
-      "p95_ms": 8.382,
-      "total_ms": 15618.3
+      "p50_ms": 6.742,
+      "p95_ms": 8.346,
+      "total_ms": 15595.17
+    },
+    "escalation": {
+      "mean_ms": 1.209,
+      "n": 4,
+      "p50_ms": 1.207,
+      "p95_ms": 1.224,
+      "total_ms": 4.837
     }
   },
   "model_invocations_per_camera_night": {
     "b1_cnn_grid": 3645.0,
-    "plumerank": 0.0
+    "plumerank": 0.141
   },
   "n_calibration_windows": 33,
   "n_fire_windows": 29,
@@ -189,7 +196,7 @@
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 0.1414,
-      "plumerank_threshold": 0.753601
+      "plumerank_threshold": 0.759521
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -247,8 +254,8 @@
   "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
   "results_file": "arm_dev_2026-09-05.json",
   "run": {
-    "commit": "9b82b76ec0be2142b5795149e7458941f01cfac4",
-    "constants_sha256": "52db70fbe514560ee7bba687c20132bfeea9ab27a2993d4bbb35931b29cda06d",
+    "commit": "501e06972098fca25e890c27e97f5aa0ec4aa8d5",
+    "constants_sha256": "66f81f057b54de77a89f2bf3bcc92279c3a761c66f69ce38a7f00e331e9145be",
     "cpu_credit_balance_after": null,
     "cpu_credit_balance_before": null,
     "date": "2026-09-05",
@@ -256,8 +263,8 @@
     "instance_id": null,
     "opencv_version": "5.0.0",
     "python": "3.11.1",
-    "started": "2026-09-05T18:16:55+00:00",
-    "wall_clock_seconds": 520.4
+    "started": "2026-09-05T18:40:43+00:00",
+    "wall_clock_seconds": 521.4
   },
   "schema": "plumerank.bench/1",
   "seed": 20261026,
