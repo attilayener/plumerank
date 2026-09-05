@@ -563,8 +563,8 @@ def micro_windows(
     What it costs is written down rather than discovered: the two halves are cut from the
     same five sequences, so micro's calibration set is that corpus's own quiet hours. It
     proves the pipeline runs and that its committed numbers are self-consistent. It is not,
-    and never claims to be, the held-out headline -- that is 60 unseen HOLD sequences and
-    ``make fetch && make bench``.
+    and never claims to be, the held-out headline -- that is HOLD minus
+    ``data/excluded.json`` (see ``arm_counts``) and ``make fetch && make bench``.
     """
     if lead_in < 0:
         raise FetchError(f"lead_in must be non-negative, got {lead_in!r}")
@@ -622,6 +622,67 @@ def _micro_window(
     return window
 
 
+def arm_counts(data_root: pathlib.Path) -> dict[str, int]:
+    """The CONFUSE and HOLD denominators, READ from the committed files, never restated.
+
+    WHY -- found 2026-09-06. This module used to hardcode "45 windows" for CONFUSE and
+    "60 unseen HOLD sequences" into the notes it writes, and both were wrong by the time
+    anyone re-ran ``make fetch``:
+
+    * CONFUSE is **33** windows, not 45. ``results/gonogo_2026-09-01.md`` §7.5 records the
+      supply limits that produced it and ends "Nothing in this arm may be published as 45."
+      A regenerated manifest was republishing 45 anyway.
+    * HOLD is 60 windows **minus** ``data/excluded.json``. The committed manifest note had
+      been hand-corrected to carry that subtraction, with the standing rule that "neither
+      end of that subtraction is ever quoted without the other". Regenerating reverted it
+      to the bare 60.
+
+    So a routine ``make fetch`` silently reintroduced two count errors into a judge-facing
+    file. Deriving them here is the same discipline ``bench.py:arm_denominator`` already
+    applies -- the numbers come from the files or they are not written.
+    """
+    def _windows(name: str) -> int:
+        path = data_root / name
+        if not path.is_file():
+            return 0
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        return len(blob.get("windows", []))
+
+    excluded_path = data_root / "excluded.json"
+    excluded_ids = set()
+    if excluded_path.is_file():
+        blob = json.loads(excluded_path.read_text(encoding="utf-8"))
+        rows = blob.get("excluded", blob) if isinstance(blob, dict) else blob
+        excluded_ids = {r["sequence_id"] if isinstance(r, dict) else r for r in rows}
+
+    hold_path = data_root / "manifest_hold.json"
+    hold_ids = set()
+    if hold_path.is_file():
+        hold_ids = {
+            w["sequence_id"]
+            for w in json.loads(hold_path.read_text(encoding="utf-8")).get("windows", [])
+        }
+    dropped = len(hold_ids & excluded_ids)
+    return {
+        "confuse": _windows("manifest_confuse.json"),
+        "hold_manifest": len(hold_ids),
+        "hold_excluded": dropped,
+        "hold_measured": len(hold_ids) - dropped,
+    }
+
+
+def _hold_phrase(c: dict[str, int]) -> str:
+    """"the N held-out sequences that survive exclusion -- M named, K dropped". Both ends
+    of the subtraction, always, because one end alone is the number that misleads."""
+    if not c["hold_manifest"]:
+        return "the held-out HOLD sequences"
+    return (
+        f"the {c['hold_measured']} held-out sequences that survive exclusion -- "
+        f"data/manifest_hold.json names {c['hold_manifest']} windows, data/excluded.json "
+        f"drops {c['hold_excluded']} of them"
+    )
+
+
 def build_micro(
     dev_manifest: dict,
     data_root: pathlib.Path,
@@ -643,6 +704,8 @@ def build_micro(
     """
     micro_root = data_root / "micro"
     micro_root.mkdir(parents=True, exist_ok=True)
+    # Read, never restate -- see arm_counts().
+    _counts = arm_counts(data_root)
     source_root = data_root / (
         dev_manifest.get("local_root") or _LOCAL_ROOT_BY_ARM["dev"]
     )
@@ -715,11 +778,12 @@ def build_micro(
             "THE ONE THING TO READ BEFORE QUOTING ANY NUMBER FROM THIS ARM: micro's "
             "calibration windows are the pre-ignition halves of its own fire sequences. "
             "They are real non-fire pixels on the real cameras, but they are not an "
-            "independent adversary -- the CONFUSE arm is, and it is 45 windows chosen by "
+            "independent adversary -- the CONFUSE arm is, and it is "
+            f"{_counts['confuse']} windows chosen by "
             "confusion class in data/manifest_confuse.json. So the micro arm proves that "
             "the pipeline runs and that its committed numbers are self-consistent, and it "
-            "is NOT and never claims to be the held-out headline: that is 60 unseen HOLD "
-            "sequences, measured by `make fetch && make bench`. Nor is its "
+            "is NOT and never claims to be the held-out headline: that is "
+            f"{_hold_phrase(_counts)}, measured by `make fetch && make bench`. Nor is its "
             "time-to-detection an estimate of anything: five fire windows is too few for a "
             "median, and the count that detects at all is chaotic with respect to noise "
             "far below one grey level -- re-encoding these same frames at JPEG quality "
@@ -736,12 +800,15 @@ def build_micro(
     (micro_root / "manifest_micro.json").write_text(
         json.dumps(manifest, indent=2) + "\n"
     )
-    _write_provenance(micro_root, dev_manifest, manifest)
+    _write_provenance(micro_root, dev_manifest, manifest, _counts)
     return manifest
 
 
 def _write_provenance(
-    micro_root: pathlib.Path, dev_manifest: dict, micro_manifest: dict
+    micro_root: pathlib.Path,
+    dev_manifest: dict,
+    micro_manifest: dict,
+    _counts: dict[str, int],
 ) -> None:
     """The credit reference travels with the pixels.
 
@@ -822,8 +889,9 @@ def _write_provenance(
             "",
             "**This is why the micro arm proves that the pipeline runs and that its "
             "committed numbers are self-consistent, and why it is NOT -- and never claims "
-            "to be -- the held-out headline.** The headline is measured on 60 unseen HOLD "
-            "sequences against the 45-window CONFUSE adversary set, by "
+            "to be -- the held-out headline.** The headline is measured on "
+            f"{_hold_phrase(_counts)}, against the {_counts['confuse']}-window CONFUSE "
+            "adversary set, by "
             "`make fetch && make bench` (about 95 minutes). `make verify` prints that "
             "number in a block labelled PUBLISHED, NOT RECOMPUTED HERE, quoted verbatim "
             "from results/.",

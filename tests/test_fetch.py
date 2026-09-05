@@ -658,3 +658,48 @@ def test_the_committed_corpus_says_what_it_calibrates_on_in_both_files() -> None
     assert "pre-ignition halves of its own fire sequences" in provenance
     # And the three-minute command must never be offered as the headline's reproducer.
     assert "make fetch && make bench" in provenance
+
+
+def test_generated_notes_derive_their_counts_instead_of_restating_them():
+    """`make fetch` regenerates data/micro/manifest_micro.json and PROVENANCE.md, and both
+    quote the CONFUSE and HOLD denominators.
+
+    Until 2026-09-06 those were string literals: "45 windows" for CONFUSE and "60 unseen
+    HOLD sequences". Both were wrong. CONFUSE is 33 -- results/gonogo_2026-09-01.md §7.5
+    ends "Nothing in this arm may be published as 45" -- and HOLD is 60 minus the 6 in
+    data/excluded.json, a subtraction the committed note carries at both ends by standing
+    rule. The files had been hand-corrected; re-running fetch reverted them. This asserts
+    the numbers come from the files.
+    """
+    import pathlib
+    import sys
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "scripts"))
+    import fetch  # noqa: E402
+
+    counts = fetch.arm_counts(root / "data")
+    assert counts["confuse"] == 33, "the forbidden 45 is back"
+    assert counts["hold_manifest"] == 60
+    assert counts["hold_measured"] == counts["hold_manifest"] - counts["hold_excluded"]
+
+    phrase = fetch._hold_phrase(counts)
+    assert str(counts["hold_measured"]) in phrase
+    assert str(counts["hold_manifest"]) in phrase, "one end of the subtraction is missing"
+    assert str(counts["hold_excluded"]) in phrase, "one end of the subtraction is missing"
+
+
+def test_committed_micro_notes_carry_no_stale_count():
+    """The generated artefacts themselves, as committed. A count that is derived correctly
+    but written before the derivation landed is still a wrong number on disk."""
+    import json
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    note = json.loads(
+        (root / "data" / "micro" / "manifest_micro.json").read_text(encoding="utf-8")
+    )["calibration_note"]
+    prov = (root / "data" / "micro" / "PROVENANCE.md").read_text(encoding="utf-8")
+    for text, where in ((note, "manifest_micro.json"), (prov, "PROVENANCE.md")):
+        assert "45 windows" not in text, f"{where} republishes the forbidden CONFUSE count"
+        assert "45-window" not in text, f"{where} republishes the forbidden CONFUSE count"
