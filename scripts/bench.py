@@ -428,11 +428,10 @@ def _manifest_path(root: pathlib.Path, arm: str) -> pathlib.Path:
 
 
 def _frame_root(root: pathlib.Path, arm: str, manifest: dict[str, Any] | None = None) -> pathlib.Path:
-    """Where this arm's frames actually live on disk.
+    """Where this arm's frames actually live on disk, read from the manifest that names them.
 
-    Read from the manifest's own ``local_root`` rather than assumed from the arm name.
-    The arms do not share a source: DEV and HOLD are FIgLib ignition sequences under
-    ``corpus/figlib``, while CONFUSE is drawn from the HPWREN medium-term archive under
+    The arms do not share a source. DEV and HOLD are FIgLib ignition sequences under
+    ``corpus/figlib``; CONFUSE is drawn from the HPWREN medium-term archive under
     ``corpus/mta`` -- a different bucket with a different URL shape, because a non-fire
     camera-night is not something FIgLib publishes.
 
@@ -443,26 +442,18 @@ def _frame_root(root: pathlib.Path, arm: str, manifest: dict[str, Any] | None = 
     ``rank.solve_threshold`` calibrates on -- so the operating point every published number
     is quoted at could not be computed by anything a judge could run.
 
-    ``fetch.py`` already resolves it this way (``_LOCAL_ROOT_BY_ARM``, with the manifest
-    taking precedence); reading the same key here is what keeps the fetcher and the
-    benchmark pointed at one directory.
+    **The manifest is the only authority, and the arm name is deliberately not a fallback.**
+    A first draft of this fix inferred ``corpus/mta`` from ``arm == "confuse"`` whenever the
+    manifest was silent, which duplicated a map ``scripts/fetch.py`` already owns and put
+    two files in a position to disagree about one directory. Worse, it made the resolution
+    depend on something other than the file being read. A manifest that does not say where
+    its frames are gets the default root and, if they are not there, a loud failure naming
+    the path it looked in -- which is the same diagnosis, arrived at from evidence.
     """
     if arm == "micro":
         return root / "data" / "micro"
-    local_root = (manifest or {}).get("local_root") or _LOCAL_ROOT_BY_ARM.get(arm, "corpus/figlib")
+    local_root = (manifest or {}).get("local_root") or "corpus/figlib"
     return root.joinpath("data", *str(local_root).split("/"))
-
-
-#: Mirrors scripts/fetch.py's map of the same name. Duplicated rather than imported
-#: because bench.py must run from a clean clone with no assumption about scripts/ being
-#: importable, and a two-entry fallback is cheaper than a sys.path manoeuvre. The manifest
-#: overrides it in every real case, so a drift between the two files cannot change a
-#: published number -- it can only change the message on a corpus that was never fetched.
-_LOCAL_ROOT_BY_ARM: dict[str, str] = {
-    "dev": "corpus/figlib",
-    "hold": "corpus/figlib",
-    "confuse": "corpus/mta",
-}
 
 
 def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
