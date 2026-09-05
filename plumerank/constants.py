@@ -24,6 +24,7 @@ Nothing in this file is fitted on HOLD. That is the whole point of the file.
 from __future__ import annotations
 
 import hashlib
+import math
 import pathlib
 from typing import Final
 
@@ -250,7 +251,30 @@ ALERTS_PER_CAMERA_PER_NIGHT: Final[int] = 2
 
 TILE_SIZE: Final[int] = 96
 ESCALATION_TOP_K: Final[int] = 2          # only the top-2 cameras are ever escalated
-ESCALATION_HAZARD_MIN: Final[float] = 0.35
+#: The escalation floor, expressed as a LOGIT MARGIN above a quiet camera rather than as an
+#: absolute hazard. Changed 2026-09-06, and the reason is a defect the fitted weights exposed.
+#:
+#: ``escalate.should_escalate`` documents the invariant the cost story rests on: "a quiet
+#: camera's hazard is ``sigmoid(FUSION_BIAS)`` and never approaches the floor." With the
+#: a-priori bias of -3.2 a quiet camera sat at 0.0392 against a 0.35 floor and the invariant
+#: held. Fitting moved the bias to -0.6961, putting a quiet camera at **0.3327 -- below the
+#: floor it must never approach.** The gate stopped gating: escalation ran at 5.0% of frames
+#: against a 2% design maximum, pinned at the structural ``rank <= 2`` ceiling, and fired on
+#: pre-ignition frames of fire windows (``tests/test_escalate.py`` caught both).
+#:
+#: An absolute floor is not invariant to refitting the fusion, and the fusion is refit by
+#: design. So the floor is now derived: the margin below is the one the ORIGINAL a-priori
+#: pair implied -- ``logit(0.35) - (-3.2) = 2.581`` -- carried over unchanged. It is not
+#: fitted, not tuned to hit an escalation fraction, and not chosen after seeing one. The
+#: realised fraction stays what it has always been: measured and published, never targeted.
+ESCALATION_LOGIT_MARGIN: Final[float] = 2.581
+
+#: sigmoid(FUSION_BIAS + ESCALATION_LOGIT_MARGIN). At the fitted bias this is ~0.868; at the
+#: a-priori bias it reproduces 0.35 exactly, which is what makes this a reparameterisation of
+#: the original decision rather than a new one.
+ESCALATION_HAZARD_MIN: Final[float] = 1.0 / (
+    1.0 + math.exp(-(FUSION_BIAS + ESCALATION_LOGIT_MARGIN))
+)
 #: The 99/1 architecture's design target, **and it is a target at deployment scale, not a
 #: number any demo-sized roster can reach.** Stating that here rather than being caught by
 #: it is the whole point of this comment.

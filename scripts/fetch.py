@@ -671,15 +671,34 @@ def arm_counts(data_root: pathlib.Path) -> dict[str, int]:
     }
 
 
+#: The sentence that must accompany the exclusion count wherever it is published --
+#: ``tests/test_denominator.py::test_the_exclusion_disclosure_sits_where_the_count_is_published``
+#: enforces the coupling. A count of dropped windows without the rule that dropped them is
+#: an unexplained subtraction, and an unexplained subtraction in a denominator is the shape
+#: of a corpus quietly chosen to flatter a result.
+EXCLUSION_DISCLOSURE = (
+    "Producing data/excluded.json meant a human looking at the FIRST FRAME of every HOLD "
+    "window, about 40 minutes before ignition, against criteria stated before the pass; "
+    "results/hold_access.log still records no HOLD read because no HOLD pixel has been "
+    "scored."
+)
+
+
 def _hold_phrase(c: dict[str, int]) -> str:
-    """"the N held-out sequences that survive exclusion -- M named, K dropped". Both ends
-    of the subtraction, always, because one end alone is the number that misleads."""
+    """"the N held-out sequences that survive exclusion -- M named, K dropped", with the
+    disclosure attached.
+
+    Both ends of the subtraction, always, because one end alone is the number that misleads
+    -- and the disclosure travels WITH them rather than beside them, because on 2026-09-06
+    deriving the counts correctly still published them into PROVENANCE.md without the rule
+    that produced them, and only the coupling test noticed.
+    """
     if not c["hold_manifest"]:
         return "the held-out HOLD sequences"
     return (
         f"the {c['hold_measured']} held-out sequences that survive exclusion -- "
         f"data/manifest_hold.json names {c['hold_manifest']} windows, data/excluded.json "
-        f"drops {c['hold_excluded']} of them"
+        f"drops {c['hold_excluded']} of them. {EXCLUSION_DISCLOSURE}"
     )
 
 

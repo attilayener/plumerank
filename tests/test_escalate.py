@@ -724,3 +724,42 @@ def test_a_tile_wholly_inside_a_large_plume_is_positive() -> None:
     """
     big = (100.0, 50.0, 292.0, 212.0)            # 192 x 162 px, a near plume
     assert train.tile_label((140, 80), [big]) == "pos"
+
+
+def test_escalation_floor_is_a_reparameterisation_not_a_new_decision():
+    """ESCALATION_HAZARD_MIN moved 0.35 -> ~0.868 on 2026-09-06. This proves that was a
+    change of PARAMETERISATION and not a change of policy.
+
+    The floor is now sigmoid(FUSION_BIAS + ESCALATION_LOGIT_MARGIN). Evaluated at the old
+    a-priori bias of -3.2 it must reproduce the old 0.35 exactly. If it does not, the margin
+    was retuned at some point and the constant stopped being the a-priori decision it claims
+    to be.
+    """
+    import math
+
+    from plumerank.constants import ESCALATION_LOGIT_MARGIN
+
+    at_old_bias = 1.0 / (1.0 + math.exp(-(-3.2 + ESCALATION_LOGIT_MARGIN)))
+    assert round(at_old_bias, 4) == 0.35
+
+
+def test_a_quiet_camera_never_reaches_the_escalation_floor():
+    """The invariant should_escalate's docstring rests the whole cost story on: "a quiet
+    camera's hazard is sigmoid(FUSION_BIAS) and never approaches the floor."
+
+    This is the assertion that was missing when the weights were fitted. The fitted bias put
+    a quiet camera at 0.3327 against a 0.35 floor -- BELOW it -- and the gate stopped gating
+    silently. Escalation ran at 5.0% against a 2% maximum and fired before ignition. Nothing
+    asserted the invariant itself, so nothing failed until two downstream tests did.
+    """
+    import math
+
+    from plumerank.constants import ESCALATION_HAZARD_MIN, FUSION_BIAS
+
+    quiet = 1.0 / (1.0 + math.exp(-FUSION_BIAS))
+    assert quiet < ESCALATION_HAZARD_MIN, (
+        f"a quiet camera sits at {quiet:.4f} against a floor of {ESCALATION_HAZARD_MIN:.4f} "
+        "-- the escalation gate is not gating"
+    )
+    # "never approaches" is the claim, so a margin and not merely an inequality.
+    assert ESCALATION_HAZARD_MIN - quiet > 0.25

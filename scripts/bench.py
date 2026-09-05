@@ -2034,6 +2034,17 @@ def run_micro(
     expected_path = root / "results" / "verify_micro.json"
     computed = _dump(verify_payload(payload))
 
+    if getattr(args, "write_expected", False):
+        # The regeneration path the build plan assumes at the D40 freeze, and which was
+        # missing: every constant change invalidates this file, and without a named way to
+        # rewrite it the only options were hand-editing a byte-contract or leaving `make
+        # verify` red. Deliberately explicit -- never automatic on mismatch, because a
+        # contract that rewrites itself when it fails is not a contract.
+        expected_path.parent.mkdir(parents=True, exist_ok=True)
+        expected_path.write_text(computed, encoding="utf-8")
+        print(f"rewrote {expected_path.relative_to(root)} from this run", file=sys.stderr)
+        return 0
+
     print()
     print(RULE)
     print(BLOCK_1)
@@ -2196,6 +2207,15 @@ def build_parser() -> argparse.ArgumentParser:
             "single-cell S4 ablation, for the D10 gate. 'off' zeroes the S4 input on the "
             "SAME code path the shipped pipeline uses (see _classical_tick), rather than "
             "monkeypatching the frozen constant mid-run."
+        ),
+    )
+    parser.add_argument(
+        "--write-expected",
+        action="store_true",
+        help=(
+            "micro arm only: rewrite results/verify_micro.json from this run. Run it "
+            "deliberately after a constants change; never to make a red `make verify` go "
+            "away without reading the diff first."
         ),
     )
     parser.add_argument("--seed", type=int, default=K.TRAIN_SEED)
