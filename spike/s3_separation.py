@@ -80,12 +80,40 @@ def s3(roi, variant="v0"):
     return val
 
 
-def score_box(rec, variant):
+# The pipeline's working resolution, restated here rather than imported: this script is
+# meant to run standalone against spike/frames/ with no package on the path.
+WORK_W, WORK_H = 480, 270
+
+
+def _to_work(img, box):
+    """Downscale a frame to the pipeline's working resolution and rescale its box.
+
+    WHY THIS EXISTS — added 2026-09-06, before the gate had ever produced a number.
+    ``s3()`` is NOT scale-invariant: cv2.Laplacian and cv2.Sobel use a fixed 3x3 kernel, so
+    at 3072x2048 they respond to sensor grain and at 480x270 to scene structure. Measured on
+    40 boxes, S3 at the two scales has a **Spearman rank correlation of 0.63** — and AUC is
+    a pure rank statistic, so an AUC established at full resolution does not carry to the
+    resolution the deployed system runs at.
+
+    ``plumerank/statistic.py:_s3_raw`` computes S3 on 480x270 working frames, which is what
+    ``segment.py`` hands it. A gate scored at full resolution would therefore have validated
+    a statistic the product does not compute, and would have done it convincingly enough
+    that nobody re-checked. Hence ``--scale work`` is the default and ``--scale full``
+    is kept only so the difference can be published rather than asserted.
+    """
+    h, w = img.shape
+    small = cv2.resize(img, (WORK_W, WORK_H), interpolation=cv2.INTER_AREA)
+    sx, sy = WORK_W / float(w), WORK_H / float(h)
+    x, y, bw, bh = box
+    return small, (int(x * sx), int(y * sy), max(1, int(bw * sx)), max(1, int(bh * sy)))
+
+
+def score_box(rec, variant, scale="work"):
     """One scalar per box. v5 measures the statistic on a temporal difference frame."""
     img = cv2.imread(str(FRAMES / rec["file"]), cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise SystemExit(f"missing frame: {rec['file']}")
-    x, y, w, h = rec["x"], rec["y"], rec["w"], rec["h"]
+    box = (rec["x"], rec["y"], rec["w"], rec["h"])
 
     if variant == "v5":
         prev_name = rec.get("prev")
@@ -94,8 +122,13 @@ def score_box(rec, variant):
         prev = cv2.imread(str(FRAMES / prev_name), cv2.IMREAD_GRAYSCALE)
         if prev is None or prev.shape != img.shape:
             return np.nan
+        # Difference BEFORE downscaling, in that order: production differences stabilised
+        # working frames, and absdiff after INTER_AREA is not absdiff before it.
         img = cv2.absdiff(img, prev)
 
+    if scale == "work":
+        img, box = _to_work(img, box)
+    x, y, w, h = box
     return s3(img[y:y + h, x:x + w], variant)
 
 
@@ -146,8 +179,8 @@ def histogram(pos, neg, bins=20):
     return "\n".join(out)
 
 
-def run(variant, boxes):
-    scored = [(r["class"], score_box(r, variant)) for r in boxes]
+def run(variant, boxes, scale="work"):
+    scored = [(r["class"], score_box(r, variant, scale)) for r in boxes]
     dropped = sum(1 for _, v in scored if not np.isfinite(v))
     smoke = [v for c, v in scored if c == "smoke" and np.isfinite(v)]
     fog = [v for c, v in scored if c == "fog" and np.isfinite(v)]
@@ -167,6 +200,10 @@ def main():
                     choices=["v0", "v1", "v2b", "v3", "v4", "v5"])
     ap.add_argument("--all-variants", action="store_true",
                     help="D3 selection pass — discloses the multiple comparison")
+    ap.add_argument("--scale", choices=["work", "full"], default="work",
+                    help="'work' (default) scores at the pipeline's 480x270, which is where "
+                         "plumerank/statistic.py computes S3. 'full' scores at native "
+                         "resolution — kept for comparison only; see _to_work().")
     ap.add_argument("--boxes", type=pathlib.Path, default=BOXES,
                     help="box file to score. Changes WHERE the statistic is measured, "
                          "never HOW: the statistic, the cutline, the seed and the decision "
@@ -174,14 +211,16 @@ def main():
     args = ap.parse_args()
 
     boxes = json.loads(args.boxes.read_text())
-    print(f"OpenCV {cv2.__version__} · {args.boxes.name} · {len(boxes)} boxes · cutline {CUTLINE} · "
-          f"{BOOTSTRAP_DRAWS} bootstrap draws · seed {SEED}\n")
+    print(f"OpenCV {cv2.__version__} · {args.boxes.name} · {len(boxes)} boxes · "
+          f"scale={args.scale}"
+          f"{' (480x270, as production computes it)' if args.scale == 'work' else ' (NATIVE — not what production computes)'}"
+          f" · cutline {CUTLINE} · {BOOTSTRAP_DRAWS} bootstrap draws · seed {SEED}\n")
 
     variants = ["v0", "v1", "v2b", "v3", "v4", "v5"] if args.all_variants else [args.variant]
     results = []
     for v in variants:
         try:
-            results.append(run(v, boxes))
+            results.append(run(v, boxes, args.scale))
         except SystemExit as e:
             print(f"  {e}", file=sys.stderr)
 

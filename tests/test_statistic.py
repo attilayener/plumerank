@@ -619,3 +619,36 @@ def test_measure_skips_s4_without_a_previous_frame():
     grey[40:88, 60:108] = soft_edged_roi()
     track = track_from([comp(x=60, y=40, w=48, h=48)] * 3)
     assert measure(track, grey).s4 == 0.0
+
+
+def test_gate_scores_at_the_resolution_production_computes_at():
+    """The gate and the pipeline must ask S3 the same question at the same scale.
+
+    ``test_s3_matches_the_gate`` proves the two IMPLEMENTATIONS agree on one ROI. It cannot
+    prove they are handed comparable ROIs, and until 2026-09-06 they were not: the gate read
+    native 3072x2048 frames while ``segment.py`` hands ``_s3_raw`` a 480x270 working frame.
+    S3 is not scale-invariant (fixed 3x3 Laplacian/Sobel kernels), so that gap was worth a
+    Spearman rank correlation of ~0.63 between the two scales -- enough to move the gate's
+    verdict across its own cutline. This asserts the default never drifts back.
+    """
+    import importlib.util
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location("s3sep", root / "spike" / "s3_separation.py")
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+
+    from plumerank import constants as K
+
+    assert (gate.WORK_W, gate.WORK_H) == (K.WORK_WIDTH, K.WORK_HEIGHT), (
+        "the gate's working resolution has drifted from the pipeline's"
+    )
+
+    import inspect
+
+    sig = inspect.signature(gate.score_box)
+    assert sig.parameters["scale"].default == "work", (
+        "the gate must default to production resolution; 'full' measures a statistic the "
+        "product does not compute"
+    )

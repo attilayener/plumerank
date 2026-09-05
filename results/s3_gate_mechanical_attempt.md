@@ -75,17 +75,63 @@ not two.
 **A NO-GO requires evidence that S3 fails on regions that contain the phenomenon. Neither box
 set contains it reliably, so neither can produce that evidence.**
 
+## 4b. A second defect, found while checking the first, and it is the more dangerous one
+
+**`s3_separation.py` was scoring at native 3072×2048. `plumerank/statistic.py` computes S3 at
+480×270.** The gate was measuring the statistic at a resolution the product never runs it at.
+
+`s3()` is not scale-invariant: `cv2.Laplacian` and `cv2.Sobel` use a fixed 3×3 kernel, so at
+full resolution they answer a question about sensor grain and at working resolution one about
+scene structure. On the same 40 boxes, S3 at the two scales has a **Spearman rank correlation
+of 0.63** — and AUC is a pure rank statistic, so an AUC established at one scale does not
+transfer to the other.
+
+`tests/test_statistic.py::test_s3_matches_the_gate` could never have caught this. It diffs the
+two implementations on *the same ROI* and they agree exactly, which is what it asserts. The
+defect is not in either function; it is in what each is handed.
+
+Re-scoring the same (still badly placed) boxes at working resolution moves every variant, and
+moves the verdict across the decision boundary:
+
+| variant | AUC @ full | AUC @ work | 95% CI @ work | verdict @ work |
+|---|---:|---:|---|---|
+| v0 | 0.407 | **0.562** | [0.448, 0.676] | NO-GO |
+| v1 | 0.514 | 0.587 | [0.471, 0.706] | CONDITIONAL GO |
+| **v2b** | 0.436 | **0.615** | [0.500, 0.724] | **CONDITIONAL GO** |
+| v3 | 0.407 | 0.562 | [0.448, 0.676] | NO-GO |
+| v4 | 0.459 | 0.573 | [0.459, 0.688] | NO-GO |
+| v5 | 0.384 | 0.585 | [0.472, 0.700] | NO-GO |
+
+Note the sign. At full resolution four of six variants scored **below 0.5** — fog rated
+*more* smoke-like than smoke, the statistic running backwards. At working resolution every
+variant sits above 0.5 and the medians order as the theory says they should (smoke 0.168 vs
+fog 0.145 on v0). The statistic behaves as designed at the scale it was designed for, and
+only there.
+
+`--scale` now selects between them and **defaults to `work`**. Changing a committed
+instrument's default needs a reason; the reason is that this instrument had never produced a
+number, so no published result is invalidated, and leaving it would have spent the human's
+boxing hour measuring the wrong thing.
+
+**This does not turn the §2 numbers into a verdict either.** The boxes are still on clouds and
+sun glare. What it establishes is narrower and still worth having: had the boxes been drawn by
+hand last week and scored at full resolution, the gate would have returned a **confident NO-GO
+on a scale artefact**, and PlumeRank would have been abandoned on 2026-09-01 for a reason that
+was not true.
+
 ## 5. What this does establish
 
-1. **The gate's shortcut is closed.** Mechanical box proposal was the only route to the Sep 1
+1. **A false NO-GO was avoided.** See §4b: the committed instrument would have answered at
+   the wrong resolution, in the wrong direction, and convincingly.
+2. **The gate's shortcut is closed.** Mechanical box proposal was the only route to the Sep 1
    verdict that did not cost human time, and it does not work. §5 of the gate document
    specified hand-drawn boxes; that specification turns out to be load-bearing rather than
    incidental, because *localising the phenomenon is the hard part and the gate exists to
    factor it out.*
-2. **The instrument downstream of the boxes is verified end to end.** `s3_separation.py` runs,
+3. **The instrument downstream of the boxes is verified end to end.** `s3_separation.py` runs,
    scores 120 boxes, bootstraps, applies the rule and prints a verdict. When the real boxes
    arrive the gate returns its answer immediately; nothing else is missing.
-3. **A concern about the fog class, noticed while looking.** Several frames drawn as
+4. **A concern about the fog class, noticed while looking.** Several frames drawn as
    `fog` show a clear dawn over hills with no visible marine-layer boundary, and the dominant
    feature is the rising sun. §5 says the fog set was "visually confirmed as genuine marine
    layer"; on this inspection at least some frames do not obviously satisfy that. **A boundary
