@@ -167,10 +167,14 @@ def main():
                     choices=["v0", "v1", "v2b", "v3", "v4", "v5"])
     ap.add_argument("--all-variants", action="store_true",
                     help="D3 selection pass — discloses the multiple comparison")
+    ap.add_argument("--boxes", type=pathlib.Path, default=BOXES,
+                    help="box file to score. Changes WHERE the statistic is measured, "
+                         "never HOW: the statistic, the cutline, the seed and the decision "
+                         "rule above are untouched by this flag.")
     args = ap.parse_args()
 
-    boxes = json.loads(BOXES.read_text())
-    print(f"OpenCV {cv2.__version__} · {len(boxes)} boxes · cutline {CUTLINE} · "
+    boxes = json.loads(args.boxes.read_text())
+    print(f"OpenCV {cv2.__version__} · {args.boxes.name} · {len(boxes)} boxes · cutline {CUTLINE} · "
           f"{BOOTSTRAP_DRAWS} bootstrap draws · seed {SEED}\n")
 
     variants = ["v0", "v1", "v2b", "v3", "v4", "v5"] if args.all_variants else [args.variant]
