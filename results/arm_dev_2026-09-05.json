@@ -4,21 +4,21 @@
   "background": "mog2",
   "baselines": [
     {
-      "arm_realised_rate_uncapped": 2.5456,
+      "arm_realised_rate_uncapped": 2.8638,
       "budget_slots": 58,
-      "budget_slots_spent": 30,
+      "budget_slots_spent": 38,
       "calibration_realised_rate_uncapped": 1.9885,
       "label": "PlumeRank",
       "model_calls": 158,
       "model_calls_per_camera_night": 5.586,
       "system": "plumerank",
-      "threshold": 0.757812,
+      "threshold": 0.701904,
       "ttd": {
-        "detection_rate": 0.4138,
-        "mean_detected_minutes": 18.083,
+        "detection_rate": 0.4828,
+        "mean_detected_minutes": 18.357,
         "n": 29,
-        "n_detected": 12,
-        "n_missed": 17,
+        "n_detected": 14,
+        "n_missed": 15,
         "p50_minutes": null,
         "p95_minutes": null
       }
@@ -74,7 +74,7 @@
     "slots_per_camera": 2,
     "system": "plumerank",
     "target_alerts_per_camera_night": 2.0,
-    "threshold": 0.757812
+    "threshold": 0.701904
   },
   "classifier": {
     "dataset": "pyro-sdis",
@@ -137,44 +137,44 @@
   },
   "frames_per_window": 79,
   "headline": {
-    "detection_rate": 0.4138,
-    "mean_detected_minutes": 18.083,
+    "detection_rate": 0.4828,
+    "mean_detected_minutes": 18.357,
     "n": 29,
-    "n_detected": 12,
-    "n_missed": 17,
+    "n_detected": 14,
+    "n_missed": 15,
     "p50_minutes": null,
     "p95_minutes": null
   },
-  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50    n/a min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 6.90% of frames touched by ONNX\n  model calls    : PlumeRank 6 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit 2031c04bfbb7706a0b2a3c4dd0db60c9fe4a9268  instance local (not EC2)  wall clock 9m00s  2026-09-05\n-> results/arm_dev_2026-09-05.json",
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50    n/a min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 6.90% of frames touched by ONNX\n  model calls    : PlumeRank 6 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit a3295f5aaa9a4fd43953203315714f81e9bcfa48  instance local (not EC2)  wall clock 8m48s  2026-09-05\n-> results/arm_dev_2026-09-05.json",
   "headline_system": "plumerank",
   "latency_ms": {
     "b1": {
-      "mean_ms": 54.492,
+      "mean_ms": 53.734,
       "n": 2291,
-      "p50_ms": 53.948,
-      "p95_ms": 56.747,
-      "total_ms": 124841.875
+      "p50_ms": 53.253,
+      "p95_ms": 55.445,
+      "total_ms": 123104.808
     },
     "b2": {
-      "mean_ms": 0.014,
+      "mean_ms": 0.013,
       "n": 2291,
       "p50_ms": 0.013,
-      "p95_ms": 0.018,
-      "total_ms": 31.312
+      "p95_ms": 0.016,
+      "total_ms": 30.441
     },
     "classical": {
-      "mean_ms": 7.14,
+      "mean_ms": 6.948,
       "n": 2291,
-      "p50_ms": 7.056,
-      "p95_ms": 8.821,
-      "total_ms": 16358.416
+      "p50_ms": 6.878,
+      "p95_ms": 8.569,
+      "total_ms": 15917.97
     },
     "escalation": {
-      "mean_ms": 1.222,
+      "mean_ms": 1.2,
       "n": 158,
-      "p50_ms": 1.211,
-      "p95_ms": 1.294,
-      "total_ms": 193.06
+      "p50_ms": 1.194,
+      "p95_ms": 1.254,
+      "total_ms": 189.628
     }
   },
   "model_invocations_per_camera_night": {
@@ -196,7 +196,7 @@
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 1.0253,
-      "plumerank_threshold": 0.810059
+      "plumerank_threshold": 0.777954
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -208,8 +208,8 @@
       "budget_alerts_per_camera_night": 1.0,
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 1.3435,
-      "plumerank_threshold": 0.791077
+      "plumerank_realised_rate_uncapped": 1.5557,
+      "plumerank_threshold": 0.755737
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -221,8 +221,8 @@
       "budget_alerts_per_camera_night": 2.0,
       "budget_slots_per_camera": 2,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 2.5456,
-      "plumerank_threshold": 0.757812
+      "plumerank_realised_rate_uncapped": 2.8638,
+      "plumerank_threshold": 0.701904
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -234,8 +234,8 @@
       "budget_alerts_per_camera_night": 4.0,
       "budget_slots_per_camera": 4,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 4.5962,
-      "plumerank_threshold": 0.711792
+      "plumerank_realised_rate_uncapped": 4.8791,
+      "plumerank_threshold": 0.656738
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -246,15 +246,15 @@
       "b2_frame_diff_threshold": 0.993286,
       "budget_alerts_per_camera_night": 8.0,
       "budget_slots_per_camera": 8,
-      "plumerank_p50_minutes": 35.0,
-      "plumerank_realised_rate_uncapped": 8.7682,
-      "plumerank_threshold": 0.654663
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 10.1471,
+      "plumerank_threshold": 0.603699
     }
   ],
   "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
   "results_file": "arm_dev_2026-09-05.json",
   "run": {
-    "commit": "2031c04bfbb7706a0b2a3c4dd0db60c9fe4a9268",
+    "commit": "a3295f5aaa9a4fd43953203315714f81e9bcfa48",
     "constants_sha256": "d534b909939358af44f94d0f81480a2e7473ed0ee9328e7160ab68cff4d7bacd",
     "cpu_credit_balance_after": null,
     "cpu_credit_balance_before": null,
@@ -263,8 +263,8 @@
     "instance_id": null,
     "opencv_version": "5.0.0",
     "python": "3.11.1",
-    "started": "2026-09-05T17:24:51+00:00",
-    "wall_clock_seconds": 540.9
+    "started": "2026-09-05T17:51:49+00:00",
+    "wall_clock_seconds": 528.7
   },
   "schema": "plumerank.bench/1",
   "seed": 20261026,
