@@ -738,6 +738,9 @@ class ScoreMatrix:
     model_calls: dict[str, int]
     latency_ms: dict[str, dict[str, float]]
     systems: tuple[str, ...]
+    features: list[list[dict[str, float]]] = field(default_factory=list)
+    """Per-window, per-frame S1-S4 + escalation, parallel to ``hazards['plumerank']``.
+    Consumed by ``scripts/fit_fusion.py``; ignored by every scoring path."""
 
     @property
     def keys(self) -> list[str]:
@@ -768,6 +771,11 @@ class _Lane:
     prev_grey: np.ndarray | None = None
     prev_work: np.ndarray | None = None
     hazards: dict[str, list[float]] = field(default_factory=dict)
+    features: list[dict[str, float]] = field(default_factory=list)
+    """The S1-S4 vector behind each hazard, kept so the fusion weights can be fit on the
+    SAME replay that produced the headline. Without this the fit would need a second pass
+    over the pixels, and a weight fitted on one replay and applied to another is a weight
+    nobody can reproduce."""
 
 
 def replay_arm(
@@ -856,6 +864,19 @@ def replay_arm(
                 escalated += 1
                 hazard = rk.fuse(stats, escalation_score)
             lanes[i].hazards["plumerank"].append(hazard)
+            # Captured AFTER escalation resolves, so the recorded vector is the one the
+            # published hazard was actually computed from -- including esc=0.0 on the
+            # ~98% of frames that never escalate.
+            lanes[i].features.append(
+                {
+                    "s1": stats.s1,
+                    "s2": stats.s2,
+                    "s3": stats.s3,
+                    "s4": stats.s4,
+                    "esc": escalation_score,
+                    "has_component": 1.0 if component is not None else 0.0,
+                }
+            )
 
         for lane, grey in zip(lanes, greys):
             lane.prev_grey = grey
@@ -871,6 +892,7 @@ def replay_arm(
         model_calls=calls,
         latency_ms=latency.report(),
         systems=systems,
+        features=[lane.features for lane in lanes],
     )
 
 
@@ -1491,6 +1513,47 @@ def _classifier(root: pathlib.Path) -> TileClassifier:
     return TileClassifier(root / "models" / "tile_classifier.onnx")
 
 
+def dump_features(root: pathlib.Path, arm: str, matrix: ScoreMatrix) -> pathlib.Path:
+    """Write the S1-S4 vectors behind one replay, with the ignition-clock label.
+
+    The label is the ONLY thing this function decides, and it decides it the same way
+    ``metrics.py`` decides a detection: a frame in a fire window is positive from
+    ``t0_index`` onward and negative before it, and every frame of a non-fire window is
+    negative. There is no margin, no smoothing and no "near t0" band -- a band would be a
+    fitted parameter smuggled into the labelling step, where nothing would ever measure it.
+    """
+    out = root / "results" / f"features_{arm}.jsonl"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    n_pos = 0
+    with out.open("w", encoding="utf-8") as fh:
+        for w, rows in zip(matrix.windows, matrix.features):
+            for i, feat in enumerate(rows):
+                label = 1 if (w.t0_index is not None and i >= w.t0_index) else 0
+                n_pos += label
+                fh.write(
+                    json.dumps(
+                        {
+                            "sequence_id": w.sequence_id,
+                            "camera_id": w.camera_id,
+                            "frame_index": i,
+                            "is_fire_window": w.is_fire,
+                            "t0_index": w.t0_index,
+                            "label": label,
+                            **feat,
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+    total = sum(len(r) for r in matrix.features)
+    print(
+        f"features -> {out.relative_to(root)}  ({total} rows, {n_pos} positive, "
+        f"{total - n_pos} negative)",
+        flush=True,
+    )
+    return out
+
+
 def run_arm(
     root: pathlib.Path,
     args: argparse.Namespace,
@@ -1572,6 +1635,9 @@ def run_arm(
             escalation_enabled=True,
             classifier=classifier,
         )
+
+    if getattr(args, "dump_features", False):
+        dump_features(root, args.arm, matrix)
 
     per_camera = _per_camera_slots(args.budget)
     results: dict[str, SystemResult] = {}
@@ -2035,6 +2101,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--ablation",
         action="store_true",
         help="the twelve-cell grid on DEV, written per cell to results/ablation_<date>.csv",
+    )
+    parser.add_argument(
+        "--dump-features",
+        action="store_true",
+        help=(
+            "write results/features_<arm>.jsonl -- one row per camera-frame carrying the "
+            "S1-S4 vector and its ignition-clock label, for scripts/fit_fusion.py. Writes "
+            "a file; changes no published number."
+        ),
     )
     parser.add_argument("--seed", type=int, default=K.TRAIN_SEED)
     parser.add_argument(
