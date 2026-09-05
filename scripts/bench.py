@@ -635,16 +635,85 @@ def load_arm(root: pathlib.Path, arm: str, excluded: Sequence[str] = ()) -> list
         )
     if not windows:
         raise SystemExit(f"arm {arm!r} is empty after exclusions -- nothing to measure")
-
-    lengths = {len(w) for w in windows}
-    if len(lengths) != 1:
-        # Ragged windows would make "alerts per camera-night" mean a different thing per
-        # row, and the whole comparison rests on that denominator being one number.
-        raise SystemExit(
-            f"arm {arm!r} has windows of {sorted(lengths)} frames; every window in an arm "
-            f"must be the same length or the per-camera-night rate is not one unit"
-        )
     return windows
+
+
+def unify_windows(*groups: list[Window]) -> tuple[list[Window], ...]:
+    """Trim every window, across every group, to ONE length with ONE ignition index.
+
+    WHY THIS EXISTS -- found 2026-09-06, and it means DEV and HOLD had never run.
+    ``data/manifest_dev.json`` declares three different window shapes: (80 frames, t0 at 39)
+    x12, (80, t0 40) x9 and (81, t0 40) x9. HOLD declares the same three. ``replay_arm``
+    replays in lockstep and the old uniformity check rejected the arm outright, so
+    ``bench.py --arm dev`` and ``--arm hold`` both exited on the manifest before touching a
+    pixel. Only CONFUSE (uniform 81) and the committed micro corpus had ever run -- which is
+    exactly why it went unnoticed: every published number came from one of those two.
+
+    Truncating to a common LENGTH would not have been enough. t0 sits at index 39 in some
+    windows and 40 in others, so a fixed-length prefix leaves the ignition clock offset by a
+    minute between rows of the same arm, and ``metrics.py`` measures time-to-detection from
+    t0. Anchoring on t0 instead gives every fire window the same number of pre-ignition
+    frames, which is what makes "median time to detection" one quantity.
+
+    The calibration group is trimmed to the SAME length in the same call, and that is not
+    tidiness: the threshold is solved on CONFUSE and applied to the measured arm, so if a
+    CONFUSE camera-night were 81 frames and a DEV camera-night 79, the alert budget would be
+    calibrated against 2.5% more exposure than it was spent against, and PlumeRank would
+    collect a small unearned advantage on every fire arm.
+
+    Windows with no t0 (the confusion set) are centre-trimmed: there is no ignition to
+    anchor to, and taking the middle keeps the trim symmetric rather than preferring the
+    start of a night to its end.
+    """
+    allw = [w for g in groups for w in g]
+    if not allw:
+        return groups
+    fire = [w for w in allw if w.t0_index is not None]
+
+    if fire:
+        pre = min(w.t0_index for w in fire)
+        length = min(
+            min(len(w) - w.t0_index + pre for w in fire),
+            min(len(w) for w in allw),
+        )
+    else:
+        pre = 0
+        length = min(len(w) for w in allw)
+
+    if length < 2:
+        raise SystemExit(
+            f"windows cannot be reconciled to a common shape: the largest common "
+            f"t0-anchored window is {length} frames"
+        )
+
+    out = []
+    for group in groups:
+        trimmed = []
+        for w in group:
+            if w.t0_index is not None:
+                start = w.t0_index - pre
+            else:
+                start = (len(w) - length) // 2
+            if start < 0 or start + length > len(w):
+                raise SystemExit(
+                    f"{w.sequence_id}: cannot cut a {length}-frame window at offset "
+                    f"{start} from {len(w)} frames"
+                )
+            trimmed.append(
+                Window(
+                    sequence_id=w.sequence_id,
+                    camera_id=w.camera_id,
+                    t0_index=None if w.t0_index is None else pre,
+                    frame_paths=w.frame_paths[start : start + length],
+                )
+            )
+        out.append(trimmed)
+
+    lengths = {len(w) for g in out for w in g}
+    t0s = {w.t0_index for g in out for w in g if w.t0_index is not None}
+    assert len(lengths) == 1, f"unify_windows left ragged windows: {sorted(lengths)}"
+    assert len(t0s) <= 1, f"unify_windows left multiple ignition indices: {sorted(t0s)}"
+    return tuple(out)
 
 
 def load_calibration(root: pathlib.Path, arm: str, excluded: Sequence[str]) -> list[Window]:
@@ -1583,6 +1652,13 @@ def run_arm(
 
     windows = load_arm(root, args.arm, excluded)
     calibration_windows = load_calibration(root, args.arm, excluded)
+    # Both groups together, in one call: the budget is calibrated on one and spent on the
+    # other, so they must agree on what a camera-night is. See unify_windows().
+    windows, calibration_windows = unify_windows(windows, calibration_windows)
+    print(
+        f"windows unified to {len(windows[0])} frames"
+        + (f", ignition at index {windows[0].t0_index}" if windows[0].is_fire else "")
+    )
     if len(windows) != denominator["measured_on"]:
         # Two routes to one number: load_arm resolves every frame on disk, arm_denominator
         # subtracts the exclusion list from the manifest. They agree or the run stops --
