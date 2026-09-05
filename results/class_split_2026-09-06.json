@@ -1,0 +1,61 @@
+{
+ "arm": "confuse",
+ "background": "mog2",
+ "binding_quantity": "fog_marine own rate (results/ruling_d11_contribute.md \u00a72)",
+ "binding_value": 1.0769,
+ "classes": [
+  {
+   "alerts": 14,
+   "class": "fog_marine",
+   "own_rate": 1.0769,
+   "share_of_arm_budget": 0.4242,
+   "windows": 13
+  },
+  {
+   "alerts": 28,
+   "class": "cloud_shadow",
+   "own_rate": 4.0,
+   "share_of_arm_budget": 0.8485,
+   "windows": 7
+  },
+  {
+   "alerts": 9,
+   "class": "exposure_hunting",
+   "own_rate": 1.8,
+   "share_of_arm_budget": 0.2727,
+   "windows": 5
+  },
+  {
+   "alerts": 15,
+   "class": "low_cloud",
+   "own_rate": 3.75,
+   "share_of_arm_budget": 0.4545,
+   "windows": 4
+  },
+  {
+   "alerts": 0,
+   "class": "lens_artefact",
+   "own_rate": 0.0,
+   "share_of_arm_budget": 0.0,
+   "windows": 3
+  },
+  {
+   "alerts": 0,
+   "class": "dust",
+   "own_rate": 0.0,
+   "share_of_arm_budget": 0.0,
+   "windows": 1
+  }
+ ],
+ "commit": "a3295f5aaa9a4fd43953203315714f81e9bcfa48",
+ "constants_sha256": "d534b909939358af44f94d0f81480a2e7473ed0ee9328e7160ab68cff4d7bacd",
+ "cutlines": {
+  "abort_above": 1.5,
+  "clear_below": 0.5
+ },
+ "generated": "2026-09-06T00:51:22+07:00",
+ "n_windows": 33,
+ "threshold": 0.73046875,
+ "verdict": "PROCEED, published as a named limitation",
+ "whole_arm_rate": 2.0
+}

@@ -1688,11 +1688,12 @@ def run_arm(
     wall = cv2.getTickCount()
     classifier = _classifier(root)
 
+    s4_on = getattr(args, "s4", "on") == "on"
     calibration = replay(
         calibration_windows,
         arm="confuse" if args.arm != "micro" else "micro-confuse",
         background=args.bg,
-        s4_enabled=True,
+        s4_enabled=s4_on,
         escalation_enabled=True,
         classifier=classifier,
     )
@@ -1707,7 +1708,7 @@ def run_arm(
             windows,
             arm=args.arm,
             background=args.bg,
-            s4_enabled=True,
+            s4_enabled=s4_on,
             escalation_enabled=True,
             classifier=classifier,
         )
@@ -2185,6 +2186,16 @@ def build_parser() -> argparse.ArgumentParser:
             "write results/features_<arm>.jsonl -- one row per camera-frame carrying the "
             "S1-S4 vector and its ignition-clock label, for scripts/fit_fusion.py. Writes "
             "a file; changes no published number."
+        ),
+    )
+    parser.add_argument(
+        "--s4",
+        choices=("on", "off"),
+        default="on",
+        help=(
+            "single-cell S4 ablation, for the D10 gate. 'off' zeroes the S4 input on the "
+            "SAME code path the shipped pipeline uses (see _classical_tick), rather than "
+            "monkeypatching the frozen constant mid-run."
         ),
     )
     parser.add_argument("--seed", type=int, default=K.TRAIN_SEED)

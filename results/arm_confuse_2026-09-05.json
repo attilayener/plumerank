@@ -9,10 +9,10 @@
       "budget_slots_spent": 31,
       "calibration_realised_rate_uncapped": 2.0,
       "label": "PlumeRank",
-      "model_calls": 57,
-      "model_calls_per_camera_night": 1.727,
+      "model_calls": 162,
+      "model_calls_per_camera_night": 4.909,
       "system": "plumerank",
-      "threshold": 0.345703,
+      "threshold": 0.730469,
       "ttd": null
     },
     {
@@ -50,7 +50,7 @@
     "slots_per_camera": 2,
     "system": "plumerank",
     "target_alerts_per_camera_night": 2.0,
-    "threshold": 0.345703
+    "threshold": 0.730469
   },
   "classifier": {
     "dataset": "pyro-sdis",
@@ -75,8 +75,8 @@
   "escalation": {
     "cameras_needed_for_design_target": 100,
     "design_target_at_scale": 0.02,
-    "fraction": 0.021324,
-    "frames_escalated": 57,
+    "fraction": 0.060606,
+    "frames_escalated": 162,
     "frames_total": 2673,
     "max_allowed": 0.02,
     "roster_size": 33,
@@ -104,41 +104,41 @@
   },
   "frames_per_window": 81,
   "headline": null,
-  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : confuse (33 sequences, 0 excluded from the 33 in manifest_confuse.json, see data/excluded.json)\n  PlumeRank      : no ignition clock in this arm -- rate only\n  B1 CNN grid    : no ignition clock in this arm -- rate only\n  B2 frame-diff  : no ignition clock in this arm -- rate only\n  realised rate  : 2.00 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 2.13% of frames touched by ONNX\n  model calls    : PlumeRank 2 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit 79993a9dc7290b8b73329df5ce863419d773e4b8  instance local (not EC2)  wall clock 4m55s  2026-09-05\n-> results/arm_confuse_2026-09-05.json",
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : confuse (33 sequences, 0 excluded from the 33 in manifest_confuse.json, see data/excluded.json)\n  PlumeRank      : no ignition clock in this arm -- rate only\n  B1 CNN grid    : no ignition clock in this arm -- rate only\n  B2 frame-diff  : no ignition clock in this arm -- rate only\n  realised rate  : 2.00 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 6.06% of frames touched by ONNX\n  model calls    : PlumeRank 5 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit a3295f5aaa9a4fd43953203315714f81e9bcfa48  instance local (not EC2)  wall clock 4m50s  2026-09-05\n-> results/arm_confuse_2026-09-05.json",
   "headline_system": "plumerank",
   "latency_ms": {
     "b1": {
-      "mean_ms": 54.887,
+      "mean_ms": 54.17,
       "n": 2673,
-      "p50_ms": 54.631,
-      "p95_ms": 57.726,
-      "total_ms": 146713.56
+      "p50_ms": 53.864,
+      "p95_ms": 55.684,
+      "total_ms": 144797.064
     },
     "b2": {
-      "mean_ms": 0.014,
+      "mean_ms": 0.013,
       "n": 2673,
       "p50_ms": 0.013,
-      "p95_ms": 0.02,
-      "total_ms": 37.176
+      "p95_ms": 0.017,
+      "total_ms": 36.034
     },
     "classical": {
-      "mean_ms": 7.386,
+      "mean_ms": 7.222,
       "n": 2673,
-      "p50_ms": 7.401,
-      "p95_ms": 9.143,
-      "total_ms": 19743.293
+      "p50_ms": 7.262,
+      "p95_ms": 8.962,
+      "total_ms": 19303.61
     },
     "escalation": {
-      "mean_ms": 1.228,
-      "n": 57,
-      "p50_ms": 1.21,
-      "p95_ms": 1.304,
-      "total_ms": 69.994
+      "mean_ms": 1.262,
+      "n": 162,
+      "p50_ms": 1.203,
+      "p95_ms": 1.283,
+      "total_ms": 204.366
     }
   },
   "model_invocations_per_camera_night": {
     "b1_cnn_grid": 3645.0,
-    "plumerank": 1.727
+    "plumerank": 4.909
   },
   "n_calibration_windows": 33,
   "n_fire_windows": 0,
@@ -155,7 +155,7 @@
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 0.4848,
-      "plumerank_threshold": 0.549438
+      "plumerank_threshold": 0.796997
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -168,7 +168,7 @@
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 1.0,
-      "plumerank_threshold": 0.410461
+      "plumerank_threshold": 0.759766
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -181,7 +181,7 @@
       "budget_slots_per_camera": 2,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 2.0,
-      "plumerank_threshold": 0.345703
+      "plumerank_threshold": 0.730469
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -193,8 +193,8 @@
       "budget_alerts_per_camera_night": 4.0,
       "budget_slots_per_camera": 4,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 4.0,
-      "plumerank_threshold": 0.276245
+      "plumerank_realised_rate_uncapped": 3.9697,
+      "plumerank_threshold": 0.693848
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -207,14 +207,14 @@
       "budget_slots_per_camera": 8,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 8.0,
-      "plumerank_threshold": 0.180237
+      "plumerank_threshold": 0.641113
     }
   ],
   "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
   "results_file": "arm_confuse_2026-09-05.json",
   "run": {
-    "commit": "79993a9dc7290b8b73329df5ce863419d773e4b8",
-    "constants_sha256": "36f582f05b7b7e8f0549b27e303d19919289b933f8e6e85e17587f4c581ebfc3",
+    "commit": "a3295f5aaa9a4fd43953203315714f81e9bcfa48",
+    "constants_sha256": "d534b909939358af44f94d0f81480a2e7473ed0ee9328e7160ab68cff4d7bacd",
     "cpu_credit_balance_after": null,
     "cpu_credit_balance_before": null,
     "date": "2026-09-05",
@@ -222,8 +222,8 @@
     "instance_id": null,
     "opencv_version": "5.0.0",
     "python": "3.11.1",
-    "started": "2026-09-05T00:28:10+00:00",
-    "wall_clock_seconds": 295.0
+    "started": "2026-09-05T17:33:52+00:00",
+    "wall_clock_seconds": 290.7
   },
   "schema": "plumerank.bench/1",
   "seed": 20261026,
