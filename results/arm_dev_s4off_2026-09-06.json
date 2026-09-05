@@ -4,21 +4,21 @@
   "background": "mog2",
   "baselines": [
     {
-      "arm_realised_rate_uncapped": 2.8638,
+      "arm_realised_rate_uncapped": 2.2274,
       "budget_slots": 58,
-      "budget_slots_spent": 38,
+      "budget_slots_spent": 30,
       "calibration_realised_rate_uncapped": 1.9885,
       "label": "PlumeRank",
-      "model_calls": 158,
-      "model_calls_per_camera_night": 5.586,
+      "model_calls": 0,
+      "model_calls_per_camera_night": 0.0,
       "system": "plumerank",
-      "threshold": 0.701904,
+      "threshold": 0.687561,
       "ttd": {
-        "detection_rate": 0.4828,
-        "mean_detected_minutes": 18.357,
+        "detection_rate": 0.4138,
+        "mean_detected_minutes": 19.917,
         "n": 29,
-        "n_detected": 14,
-        "n_missed": 15,
+        "n_detected": 12,
+        "n_missed": 17,
         "p50_minutes": null,
         "p95_minutes": null
       }
@@ -74,7 +74,7 @@
     "slots_per_camera": 2,
     "system": "plumerank",
     "target_alerts_per_camera_night": 2.0,
-    "threshold": 0.701904
+    "threshold": 0.687561
   },
   "classifier": {
     "dataset": "pyro-sdis",
@@ -101,13 +101,13 @@
   "escalation": {
     "cameras_needed_for_design_target": 100,
     "design_target_at_scale": 0.02,
-    "fraction": 0.068966,
-    "frames_escalated": 158,
+    "fraction": 0.0,
+    "frames_escalated": 0,
     "frames_total": 2291,
     "max_allowed": 0.02,
     "roster_size": 29,
     "structural_ceiling": 0.068966,
-    "within_max": false,
+    "within_max": true,
     "within_structural_ceiling": true
   },
   "exclusions": {
@@ -137,49 +137,42 @@
   },
   "frames_per_window": 79,
   "headline": {
-    "detection_rate": 0.4828,
-    "mean_detected_minutes": 18.357,
+    "detection_rate": 0.4138,
+    "mean_detected_minutes": 19.917,
     "n": 29,
-    "n_detected": 14,
-    "n_missed": 15,
+    "n_detected": 12,
+    "n_missed": 17,
     "p50_minutes": null,
     "p95_minutes": null
   },
-  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50    n/a min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 6.90% of frames touched by ONNX\n  model calls    : PlumeRank 6 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit a3295f5aaa9a4fd43953203315714f81e9bcfa48  instance local (not EC2)  wall clock 8m48s  2026-09-05\n-> results/arm_dev_2026-09-05.json",
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50    n/a min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 0.00% of frames touched by ONNX\n  model calls    : PlumeRank 0 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : not run (pass --sensitivity)\n  background     : mog2\n  commit 9b82b76ec0be2142b5795149e7458941f01cfac4  instance local (not EC2)  wall clock 8m40s  2026-09-05\n-> results/arm_dev_2026-09-05.json",
   "headline_system": "plumerank",
   "latency_ms": {
     "b1": {
-      "mean_ms": 53.734,
+      "mean_ms": 52.946,
       "n": 2291,
-      "p50_ms": 53.253,
-      "p95_ms": 55.445,
-      "total_ms": 123104.808
+      "p50_ms": 52.9,
+      "p95_ms": 53.382,
+      "total_ms": 121300.229
     },
     "b2": {
       "mean_ms": 0.013,
       "n": 2291,
       "p50_ms": 0.013,
-      "p95_ms": 0.016,
-      "total_ms": 30.441
+      "p95_ms": 0.015,
+      "total_ms": 29.735
     },
     "classical": {
-      "mean_ms": 6.948,
+      "mean_ms": 6.817,
       "n": 2291,
-      "p50_ms": 6.878,
-      "p95_ms": 8.569,
-      "total_ms": 15917.97
-    },
-    "escalation": {
-      "mean_ms": 1.2,
-      "n": 158,
-      "p50_ms": 1.194,
-      "p95_ms": 1.254,
-      "total_ms": 189.628
+      "p50_ms": 6.745,
+      "p95_ms": 8.382,
+      "total_ms": 15618.3
     }
   },
   "model_invocations_per_camera_night": {
     "b1_cnn_grid": 3645.0,
-    "plumerank": 5.586
+    "plumerank": 0.0
   },
   "n_calibration_windows": 33,
   "n_fire_windows": 29,
@@ -195,8 +188,8 @@
       "budget_alerts_per_camera_night": 0.5,
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 1.0253,
-      "plumerank_threshold": 0.777954
+      "plumerank_realised_rate_uncapped": 0.1414,
+      "plumerank_threshold": 0.753601
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -208,8 +201,8 @@
       "budget_alerts_per_camera_night": 1.0,
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 1.5557,
-      "plumerank_threshold": 0.755737
+      "plumerank_realised_rate_uncapped": 0.7071,
+      "plumerank_threshold": 0.723389
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -221,8 +214,8 @@
       "budget_alerts_per_camera_night": 2.0,
       "budget_slots_per_camera": 2,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 2.8638,
-      "plumerank_threshold": 0.701904
+      "plumerank_realised_rate_uncapped": 2.2274,
+      "plumerank_threshold": 0.687561
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -234,8 +227,8 @@
       "budget_alerts_per_camera_night": 4.0,
       "budget_slots_per_camera": 4,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 4.8791,
-      "plumerank_threshold": 0.656738
+      "plumerank_realised_rate_uncapped": 4.5255,
+      "plumerank_threshold": 0.651855
     },
     {
       "b1_cnn_grid_p50_minutes": null,
@@ -247,15 +240,15 @@
       "budget_alerts_per_camera_night": 8.0,
       "budget_slots_per_camera": 8,
       "plumerank_p50_minutes": null,
-      "plumerank_realised_rate_uncapped": 10.1471,
-      "plumerank_threshold": 0.603699
+      "plumerank_realised_rate_uncapped": 10.2885,
+      "plumerank_threshold": 0.602234
     }
   ],
   "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
   "results_file": "arm_dev_2026-09-05.json",
   "run": {
-    "commit": "a3295f5aaa9a4fd43953203315714f81e9bcfa48",
-    "constants_sha256": "d534b909939358af44f94d0f81480a2e7473ed0ee9328e7160ab68cff4d7bacd",
+    "commit": "9b82b76ec0be2142b5795149e7458941f01cfac4",
+    "constants_sha256": "52db70fbe514560ee7bba687c20132bfeea9ab27a2993d4bbb35931b29cda06d",
     "cpu_credit_balance_after": null,
     "cpu_credit_balance_before": null,
     "date": "2026-09-05",
@@ -263,8 +256,8 @@
     "instance_id": null,
     "opencv_version": "5.0.0",
     "python": "3.11.1",
-    "started": "2026-09-05T17:51:49+00:00",
-    "wall_clock_seconds": 528.7
+    "started": "2026-09-05T18:16:55+00:00",
+    "wall_clock_seconds": 520.4
   },
   "schema": "plumerank.bench/1",
   "seed": 20261026,

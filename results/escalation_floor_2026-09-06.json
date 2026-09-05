@@ -1,0 +1,13 @@
+{
+ "commit": "9b82b76ec0be2142b5795149e7458941f01cfac4",
+ "fusion_bias": -0.6961,
+ "generated": "2026-09-06T01:31:25+07:00",
+ "method": "rank-eligible hazard quantile on CONFUSE, escalation disabled",
+ "n_eligible": 162,
+ "n_frames": 2673,
+ "quiet_camera_hazard": 0.33267747448421386,
+ "realised_fraction": 0.010475121586232696,
+ "solved_floor": 0.7520632293550575,
+ "structural_ceiling": 0.06060606060606061,
+ "target_fraction": 0.01
+}

@@ -267,14 +267,32 @@ ESCALATION_TOP_K: Final[int] = 2          # only the top-2 cameras are ever esca
 #: pair implied -- ``logit(0.35) - (-3.2) = 2.581`` -- carried over unchanged. It is not
 #: fitted, not tuned to hit an escalation fraction, and not chosen after seeing one. The
 #: realised fraction stays what it has always been: measured and published, never targeted.
+#: Kept only so the two superseded values above can be reproduced by a reader; nothing reads
+#: it. ``ESCALATION_HAZARD_MIN`` is solved, not derived from this.
 ESCALATION_LOGIT_MARGIN: Final[float] = 2.581
 
-#: sigmoid(FUSION_BIAS + ESCALATION_LOGIT_MARGIN). At the fitted bias this is ~0.868; at the
-#: a-priori bias it reproduces 0.35 exactly, which is what makes this a reparameterisation of
-#: the original decision rather than a new one.
-ESCALATION_HAZARD_MIN: Final[float] = 1.0 / (
-    1.0 + math.exp(-(FUSION_BIAS + ESCALATION_LOGIT_MARGIN))
-)
+#: SOLVED on CONFUSE by ``scripts/fit_escalation_floor.py``, 2026-09-06, to the 1% design
+#: target named in ``should_escalate``. Record: ``results/escalation_floor_2026-09-06.json``.
+#: Realised 1.05% of frames (28 of 2673), against a 2% maximum and a 6.06% structural ceiling.
+#:
+#: Two earlier values failed, and both failures are the reason this is solved rather than set:
+#:
+#:   0.35   the a-priori absolute. Valid against the a-priori bias of -3.2, where a quiet
+#:          camera sat at 0.0392. Against the FITTED bias a quiet camera sits at 0.3327 --
+#:          BELOW the floor -- so the gate stopped gating: 5.0% of frames escalated, above
+#:          the 2% maximum, and escalation fired on pre-ignition frames of fire windows.
+#:   0.868  sigmoid(FUSION_BIAS + 2.581), the a-priori logit margin carried across. It
+#:          reproduces 0.35 exactly at the old bias, so it was a faithful reparameterisation
+#:          -- and it overshot: the eligible hazards on CONFUSE top out at 0.8504, so the
+#:          floor sat ABOVE every reachable hazard and escalation fell to 0.00%. The ONNX
+#:          path never executed. A dnn integration that never runs is worse than one that
+#:          runs too often.
+#:
+#: Neither an absolute constant nor an inherited margin survives a refit of the fusion, and
+#: the fusion is refit by design. So the floor is derived from data against an a-priori
+#: target -- the same thing ``rank.solve_threshold`` does for the alert budget, defended in
+#: the same terms. It is calibrated on the NON-FIRE arm only and never against fire windows.
+ESCALATION_HAZARD_MIN: Final[float] = 0.752063
 #: The 99/1 architecture's design target, **and it is a target at deployment scale, not a
 #: number any demo-sized roster can reach.** Stating that here rather than being caught by
 #: it is the whole point of this comment.

@@ -114,12 +114,23 @@ def should_escalate(rank: int, hazard: float) -> bool:
         rank: 1-based rank in this tick's watch list.
         hazard: the classical fused hazard, in [0, 1].
 
-    Both conditions are load-bearing and neither is adaptive. ``rank`` bounds the cost
-    structurally -- at most ``ESCALATION_TOP_K`` of the roster can escalate in any tick,
-    whatever the hazards do -- and ``hazard`` is what makes the realised fraction ~1%
+    Both conditions are load-bearing. ``rank`` bounds the cost STRUCTURALLY -- at most
+    ``ESCALATION_TOP_K`` of the roster can escalate in any tick, whatever the hazards do,
+    and no calibration can loosen that. ``hazard`` is what makes the realised fraction ~1%
     rather than the structural ceiling, because a quiet camera's hazard is
-    ``sigmoid(FUSION_BIAS)`` and never approaches the floor. An adaptive rule would make
-    the escalation fraction a fitted quantity, and the whole point is that it is measured.
+    ``sigmoid(FUSION_BIAS)`` and never approaches the floor.
+
+    **Corrected 2026-09-06.** This docstring used to end: "An adaptive rule would make the
+    escalation fraction a fitted quantity, and the whole point is that it is measured." That
+    is no longer true of the floor and the sentence is removed rather than left standing.
+    ``ESCALATION_HAZARD_MIN`` is now SOLVED on the CONFUSE arm against a 1% design target
+    (``scripts/fit_escalation_floor.py``), because an absolute floor does not survive a refit
+    of the fusion: the a-priori 0.35 put the floor *below* a quiet camera once the weights
+    were fitted, and the gate silently stopped gating.
+
+    What the cost argument still rests on, unchanged: the rank half of the gate is
+    structural; the floor is calibrated on the NON-FIRE arm and never against fire windows;
+    and the fraction realised on any fire arm is measured and published, never targeted.
     """
     return rank <= ESCALATION_TOP_K and hazard >= ESCALATION_HAZARD_MIN
 
