@@ -1,0 +1,22 @@
+{
+ "auc_in_sample_frames": 0.6565771822311656,
+ "auc_leave_one_sequence_out": 0.6386585719076802,
+ "cv_folds": 29,
+ "features_file": "results/features_dev.jsonl",
+ "generated": "2026-09-06T00:24:23+07:00",
+ "lambda": 1.0,
+ "method": "L2 logistic (IRLS), balanced class weights, bias unpenalised",
+ "n_frames": 2291,
+ "n_positive": 1160,
+ "n_sequences": 29,
+ "n_with_component": 1804,
+ "negative_weights": [],
+ "weights": {
+  "FUSION_BIAS": -0.696075309136576,
+  "FUSION_W_ESCALATION": 0.7784781860892789,
+  "FUSION_W_S1": 0.6163828457358828,
+  "FUSION_W_S2": 0.385557378732423,
+  "FUSION_W_S3": 4.09306593218009,
+  "FUSION_W_S4": 0.9335438629589254
+ }
+}

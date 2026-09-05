@@ -186,12 +186,42 @@ EPS: Final[float] = 1e-8
 #: would score the same and be unshowable.
 #:
 #: hazard = sigmoid(BIAS + w1*S1 + w2*S2 + w3*S3 + w4*S4 + w_esc*escalation_score)
-FUSION_BIAS: Final[float] = -3.2
-FUSION_W_S1: Final[float] = 1.9
-FUSION_W_S2: Final[float] = 1.4
-FUSION_W_S3: Final[float] = 2.6   # the fog discriminator carries the most weight
-FUSION_W_S4: Final[float] = 0.8
-FUSION_W_ESCALATION: Final[float] = 1.5
+#:
+#: FITTED 2026-09-06 on DEV by ``scripts/fit_fusion.py`` -- L2 logistic (IRLS), balanced
+#: class weights, bias unpenalised, lambda 1.0, labels from the ignition clock. Full record:
+#: ``results/fusion_fit_2026-09-06.json``. 2291 frames over 29 sequences, 1160 positive.
+#: Leave-one-SEQUENCE-out AUC **0.6387** (in-sample 0.6566 -- the small gap is what an L2
+#: logistic on five features can memorise, which is almost nothing).
+#:
+#: These replace the a-priori values the project ran on until today, and the difference is
+#: the point rather than a detail:
+#:
+#:     constant             a priori   fitted    what moved
+#:     FUSION_BIAS            -3.2     -0.6961   balanced weighting centres it; see below
+#:     FUSION_W_S1             1.9      0.6164   base anchoring: 3x LESS evidence than assumed
+#:     FUSION_W_S2             1.4      0.3856   growth anisotropy: 3.6x less
+#:     FUSION_W_S3             2.6      4.0931   the fog discriminator: 1.6x MORE
+#:     FUSION_W_S4             0.8      0.9335   about right
+#:     FUSION_W_ESCALATION     1.5      0.7785   the learned tile score: half
+#:
+#: **This falsifies the leading explanation for the D11 result.**
+#: ``results/gonogo_2026-09-01.md`` §7.4 found cloud shadow taking 4.43 alerts/camera-night
+#: against fog's 1.54, and offered as its second reading that "the unfitted fusion weights
+#: over-weight S3 relative to S1 and S2, so a hard-edged moving region scores high on
+#: anchoring and anisotropy without S3 being able to pull it down." The fit says the reverse:
+#: DEV supports MORE weight on S3 and much less on S1 and S2. Whatever cloud shadow is doing,
+#: it is not an artefact of S3 having been over-weighted.
+#:
+#: On the bias: under balanced class weights the fitted bias sits near zero by construction,
+#: so it does NOT encode a base rate. The operating point is set downstream by
+#: ``rank.solve_threshold`` bisecting on CONFUSE, and that separation is deliberate --
+#: see ``scripts/fit_fusion.py``.
+FUSION_BIAS: Final[float] = -0.6961
+FUSION_W_S1: Final[float] = 0.6164
+FUSION_W_S2: Final[float] = 0.3856
+FUSION_W_S3: Final[float] = 4.0931   # still the largest, and by more than assumed
+FUSION_W_S4: Final[float] = 0.9335
+FUSION_W_ESCALATION: Final[float] = 0.7785
 
 #: The watch list a human actually reads. Detection means "entered the top-k AND fired an
 #: alert" -- being ranked 27th of 40 is not a detection (metrics.py).

@@ -1,0 +1,152 @@
+{
+  "checks": [
+    {
+      "detail": "every OpenCV call in the source is classified",
+      "misses": [],
+      "name": "surface-table-complete",
+      "status": "PASS"
+    },
+    {
+      "detail": "no judge-facing document on disk yet",
+      "misses": [],
+      "name": "opencv-symbols",
+      "status": "SKIP"
+    },
+    {
+      "detail": "no judge-facing document on disk yet",
+      "misses": [],
+      "name": "routes",
+      "status": "SKIP"
+    },
+    {
+      "detail": "no judge-facing document on disk yet",
+      "misses": [],
+      "name": "dependencies",
+      "status": "SKIP"
+    },
+    {
+      "detail": "no judge-facing document on disk yet",
+      "misses": [],
+      "name": "makefile-targets",
+      "status": "SKIP"
+    },
+    {
+      "detail": "no judge-facing document on disk yet",
+      "misses": [],
+      "name": "claimed-paths",
+      "status": "SKIP"
+    }
+  ],
+  "complete": false,
+  "documents_checked": [],
+  "generated": "2026-09-06T00:20:45+07:00",
+  "ok": true,
+  "root": "/Users/edycu/Hackathon/devpost/devpost-opencv26/plume/build",
+  "surfaces": {
+    "by_module": {
+      "bgsegm": [
+        "bgsegm.createBackgroundSubtractorGSOC",
+        "bgsegm.createBackgroundSubtractorLSBP"
+      ],
+      "core": [
+        "TickMeter",
+        "getBuildInformation",
+        "setNumThreads"
+      ],
+      "dnn": [
+        "dnn.ENGINE_NEW",
+        "dnn.Net.forward",
+        "dnn.blobFromImage",
+        "dnn.readNetFromONNX"
+      ],
+      "geometry": [
+        "USAC_MAGSAC",
+        "estimateAffine2D"
+      ],
+      "imgproc": [
+        "Laplacian",
+        "Sobel",
+        "connectedComponentsWithStats",
+        "createCLAHE",
+        "createHanningWindow",
+        "morphologyEx",
+        "phaseCorrelate",
+        "phaseCorrelateIterative"
+      ],
+      "video": [
+        "BackgroundSubtractorMOG2.apply",
+        "DISOpticalFlow_create",
+        "calcOpticalFlowPyrLK",
+        "createBackgroundSubtractorMOG2"
+      ]
+    },
+    "defended_surfaces_found_today": 23,
+    "in_table_but_not_called_today": [],
+    "modules": 6,
+    "used_but_not_counted": {
+      "drawing_and_io": [
+        "imgcodecs::imwrite",
+        "imgproc::cvtColor",
+        "imgproc::line",
+        "imgproc::putText",
+        "imgproc::rectangle",
+        "imgproc::resize"
+      ],
+      "features": [
+        "features::goodFeaturesToTrack"
+      ],
+      "support_and_flags": [
+        "attribute::__version__",
+        "core::TickMeter.getTimeMilli",
+        "core::TickMeter.start",
+        "core::TickMeter.stop",
+        "core::absdiff",
+        "core::compare",
+        "core::countNonZero",
+        "core::error",
+        "core::getNumThreads",
+        "core::getTickCount",
+        "core::getTickFrequency",
+        "core::setRNGSeed",
+        "dnn::dnn.Net.setInput",
+        "dnn::dnn.Net.setPreferableBackend",
+        "flag::BORDER_REPLICATE",
+        "flag::CC_STAT_AREA",
+        "flag::CC_STAT_HEIGHT",
+        "flag::CC_STAT_LEFT",
+        "flag::CC_STAT_TOP",
+        "flag::CC_STAT_WIDTH",
+        "flag::CMP_EQ",
+        "flag::COLOR_BGR2GRAY",
+        "flag::COLOR_BGR2HSV",
+        "flag::COLOR_GRAY2BGR",
+        "flag::CV_32F",
+        "flag::CV_32S",
+        "flag::DISOPTICAL_FLOW_PRESET_FAST",
+        "flag::FONT_HERSHEY_SIMPLEX",
+        "flag::IMREAD_COLOR",
+        "flag::IMWRITE_JPEG_QUALITY",
+        "flag::INTER_AREA",
+        "flag::INTER_LINEAR",
+        "flag::LINE_AA",
+        "flag::MORPH_CLOSE",
+        "flag::MORPH_ELLIPSE",
+        "flag::MORPH_OPEN",
+        "flag::THRESH_BINARY",
+        "flag::THRESH_OTSU",
+        "flag::dnn.DNN_BACKEND_OPENCV",
+        "imgcodecs::imdecode",
+        "imgcodecs::imencode",
+        "imgcodecs::imread",
+        "imgproc::CLAHE.apply",
+        "imgproc::GaussianBlur",
+        "imgproc::blur",
+        "imgproc::getStructuringElement",
+        "imgproc::threshold",
+        "imgproc::warpAffine",
+        "module::dnn",
+        "video::DISOpticalFlow.calc"
+      ]
+    }
+  }
+}
