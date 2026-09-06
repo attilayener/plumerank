@@ -83,6 +83,37 @@ It also explains the 41% detection rate directly. A system whose discrimination 
 substantially "something moved" is doing what B2 frame-differencing does, and the margin over
 B2 comes from ranking and budget calibration rather than from the plume primitive.
 
+## 4b. Where the 41% detection rate is actually lost — and it is not segmentation
+
+Component presence by frame index, over all 29 DEV sequences (t0 = 39 after unification):
+
+| frames | has a component |
+|---|---:|
+| 0–9 (MOG2 warm-up) | 57.9% |
+| 10–38 (pre-ignition, warm) | 64.8% |
+| **39+ (post-ignition)** | **94.1%** |
+
+Presence climbs smoothly from ~65% before ignition to **100% by frame 52 — thirteen minutes
+after t0.** That is not a warm-up artefact; it is the plume becoming reliably segmentable. The
+segmenter is doing real work, and presence being label-correlated is a genuine signal rather
+than a bug. (One real artefact: frame 0 sits at 100% because MOG2's first frame flags the whole
+image as foreground.)
+
+Which makes the arithmetic below the finding that matters:
+
+> **25 of 29 sequences carry a segmented component on more than 80% of their post-ignition
+> frames. Only 12 of 29 are ever detected.**
+
+**Thirteen sequences contain a visible, segmented, tracked plume that never becomes an alert.**
+The loss is not in stabilisation or MOG2 — it is downstream, in the hazard fusion and the
+ranking/threshold stage. And §3 explains why that stage fails: the statistics it fuses carry
+almost no information beyond the presence bit, so it has nothing with which to promote a real
+plume above a cloud that is also moving.
+
+This is the single most actionable result in this document. **Effort spent on the segmenter
+will not move the detection rate; effort spent on what distinguishes a plume from a moving
+cloud will.**
+
 ## 5. Retraction
 
 Earlier on 2026-09-06, `plumerank/constants.py` and `results/d11_fitted_2026-09-06.md` both
