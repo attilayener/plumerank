@@ -1,0 +1,43 @@
+{
+ "auc_in_sample_frames": 0.6568813073569316,
+ "auc_leave_one_sequence_out": 0.6393346595932803,
+ "confound_check": {
+  "bias_with_presence_explicit": -1.786531996344164,
+  "loso_as_fitted": 0.6393346595932803,
+  "loso_presence_alone": 0.5610312052196713,
+  "loso_presence_explicit": 0.6644406079453642,
+  "presence_auc_in_sample": 0.6550508399646331,
+  "sign_flips": [
+   "s3",
+   "esc"
+  ],
+  "weights_with_presence_explicit": {
+   "esc": 0.16633791560680025,
+   "has_component": 2.3914760507647386,
+   "s1": 0.44848515731028055,
+   "s2": 0.027565347099678304,
+   "s3": -2.2077627122791417,
+   "s4": 0.24464146115608934
+  }
+ },
+ "cv_folds": 29,
+ "features_file": "results/features_dev.jsonl",
+ "generated": "2026-09-06T20:17:03+07:00",
+ "lambda": 1.0,
+ "method": "L2 logistic (IRLS), balanced class weights, bias unpenalised",
+ "n_frames": 2291,
+ "n_positive": 1160,
+ "n_sequences": 29,
+ "n_with_component": 1804,
+ "negative_weights": [
+  "esc"
+ ],
+ "weights": {
+  "FUSION_BIAS": -0.7013771891636623,
+  "FUSION_W_ESCALATION": -0.38375227694330893,
+  "FUSION_W_S1": 0.662179687189092,
+  "FUSION_W_S2": 0.4348474793350232,
+  "FUSION_W_S3": 4.0983739453299535,
+  "FUSION_W_S4": 0.9412856266247904
+ }
+}
