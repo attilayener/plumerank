@@ -153,6 +153,21 @@ LABELS: tuple[str, ...] = ("marine_layer", "overcast", "neither")
 # ---------------------------------------------------------------------------------
 
 
+def label_filename(camera: str, epoch: int) -> str:
+    """``<camera>_<epoch>.jpg`` -- and the camera is not decoration.
+
+    Naming a labelling copy by its epoch alone silently loses frames. Cameras on one mast
+    write on the same 60 s grid at the same phase: ``hp-s-mobo-c`` and ``hp-w-mobo-c`` landed
+    on the *identical second* on 16 of the 49 sampled mornings, so 16 pairs collided, one
+    overwrote the other, and 16 pool rows pointed at another camera's picture. A labeller
+    would have seen the same image twice and labelled it for two different cameras.
+
+    Caught by counting unique filenames against pool rows -- 309 against 325 -- which is now
+    an assertion in ``build_pool`` rather than something someone has to think to check.
+    """
+    return f"{camera}_{int(epoch)}.jpg"
+
+
 def census_days() -> list[str]:
     """Every sampled morning, as ``YYYY-MM-DD``, oldest first."""
     start = datetime.strptime(CENSUS_START, "%Y-%m-%d").date()
@@ -236,7 +251,7 @@ def _load_known() -> None:
     for entry in payload["entries"]:
         if entry.get("source") == "current_fog_class":
             continue
-        if (FRAME_DIR / f"{entry['epoch']}.jpg").exists():
+        if (FRAME_DIR / label_filename(entry["camera"], entry["epoch"])).exists():
             _KNOWN[(entry["camera"], entry["date"])] = entry["epoch"]
     for hole in payload["sampling_frame"]["holes"]:
         _KNOWN_HOLES.add((hole["camera"], hole["date"]))
@@ -250,7 +265,7 @@ def harvest_one(camera: str, day: str) -> dict | None:
     if epoch is None:
         return None
     url = frame_url(camera, epoch)
-    destination = FRAME_DIR / f"{epoch}.jpg"
+    destination = FRAME_DIR / label_filename(camera, epoch)
     if not destination.exists():
         width, height = _label_copy(fetch_with_retry(url), destination)
     else:
@@ -261,7 +276,7 @@ def harvest_one(camera: str, day: str) -> dict | None:
         "date": day,
         "epoch": epoch,
         "url": url,
-        "file": f"census/{epoch}.jpg",
+        "file": f"census/{label_filename(camera, epoch)}",
         "source": "fresh",
         "source_width": width,
         "source_height": height,
@@ -284,7 +299,7 @@ def legacy_entries() -> list[dict]:
         epoch = int(name.split(".")[0])
         camera = url.split("/MTA/", 1)[1].split("/", 1)[0]
         date = datetime.fromtimestamp(epoch, PACIFIC).date().isoformat()
-        destination = FRAME_DIR / f"{epoch}.jpg"
+        destination = FRAME_DIR / label_filename(camera, epoch)
         source = LEGACY_FRAME_DIR / name
         if not destination.exists():
             if not source.exists():
@@ -299,7 +314,7 @@ def legacy_entries() -> list[dict]:
                 "date": date,
                 "epoch": epoch,
                 "url": url,
-                "file": f"census/{epoch}.jpg",
+                "file": f"census/{label_filename(camera, epoch)}",
                 "source": "current_fog_class",
                 "source_width": 3072,
                 "source_height": 2048,
@@ -358,6 +373,13 @@ def build_pool() -> dict:
             row["source"] = "both"
 
     entries = fresh_only + legacy
+    files = {entry["file"] for entry in entries}
+    if len(files) != len(entries):
+        raise SystemExit(
+            f"{len(entries) - len(files)} pool rows share a labelling file. Two rows pointing "
+            f"at one picture means one frame was overwritten by another and the labeller will "
+            f"never see it -- see label_filename()."
+        )
     random.Random(SHUFFLE_SEED).shuffle(entries)
     for index, entry in enumerate(entries):
         entry["index"] = index
