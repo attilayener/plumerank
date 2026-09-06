@@ -104,7 +104,15 @@ Which makes the arithmetic below the finding that matters:
 > **25 of 29 sequences carry a segmented component on more than 80% of their post-ignition
 > frames. Only 12 of 29 are ever detected.**
 
-**Thirteen sequences contain a visible, segmented, tracked plume that never becomes an alert.**
+**CORRECTION (same day):** the detection count here is the **S4-OFF ablation cell's**. The
+shipped configuration detects **9 of 29**, so the gap this paragraph names is wider than
+written: of the 25 sequences that carry a component on more than 80% of their post-ignition
+frames, 8 are detected and **17 never alert** — not thirteen. (One detected sequence sits
+outside the 25.) The presence arithmetic is measured from `features_dev.jsonl` and is unaffected.
+See `results/artefact_provenance_2026-09-06.md`.
+
+**Seventeen sequences contain a visible, segmented, tracked plume that never becomes an alert**
+(thirteen as this line originally read, at the S4-OFF cell's detection count).
 The loss is not in stabilisation or MOG2 — it is downstream, in the hazard fusion and the
 ranking/threshold stage. And §3 explains why that stage fails: the statistics it fuses carry
 almost no information beyond the presence bit, so it has nothing with which to promote a real

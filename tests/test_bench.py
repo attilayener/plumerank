@@ -33,6 +33,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import bench  # noqa: E402
+from plumerank import constants as K  # noqa: E402
 from plumerank.constants import WORK_HEIGHT, WORK_WIDTH  # noqa: E402
 
 N_FRAMES = 16
@@ -873,6 +874,54 @@ def test_only_the_hold_arm_may_write_the_published_headline_name(
     assert published.read_bytes() == before, "no other arm may touch the published file"
     assert [p.name for p in sorted((tree / "results").glob("bench_*.json"))] == [published.name]
     assert json.loads(published.read_text(encoding="utf-8"))["arm"] == "hold"
+
+
+def test_an_ablation_cell_cannot_occupy_the_shipped_arm_filename(tree: pathlib.Path) -> None:
+    """A flag that changes the result must change the filename.
+
+    Until 2026-09-06 it did not. ``--s4 off`` wrote ``arm_dev_<date>.json``, the same file a
+    normal run writes, so the D10 ablation left an S4-OFF cell under the canonical name and
+    four documents plus ``project.json`` reported it as the product: 41.4% detection against
+    the shipped pipeline's 31.0%. Nothing was copied wrong and nothing was hidden -- the name
+    simply did not carry the cell. See ``results/artefact_provenance_2026-09-06.md``.
+
+    The rule is tested against ``constants.S4_ENABLED`` rather than against the flag, so that
+    deleting S4 at the D10 gate moves the plain name to the new shipped configuration with
+    nothing else to edit.
+    """
+    date = bench._today()
+    shipped = "on" if K.S4_ENABLED else "off"
+    ablation = "off" if K.S4_ENABLED else "on"
+
+    assert bench.results_filename("dev", date, s4=shipped) == f"arm_dev_{date}.json"
+    assert (
+        bench.results_filename("dev", date, s4=ablation)
+        == f"arm_dev_s4{ablation}_{date}.json"
+    )
+    assert bench.results_filename("dev", date) == f"arm_dev_{date}.json"
+
+    # Two runs, one date, two cells: two files, and the shipped one is untouched.
+    assert _run(tree, "--arm", "dev") == 0
+    canonical = tree / "results" / f"arm_dev_{date}.json"
+    before = canonical.read_bytes()
+    assert _run(tree, "--arm", "dev", "--s4", ablation) == 0
+    assert canonical.read_bytes() == before, "an ablation cell overwrote the shipped artefact"
+    assert (tree / "results" / f"arm_dev_s4{ablation}_{date}.json").is_file()
+
+
+def test_a_hold_ablation_is_refused_rather_than_misfiled(tree: pathlib.Path) -> None:
+    """There is nowhere safe to put it.
+
+    ``bench_s4off_<date>.json`` still matches the ``bench_*.json`` glob that
+    ``api/main.py`` and ``check_submission_readiness.py`` resolve, and it sorts AFTER the
+    real headline, so it would become the published number. HOLD is one frozen run of the
+    shipped configuration; the ablation grid lives on DEV.
+    """
+    date = bench._today()
+    ablation = "off" if K.S4_ENABLED else "on"
+    with pytest.raises(ValueError, match="refusing to write a HOLD run"):
+        bench.results_filename("hold", date, s4=ablation)
+    assert bench.results_filename("hold", date) == f"bench_{date}.json"
 
 
 def test_the_confuse_arm_reads_its_pixels_once_and_publishes_one_rate(

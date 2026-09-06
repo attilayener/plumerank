@@ -90,6 +90,7 @@ from plumerank.constants import (  # noqa: E402
     escalation_fraction_ceiling,
     MINUTES_PER_FRAME,
     MOG2_VAR_THRESHOLD,
+    S4_ENABLED,
     TOP_K,
     WORK_HEIGHT,
     WORK_WIDTH,
@@ -1865,7 +1866,7 @@ def run_arm(
             "all_arms_sequence_ids": excluded,
         },
         "latency_ms": matrix.latency_ms,
-        "results_file": results_filename(args.arm, _today()),
+        "results_file": results_filename(args.arm, _today(), s4=getattr(args, "s4", "on")),
         "run": {
             "commit": commit,
             "constants_sha256": constants_sha,
@@ -1926,7 +1927,7 @@ def _today() -> str:
     return dt.datetime.now(dt.timezone.utc).date().isoformat()
 
 
-def results_filename(arm: str, date: str) -> str:
+def results_filename(arm: str, date: str, *, s4: str = "on") -> str:
     """Where one arm's payload is allowed to land in ``results/``.
 
     Only HOLD may occupy ``bench_<date>.json``. That name is not a convention here, it is
@@ -1938,12 +1939,42 @@ def results_filename(arm: str, date: str) -> str:
     afternoon as ``make bench``. The other arms therefore file outside that glob entirely
     rather than under a longer ``bench_`` name, which would sort after the real one and
     win.
+
+    **The plain name is reserved for the SHIPPED configuration.** An ablation cell files
+    under a name that says which cell it is, and the test of "shipped" is whether the run's
+    S4 setting agrees with ``constants.S4_ENABLED`` -- not whether a flag was typed. So if
+    S4 is ever deleted by the D10 gate, ``--s4 on`` becomes the ablation and takes the
+    suffix, with no second place to update.
+
+    This is a defect fix, and the defect was expensive. Until 2026-09-06 the S4 cell was
+    absent from the name, so ``--s4 off`` wrote the same file a normal run does. The D10
+    ablation on 2026-09-05 left an S4-OFF run under ``arm_dev_<date>.json``, four documents
+    and ``project.json`` read it as the product, and PlumeRank's DEV detection rate was
+    published as 41.4% when the shipped pipeline's is 31.0%. Nobody copied anything wrong;
+    a flag that changed the result did not change the filename.
+    See ``results/artefact_provenance_2026-09-06.md``.
+
+    Raises:
+        ValueError: for a HOLD run in a non-shipped cell. There is nowhere safe to put it:
+            a ``bench_s4off_<date>.json`` still matches the ``bench_*.json`` glob and sorts
+            AFTER the real headline, so it would win the "lexically newest" selection and
+            become the published number -- the exact trap the paragraph above describes.
+            The D40 HOLD run is one frozen run of the shipped configuration; an ablation on
+            it is not a thing this plan asks for.
     """
+    shipped = (s4 == "on") == S4_ENABLED
     if arm == "micro":
         return "verify_micro.json"
     if arm == "hold":
+        if not shipped:
+            raise ValueError(
+                f"refusing to write a HOLD run with s4={s4!r} while S4_ENABLED="
+                f"{S4_ENABLED}: an ablation cell cannot be given a bench_*.json name "
+                "without out-sorting the real headline"
+            )
         return f"bench_{date}.json"
-    return f"arm_{arm}_{date}.json"
+    cell = "" if shipped else f"_s4{s4}"
+    return f"arm_{arm}{cell}_{date}.json"
 
 
 def _dump(payload: dict[str, Any]) -> str:
