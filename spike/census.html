@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PlumeRank — dawn census (blind)</title>
+<!--
+  The blind fog census. Companion to spike/harvest_fog_census.py.
+
+  WHY BLIND. results/fog_class_review.md called half of the current fog class "not fog",
+  and flagged its own method: "a visual call ... in one pass, knowing that every frame was
+  labelled fog." Knowing the label can manufacture agreement as easily as disagreement, so
+  this tool shows an index and a picture. Camera, date, and whether a frame belongs to the
+  current fog class are all in spike/fog_census_pool.json and none of them are shown here.
+
+  The three answers are the ones the review could not collapse. See H for what each means.
+-->
+<style>
+  :root { --ml:#4aa3df; --oc:#b48ead; --no:#8b949c; --ok:#6ed49a; --line:#2b3238; }
+  * { box-sizing: border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:#14171a; color:#e6e9ec;
+         font:14px/1.45 -apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+         display:flex; flex-direction:column; overflow:hidden; }
+
+  #bar { height:3px; background:var(--line); flex:none; }
+  #barfill { height:100%; background:var(--ok); width:0; transition:width .18s ease; }
+
+  header { flex:none; display:flex; align-items:center; gap:14px; padding:12px 18px; }
+  .task { font-size:16px; font-weight:500; }
+  .task b { color:#fff; }
+  .stat { color:#8b949c; font-variant-numeric:tabular-nums; font-size:13px; }
+  .stat b { color:#e6e9ec; }
+  .sep { color:#3b444c; }
+
+  #stage { flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+           min-height:0; padding:0 18px 8px; }
+  /* The archive burns a banner into the top of every frame: camera name, URL and the
+     exact timestamp. None of it says which arm a frame is in, but the timestamp is the
+     one hint a determined labeller could cross-reference against spike/urls_fog.txt, and
+     a labelling tool should not require willpower to stay blind. 2.7% of 683 px is 18 px,
+     which covers the text line and leaves the ALERT California and UC San Diego marks --
+     those identify the network, which is not a secret, and cropping further would eat sky
+     that the judgement is actually made on. The frames on disk are untouched; this is a
+     display crop, and every statistic downstream reads the full frame. */
+  #img { display:block; max-width:100%; max-height:calc(100vh - 150px); border-radius:4px;
+         clip-path: inset(2.7% 0 0 0); }
+
+  footer { flex:none; display:flex; align-items:center; gap:10px; padding:10px 18px 14px;
+           border-top:1px solid var(--line); }
+  button { background:#242a30; color:#cfd6dd; border:1px solid #39424a; border-radius:7px;
+           padding:7px 14px; cursor:pointer; font-size:13px; }
+  button:hover { background:#2f373f; }
+  button.ghost { background:transparent; border-color:#2f363d; color:#7d868e; }
+  button.ghost:hover { background:#1e2429; }
+  #b-ml { border-color:#2f6a94; }
+  .swatch { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:7px;
+            vertical-align:1px; }
+  .s-ml { background:var(--ml); } .s-oc { background:var(--oc); } .s-no { background:var(--no); }
+  kbd { background:#242a30; border:1px solid #39424a; border-bottom-width:2px; border-radius:4px;
+        padding:1px 5px; font-family:ui-monospace,Menlo,monospace; font-size:11px; color:#aeb6bd; }
+  .tip { color:#7d868e; font-size:12px; }
+  .fname { color:#5b646c; font-size:11px; font-family:ui-monospace,Menlo,monospace; }
+  .note { color:var(--ok); font-size:12px; padding:0 18px 6px; display:none; flex:none; }
+
+  /* what counts — the only place the categories are defined, deliberately one keypress away */
+  #help { position:fixed; inset:0; background:rgba(10,12,14,.93); display:none;
+          align-items:center; justify-content:center; padding:24px; z-index:9; }
+  #help .card { max-width:720px; background:#181c20; border:1px solid var(--line);
+                border-radius:10px; padding:24px 28px; }
+  #help h3 { margin:0 0 14px; font-size:18px; }
+  #help dt { font-weight:700; margin-top:14px; }
+  #help dd { margin:4px 0 0; color:#a8b1b9; }
+  #help .close { margin-top:22px; }
+
+  #done { display:none; flex:1; flex-direction:column; align-items:center; justify-content:center;
+          text-align:center; padding:24px; }
+  #done h2 { font-size:26px; margin:0 0 6px; }
+  #done .sum { color:#9aa4ad; font-size:15px; margin-bottom:26px; }
+  #done .sum b { color:#e6e9ec; }
+  #save { background:#2f6f4f; border-color:#3d8c65; color:#eafff4; font-size:17px;
+          padding:12px 26px; }
+</style>
+</head>
+<body>
+
+<div id="bar"><div id="barfill"></div></div>
+<div class="note" id="note"></div>
+
+<header>
+  <span class="task"><b>Is there a marine layer in this frame?</b></span>
+  <span class="sep">·</span>
+  <span class="stat"><b id="i">1</b> of <b id="n">0</b></span>
+  <span style="flex:1"></span>
+  <span class="stat" id="tally"></span>
+  <button class="ghost" id="helpbtn">What counts? <kbd>H</kbd></button>
+</header>
+
+<div id="stage"><img id="img" alt=""></div>
+
+<footer>
+  <button id="b-ml"><span class="swatch s-ml"></span>Marine layer <kbd>1</kbd></button>
+  <button id="b-oc"><span class="swatch s-oc"></span>Overcast ceiling <kbd>2</kbd></button>
+  <button id="b-no"><span class="swatch s-no"></span>Neither <kbd>3</kbd></button>
+  <button id="back" class="ghost">Back <kbd>⌫</kbd></button>
+  <span class="tip">you may stop at any point — Save keeps what you have</span>
+  <span class="fname" id="fn"></span>
+  <span style="flex:1"></span>
+  <button id="save2" disabled>Save &amp; stop here</button>
+  <button id="reset" class="ghost" title="Discard all labels and start from image 1">Start over</button>
+</footer>
+
+<div id="done">
+  <h2>Census labelled</h2>
+  <div class="sum">
+    <b id="dml">0</b> marine layer · <b id="doc">0</b> overcast · <b id="dno">0</b> neither
+    &nbsp;—&nbsp; <b id="dtot">0</b> of <b id="dall">0</b> frames
+  </div>
+  <button id="save">Save fog_census_labels.json</button>
+  <div class="tip" style="margin-top:18px">
+    Put it next to this file, then run
+    <span class="fname">python3 spike/harvest_fog_census.py --report</span>
+  </div>
+  <button class="ghost" id="back2" style="margin-top:22px">Back to the last frame</button>
+</div>
+
+<div id="help"><div class="card">
+  <h3>Three answers, and the middle one is the point</h3>
+  <dl>
+    <dt><span class="swatch s-ml"></span>Marine layer</dt>
+    <dd>A fog <em>bank</em> with a visible boundary: an undercast sea of cloud lying below the
+      ridge line, a wall of fog with a top edge in shot, or the camera itself immersed in dense
+      fog. <b>S3 measures a boundary</b> — this is the only category that gives it one to measure.</dd>
+    <dt><span class="swatch s-oc"></span>Overcast ceiling</dt>
+    <dd>A grey stratus deck filling the upper frame with <em>no boundary visible in the shot</em>.
+      Meteorologically this may well be the same marine layer, closed over the camera. It is kept
+      separate because the disagreement is the finding — collapsing it into either neighbour
+      hides it.</dd>
+    <dt><span class="swatch s-no"></span>Neither</dt>
+    <dd>Clear or lightly-clouded dawn over hills. The dominant feature is the rising sun, a sky
+      gradient, cirrus or contrails. Haze without a deck is <b>neither</b>.</dd>
+  </dl>
+  <p class="tip" style="margin-top:18px">
+    If you cannot decide between two, take the weaker claim: overcast rather than marine layer,
+    neither rather than overcast. An under-called class is recoverable; an over-called one is
+    what put the project here.
+  </p>
+  <button class="close" id="helpclose">Back to the frame <kbd>Esc</kbd></button>
+</div></div>
+
+<script src="census_manifest.js"></script>
+<script>
+const LABELS = { 1: 'marine_layer', 2: 'overcast', 3: 'neither' };
+const labels = {};                      // index -> label
+let idx = 0;
+const STORE = 'plumerank.spike.census.v1';
+const $ = id => document.getElementById(id);
+const img = $('img');
+
+// 350 frames is half an hour of somebody's attention. It survives a refresh.
+function persist() {
+  try { localStorage.setItem(STORE, JSON.stringify({ idx, labels })); } catch (e) {}
+}
+function restore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (!s || !s.labels || !Object.keys(s.labels).length) return;
+    Object.assign(labels, s.labels); idx = s.idx;
+    const n = $('note');
+    n.textContent = `Resumed — ${Object.keys(labels).length} labels restored from your last ` +
+                    `session. "Start over" discards them.`;
+    n.style.display = 'block';
+  } catch (e) {}
+}
+
+function counts() {
+  const c = { marine_layer: 0, overcast: 0, neither: 0 };
+  for (const k in labels) c[labels[k]]++;
+  return c;
+}
+
+function show() {
+  persist();
+  const c = counts(), total = c.marine_layer + c.overcast + c.neither;
+  $('tally').innerHTML = `<b>${c.marine_layer}</b> marine · <b>${c.overcast}</b> overcast · ` +
+                         `<b>${c.neither}</b> neither`;
+  $('save2').disabled = total === 0;
+  $('save2').textContent = `Save & stop here (${total})`;
+  $('dml').textContent = c.marine_layer; $('doc').textContent = c.overcast;
+  $('dno').textContent = c.neither; $('dtot').textContent = total;
+  $('dall').textContent = CENSUS.length;
+
+  const finished = idx >= CENSUS.length;
+  $('stage').style.display = finished ? 'none' : 'flex';
+  document.querySelector('header').style.display = finished ? 'none' : 'flex';
+  document.querySelector('footer').style.display = finished ? 'none' : 'flex';
+  $('done').style.display = finished ? 'flex' : 'none';
+  $('barfill').style.width = (100 * idx / CENSUS.length) + '%';
+  if (finished) return;
+
+  const m = CENSUS[idx];
+  img.src = 'frames/' + m.file;
+  // The index, and nothing else. The filename is an epoch, which decodes to a date, which
+  // is exactly the kind of hint the blinding exists to withhold.
+  $('fn').textContent = '#' + m.i;
+  $('i').textContent = idx + 1;
+  $('n').textContent = CENSUS.length;
+}
+
+function answer(key) {
+  const m = CENSUS[idx];
+  if (!m) return;
+  labels[m.i] = LABELS[key];
+  idx++; show();
+}
+
+$('b-ml').onclick = () => answer(1);
+$('b-oc').onclick = () => answer(2);
+$('b-no').onclick = () => answer(3);
+$('back').onclick = () => {
+  idx = Math.max(0, idx - 1);
+  const m = CENSUS[idx];
+  if (m) delete labels[m.i];
+  show();
+};
+$('back2').onclick = () => { idx = Math.max(0, CENSUS.length - 1); show(); };
+
+function doSave() {
+  const c = counts(), total = c.marine_layer + c.overcast + c.neither;
+  if (total < CENSUS.length &&
+      !confirm(`${total} of ${CENSUS.length} frames labelled.\n\n` +
+               `A partial census is still a measurement — the report divides by what you ` +
+               `labelled, not by the pool — but the base rate's error bar widens.\n\nSave anyway?`))
+    return;
+  const payload = {
+    tool: 'spike/census.html',
+    saved: new Date().toISOString(),
+    blind: true,
+    pool: 'spike/fog_census_pool.json',
+    labelled: total,
+    pool_size: CENSUS.length,
+    labels: labels
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'fog_census_labels.json'; a.click();
+}
+$('save').onclick = doSave;
+$('save2').onclick = doSave;
+$('reset').onclick = () => {
+  const total = Object.keys(labels).length;
+  if (total && !confirm(`Discard all ${total} labels and start from image 1?`)) return;
+  for (const k in labels) delete labels[k];
+  idx = 0;
+  try { localStorage.removeItem(STORE); } catch (e) {}
+  $('note').style.display = 'none';
+  show();
+};
+
+const help = $('help');
+const toggleHelp = on => { help.style.display = on ? 'flex' : 'none'; };
+$('helpbtn').onclick = () => toggleHelp(true);
+$('helpclose').onclick = () => toggleHelp(false);
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { toggleHelp(false); return; }
+  if (help.style.display === 'flex') return;
+  if (e.key === '1' || e.key === '2' || e.key === '3') { answer(+e.key); return; }
+  if (e.key === 'Backspace') { e.preventDefault(); $('back').click(); return; }
+  if (e.key.toLowerCase() === 'h') toggleHelp(true);
+});
+
+restore();
+show();
+</script>
+</body>
+</html>
