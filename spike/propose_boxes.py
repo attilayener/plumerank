@@ -174,7 +174,7 @@ def propose_centre(rec):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--mode", choices=["motion", "centre"], default="motion")
-    ap.add_argument("--out", type=pathlib.Path, default=HERE / "boxes.json")
+    ap.add_argument("--out", type=pathlib.Path, default=HERE / "boxes_motion_proposed.json")
     args = ap.parse_args()
 
     propose = {"motion": propose_motion, "centre": propose_centre}[args.mode]

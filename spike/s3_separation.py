@@ -210,6 +210,19 @@ def main():
                          "rule above are untouched by this flag.")
     args = ap.parse_args()
 
+    if not args.boxes.is_file():
+        raise SystemExit(
+            f"no box file at {args.boxes}.\n\n"
+            "The Sep 1 separability gate needs ONE HAND-DRAWN BOX PER FRAME over the 120\n"
+            "images in spike/frames/. Open spike/box.html, draw them, save boxes.json here,\n"
+            "then re-run. About an hour, and it is the project's premise.\n\n"
+            "Do NOT point this at spike/boxes_motion_proposed.json and treat the answer as\n"
+            "the gate: those boxes were placed mechanically and land on drifting clouds,\n"
+            "vehicles and sunrise glare. See results/s3_gate_mechanical_attempt.md.\n\n"
+            "Read results/fog_class_review.md FIRST -- roughly half the fog class shows no\n"
+            "marine layer, and boxing it before that is fixed spends the hour measuring\n"
+            "clear dawn sky."
+        )
     boxes = json.loads(args.boxes.read_text())
     print(f"OpenCV {cv2.__version__} · {args.boxes.name} · {len(boxes)} boxes · "
           f"scale={args.scale}"

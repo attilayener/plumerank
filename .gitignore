@@ -43,3 +43,5 @@ web/evidence/
 !spike/s3_separation.py
 !spike/urls.txt
 !spike/boxes.json
+!spike/boxes_motion_proposed.json
+!spike/boxes_centre.json
