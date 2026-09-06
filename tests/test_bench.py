@@ -139,8 +139,26 @@ def _fire_window(seed: int) -> list[np.ndarray]:
         f = base.copy()
         if i >= T0:
             g = i - T0
-            cv2.ellipse(f, (240, 200), (10 + 2 * g, 10 + 7 * g), 0, 180, 360, 205, -1)
-            f = cv2.GaussianBlur(f, (11, 11), 0)  # a soft edge, which is S3's claim
+            # Blur the PLUME, then composite -- so its edge is soft against a background
+            # that stays sharp. Until 2026-09-06 the ellipse was drawn hard and the WHOLE
+            # FRAME blurred afterwards, which softened the background and the reference
+            # cloud along with it. S3 measures a boundary RELATIVE to its surroundings, so
+            # the fixture's "fire" came out at raw_s3 0.0798 against the hard-edged cloud's
+            # 0.1733 -- S3 inverted on the one corpus built to demonstrate it. Once the
+            # fusion weights were fitted (S3 -> 4.09) the model duly ranked the cloud above
+            # the fire. In this order the fire reads 0.1897, above the cloud, which is S3's
+            # actual claim. See results/s3_direction_2026-09-06.md.
+            plume = np.zeros((WORK_HEIGHT, WORK_WIDTH), np.float32)
+            cv2.ellipse(plume, (240, 200), (10 + 2 * g, 10 + 7 * g), 0, 180, 360, 1.0, -1)
+            # sigma and alpha are the pair that satisfies BOTH criteria, fixed before the
+            # sweep that chose them: (1) the fire's raw_s3 must exceed the reference cloud's
+            # -- 0.1221 vs 0.1019 -- so S3 points the way it claims; (2) the hazard profile
+            # must track the pre-fix fixture's, so the tests calibrated against its detection
+            # timing keep measuring what they were written to measure. sigma 6.0 satisfies
+            # (1) far more strongly and fails (2): the plume gets so diffuse that detection
+            # slides late and the sensitivity offsets fall off the window.
+            plume = cv2.GaussianBlur(plume, (0, 0), 4.0) * 0.85
+            f = (f.astype(np.float32) * (1.0 - plume) + 205.0 * plume).astype(np.uint8)
         noisy = np.clip(f.astype(np.int16) + rng.normal(0, 2, f.shape), 0, 255)
         frames.append(cv2.cvtColor(noisy.astype(np.uint8), cv2.COLOR_GRAY2BGR))
     return frames

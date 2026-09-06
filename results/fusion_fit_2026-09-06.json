@@ -1,9 +1,28 @@
 {
  "auc_in_sample_frames": 0.6565771822311656,
  "auc_leave_one_sequence_out": 0.6386585719076802,
+ "confound_check": {
+  "bias_with_presence_explicit": -1.7863440158913297,
+  "loso_as_fitted": 0.6386585719076802,
+  "loso_presence_alone": 0.5610312052196713,
+  "loso_presence_explicit": 0.6626105216622458,
+  "presence_auc_in_sample": 0.6550508399646331,
+  "sign_flips": [
+   "s2",
+   "s3"
+  ],
+  "weights_with_presence_explicit": {
+   "esc": 1.1390351608192257,
+   "has_component": 2.40283236847061,
+   "s1": 0.39198262778826803,
+   "s2": -0.04110794012246545,
+   "s3": -2.236915496514409,
+   "s4": 0.2462231773721836
+  }
+ },
  "cv_folds": 29,
  "features_file": "results/features_dev.jsonl",
- "generated": "2026-09-06T00:24:23+07:00",
+ "generated": "2026-09-06T10:42:51+07:00",
  "lambda": 1.0,
  "method": "L2 logistic (IRLS), balanced class weights, bias unpenalised",
  "n_frames": 2291,

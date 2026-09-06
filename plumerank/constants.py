@@ -205,13 +205,30 @@ EPS: Final[float] = 1e-8
 #:     FUSION_W_S4             0.8      0.9335   about right
 #:     FUSION_W_ESCALATION     1.5      0.7785   the learned tile score: half
 #:
-#: **This falsifies the leading explanation for the D11 result.**
-#: ``results/gonogo_2026-09-01.md`` §7.4 found cloud shadow taking 4.43 alerts/camera-night
-#: against fog's 1.54, and offered as its second reading that "the unfitted fusion weights
-#: over-weight S3 relative to S1 and S2, so a hard-edged moving region scores high on
-#: anchoring and anisotropy without S3 being able to pull it down." The fit says the reverse:
-#: DEV supports MORE weight on S3 and much less on S1 and S2. Whatever cloud shadow is doing,
-#: it is not an artefact of S3 having been over-weighted.
+#: **RETRACTED 2026-09-06, same day, before anything was built on it.** This block first
+#: claimed the fit "falsifies" §7.4's reading that S3 was over-weighted, on the grounds that
+#: DEV supports MORE weight on S3 (2.6 -> 4.09). **That claim was wrong and the opposite is
+#: closer to true.**
+#:
+#: S1-S4 are all exactly 0.0 on a frame with no component, and 37% of negative frames carry
+#: no component against 5.9% of positive frames. "A component exists" therefore predicts the
+#: label at AUC 0.6551 on its own -- against 0.6566 for the whole fused model -- and every
+#: statistic carries that signal for free. The fit handed its largest weight to whichever
+#: statistic was the best PROXY FOR PRESENCE, and that was S3.
+#:
+#: Give presence its own column and the weights become:
+#:     s1 +0.3920 · s2 -0.0411 · **s3 -2.2369** · s4 +0.2462 · esc +1.1390 · presence +2.4028
+#: with leave-one-sequence-out AUC rising 0.6387 -> 0.6626. **S3 changes sign.** A weight
+#: that flips under a control was measuring the control, so +4.0931 is not evidence about
+#: boundary diffuseness and must not be quoted as any. §7.4's reading 2 is *supported*.
+#:
+#: ``scripts/fit_fusion.py`` now runs this control on every fit and prints both findings, so
+#: the same mistake cannot be made silently twice. Full record:
+#: ``results/statistics_confound_2026-09-06.md``.
+#:
+#: THE WEIGHTS BELOW ARE THE UNCONTROLLED FIT AND ARE STILL WHAT SHIPS. They are not
+#: defensible as a measurement of the primitive, and changing the fusion to carry a presence
+#: term is a design decision (it changes what the UI's per-row chips mean) left to the human.
 #:
 #: On the bias: under balanced class weights the fitted bias sits near zero by construction,
 #: so it does NOT encode a base rate. The operating point is set downstream by

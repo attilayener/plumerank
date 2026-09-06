@@ -186,6 +186,39 @@ def main():
     print(f"AUC leave-one-sequence-out      {cv_auc:.4f}   <- the honest number "
           f"({n_folds} folds, {n_scored} frames scored)")
 
+    # --- the confound check, which must run on every fit -----------------------------
+    #
+    # S1-S4 are all exactly 0.0 on a frame with no component, and 37% of negative frames
+    # have no component against 5.9% of positive ones. So "a component exists" is a strong
+    # label predictor that every statistic carries for free, and a fit without it will hand
+    # its largest weight to whichever statistic is the best PROXY FOR PRESENCE rather than
+    # the most informative statistic. That is what happened on 2026-09-06: S3 fitted at
+    # +4.0931, was reported as vindicating the premise, and flipped to -2.2369 the moment
+    # presence was given its own column.
+    has = np.array([r["has_component"] for r in rows], dtype=np.float64)
+    presence_auc = auc(has, y)
+    Xc = np.hstack([X, has.reshape(-1, 1)])
+    bc, wc = fit(Xc, y)
+    cv_c, _, _ = grouped_cv(Xc, y, groups)
+    cv_p, _, _ = grouped_cv(has.reshape(-1, 1), y, groups)
+
+    print("\n--- confound check: how much of this is just 'a component exists'? ---")
+    print(f"  component presence alone, in-sample AUC   {presence_auc:.4f}"
+          f"   vs fused {in_sample:.4f}")
+    print(f"  LOSO: presence alone {cv_p:.4f} · as-fitted {cv_auc:.4f} · "
+          f"presence explicit {cv_c:.4f}")
+    print("  weights if presence is given its own column:")
+    for name, val in zip((*FEATURES, "has_component"), wc):
+        print(f"    {name:<14}{val:+8.4f}")
+    if presence_auc >= in_sample - 0.02:
+        print("\n  FINDING: the four statistics add almost nothing over presence alone.")
+        print("  Any weight reported above is substantially a presence proxy. Do not quote")
+        print("  it as evidence that a statistic works.")
+    flipped = [n for n, a, b_ in zip(FEATURES, w, wc) if a * b_ < 0]
+    if flipped:
+        print(f"\n  FINDING: {', '.join(flipped)} CHANGE SIGN when presence is made explicit.")
+        print("  A weight that flips under a control was measuring the control.")
+
     negative = [k for k, v in zip(FEATURES, w) if v < 0]
     if negative:
         print(f"\nFINDING: {', '.join(negative)} fitted NEGATIVE. The spec asserts every "
@@ -209,6 +242,17 @@ def main():
         "auc_leave_one_sequence_out": cv_auc,
         "cv_folds": n_folds,
         "negative_weights": negative,
+        "confound_check": {
+            "presence_auc_in_sample": presence_auc,
+            "loso_presence_alone": cv_p,
+            "loso_as_fitted": cv_auc,
+            "loso_presence_explicit": cv_c,
+            "weights_with_presence_explicit": {
+                n: float(v) for n, v in zip((*FEATURES, "has_component"), wc)
+            },
+            "bias_with_presence_explicit": bc,
+            "sign_flips": flipped,
+        },
     }
     out = args.out or pathlib.Path("results") / f"fusion_fit_{dt.date.today()}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
