@@ -101,6 +101,14 @@ But two things survive it:
 
    **Recommended: apply the compositing fix and re-calibrate the affected tests in one pass.**
    The exact edit and its measurements are recorded here so it need not be rediscovered.
+
+   **DONE 2026-09-06 — see `results/fixture_migration_2026-09-06.md`.** Adopting it surfaced a
+   larger defect than the one it was made for: under the old fixture every pixel outside the
+   plume moved at t0 and stayed moved (mean 1.14 grey levels against the corrected fixture's
+   0.03), so ignition arrived as a whole-frame appearance step. B2 frame-differencing's 9.0-min
+   detection on this corpus was substantially that artefact, and it is gone. PlumeRank's
+   non-detection is not: it survives the migration unchanged, and the three
+   `test_results_contract.py` failures with it.
 3. **Do not retune S3 to make any of this come out right.** Its parameters (`S3_BAND_FRACTION`,
    `S3_BAND_MIN_PX`) are a priori and the gate's whole authority comes from their being fixed
    before the measurement. Changing them now converts the gate into a search.

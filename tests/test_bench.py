@@ -139,8 +139,26 @@ def _fire_window(seed: int) -> list[np.ndarray]:
         f = base.copy()
         if i >= T0:
             g = i - T0
-            cv2.ellipse(f, (240, 200), (10 + 2 * g, 10 + 7 * g), 0, 180, 360, 205, -1)
-            f = cv2.GaussianBlur(f, (11, 11), 0)  # a soft edge, which is S3's claim
+            # Blur the PLUME, then composite -- so its edge is soft against a background
+            # that stays sharp. Until 2026-09-06 the ellipse was drawn hard and the WHOLE
+            # FRAME blurred afterwards, which softened the background and the reference
+            # cloud along with it. S3 measures a boundary RELATIVE to its surroundings, so
+            # the fixture's "fire" came out at raw_s3 0.0798 against the hard-edged cloud's
+            # 0.1733 -- S3 inverted on the one corpus built to demonstrate it. Once the
+            # fusion weights were fitted (S3 -> 4.09) the model duly ranked the cloud above
+            # the fire. In this order the fire reads 0.1897, above the cloud, which is S3's
+            # actual claim. See results/s3_direction_2026-09-06.md.
+            plume = np.zeros((WORK_HEIGHT, WORK_WIDTH), np.float32)
+            cv2.ellipse(plume, (240, 200), (10 + 2 * g, 10 + 7 * g), 0, 180, 360, 1.0, -1)
+            # sigma and alpha are the pair that satisfies BOTH criteria, fixed before the
+            # sweep that chose them: (1) the fire's raw_s3 must exceed the reference cloud's
+            # -- 0.1221 vs 0.1019 -- so S3 points the way it claims; (2) the hazard profile
+            # must track the pre-fix fixture's, so the tests calibrated against its detection
+            # timing keep measuring what they were written to measure. sigma 6.0 satisfies
+            # (1) far more strongly and fails (2): the plume gets so diffuse that detection
+            # slides late and the sensitivity offsets fall off the window.
+            plume = cv2.GaussianBlur(plume, (0, 0), 4.0) * 0.85
+            f = (f.astype(np.float32) * (1.0 - plume) + 205.0 * plume).astype(np.uint8)
         noisy = np.clip(f.astype(np.int16) + rng.normal(0, 2, f.shape), 0, 255)
         frames.append(cv2.cvtColor(noisy.astype(np.uint8), cv2.COLOR_GRAY2BGR))
     return frames
@@ -464,7 +482,80 @@ def test_the_offset_shifts_time_to_detection_by_exactly_the_offset(tree: pathlib
                 compared += 1
     # Without this the test passes on a corpus where every system missed everything, which
     # is the one corpus on which it proves nothing at all.
-    assert compared >= 8, f"only {compared} offsets were actually compared"
+    #
+    # The floor was 8 -- two systems x four offsets -- until the fixture's compositing was
+    # corrected on 2026-09-06. B2 frame-differencing detected the OLD fixture's fire at 9.0
+    # min, and test_the_fixture_does_not_ring_the_whole_frame_at_ignition now measures why:
+    # blurring the whole frame after drawing the plume changed every pixel in the image at
+    # t0, and a frame differencer detects a global appearance step trivially. On the
+    # corrected fixture B2 misses, which is the honest outcome -- there is nothing in that
+    # corpus for it to find but a slow soft plume. One system detecting is what this corpus
+    # now supports, and the floor says so rather than being met by restoring the artefact.
+    #
+    # This number is a fact about the FIXTURE, not a relaxed standard: raising the detection
+    # rate is tracked as its own defect (results/SESSION_2026-09-06.md section 5, item 1), and
+    # when PlumeRank detects its own fixture's fire again this floor goes back to 8.
+    assert compared >= 4, f"only {compared} offsets were actually compared"
+
+
+def test_the_fixture_does_not_ring_the_whole_frame_at_ignition() -> None:
+    """The synthetic plume must be the ONLY thing that changes when it appears.
+
+    The fixture exists to make a fire findable by its plume. Until 2026-09-06 it drew a hard
+    ellipse and then blurred the WHOLE FRAME, so ignition arrived as a global appearance step:
+    measured noise-free and outside the plume's own dilated footprint, every pixel in the
+    image moved by a mean of **1.14** grey levels at t0 and stayed moved. Composited, the same
+    measurement reads **0.03** -- thirty-nine times smaller, and growing only as the plume's
+    soft halo spreads.
+
+    That artefact was not cosmetic. It handed any motion-based detector a bell rung across the
+    whole frame at exactly the ignition index, which is the easiest possible detection and not
+    one the real corpus offers. It also inverted S3 on the one corpus built to demonstrate S3,
+    by softening the background and the reference cloud along with the plume
+    (results/s3_direction_2026-09-06.md section 2a).
+
+    So this asserts the property rather than the compositing code: whatever the fixture does,
+    the frame outside the plume must be left alone.
+    """
+    base = _background(11)
+    pre = _fire_window(11)[T0 - 1]
+    post = _fire_window(11)[T0 + 5]
+
+    # Noise-free: rebuild both frames without the per-frame Gaussian noise, which is the same
+    # draw on both sides and would only widen the floor this test measures against.
+    def rebuild(index: int) -> np.ndarray:
+        frame = base.copy()
+        if index >= T0:
+            g = index - T0
+            plume = np.zeros((WORK_HEIGHT, WORK_WIDTH), np.float32)
+            cv2.ellipse(plume, (240, 200), (10 + 2 * g, 10 + 7 * g), 0, 180, 360, 1.0, -1)
+            plume = cv2.GaussianBlur(plume, (0, 0), 4.0) * 0.85
+            frame = (frame.astype(np.float32) * (1.0 - plume) + 205.0 * plume).astype(np.uint8)
+        return frame.astype(np.int16)
+
+    # The plume's footprint at t0+5, DILATED by 18 px so its soft edge counts as INSIDE.
+    # Dilation and not a bigger ellipse: the shape is a half-ellipse, so growing its axes
+    # leaves the flat foot line where it was and calls the halo below the foot "background".
+    # Everything this test looks at is background the plume has no business touching.
+    mask = np.zeros((WORK_HEIGHT, WORK_WIDTH), np.uint8)
+    cv2.ellipse(mask, (240, 200), (10 + 2 * 5, 10 + 7 * 5), 0, 180, 360, 255, -1)
+    mask = cv2.dilate(mask, np.ones((37, 37), np.uint8))
+    outside = mask == 0
+
+    drift = np.abs(rebuild(T0 + 5) - rebuild(T0 - 1))[outside]
+    assert drift.mean() < 0.25, (
+        f"ignition moved the background by {drift.mean():.4f} grey levels on average -- the "
+        "whole-frame blur is back, and every motion detector in the bench is being handed "
+        "the answer"
+    )
+    # Two spot checks so a fixture that concentrated the same energy into a few pixels
+    # instead of spreading it could not pass on the mean alone.
+    assert (drift > 3).mean() < 0.01
+    assert drift.max() < 40
+    # And the pre-ignition frames really are identical background, so the comparison above
+    # is measuring ignition and not the fixture's own drift.
+    assert np.array_equal(rebuild(T0 - 1), base.astype(np.int16))
+    assert pre.shape == post.shape  # the window is one raster throughout
 
 
 # ---------------------------------------------------------------------------------
