@@ -24,7 +24,13 @@ const LANE_COLOURS: Record<string, string> = {
 };
 
 export function BaselineRace({ data }: { data: Benchmark }) {
-  const lanes = data.systems.filter((s) => s.p50_minutes !== null);
+  // Every published system is a lane. A null p50 with a detection count is not a missing
+  // number: it is a system that detected fewer than half the arm's fires, so its median
+  // is infinite by metrics.py's own definition (a miss is an infinitely late detection).
+  // Until 2026-09-17 such lanes were FILTERED OUT and the caption read "only 2 of 3 lanes
+  // published" -- which, on the real DEV arm where B1 finds 1 of 29 and B2 finds 3 of 29,
+  // hid the most important comparison on the page behind a publishing apology.
+  const lanes = data.systems.filter((s) => s.p50_minutes !== null || s.n_detected !== null);
   if (lanes.length === 0) {
     return (
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)" }}>
@@ -33,15 +39,18 @@ export function BaselineRace({ data }: { data: Benchmark }) {
     );
   }
 
-  const slowest = Math.max(...lanes.map((l) => l.p50_minutes ?? 0));
-  const fastest = Math.min(...lanes.map((l) => l.p50_minutes ?? 0));
+  const timed = lanes.filter((l) => l.p50_minutes !== null);
+  const slowest = timed.length ? Math.max(...timed.map((l) => l.p50_minutes ?? 0)) : 0;
+  const fastest = timed.length ? Math.min(...timed.map((l) => l.p50_minutes ?? 0)) : 0;
   const scale = (v: number) => `${(v / (slowest || 1)) * 100}%`;
 
   return (
     <div>
       {lanes.map((lane) => {
+        const noMedian = lane.p50_minutes === null;
         const v = lane.p50_minutes ?? 0;
         const gap = v - fastest;
+        const colour = LANE_COLOURS[lane.key] ?? "var(--ink-3)";
         return (
           <div key={lane.key} style={{ marginBottom: 14 }}>
             <div
@@ -55,37 +64,66 @@ export function BaselineRace({ data }: { data: Benchmark }) {
               }}
             >
               <span style={{ color: "var(--ink-0)" }}>{lane.label}</span>
-              <span className="mono num" style={{ color: "var(--ink-1)" }}>
-                {minutes(lane.p50_minutes)} min
-              </span>
+              {noMedian ? (
+                <span className="mono num" style={{ color: "var(--ink-1)" }}>
+                  no median
+                </span>
+              ) : (
+                <span className="mono num" style={{ color: "var(--ink-1)" }}>
+                  {minutes(lane.p50_minutes)} min
+                </span>
+              )}
               <span>
-                {gap > 0 ? `+${minutes(gap)} min behind` : "first"}
-                {lane.n_missed !== null ? ` - ${lane.n_missed} missed` : ""}
+                {noMedian
+                  ? `fewer than half detected${
+                      lane.n_detected !== null && lane.n !== null
+                        ? ` - ${lane.n_detected} of ${lane.n}`
+                        : ""
+                    }`
+                  : `${gap > 0 ? `+${minutes(gap)} min behind` : "first"}${
+                      lane.n_missed !== null ? ` - ${lane.n_missed} missed` : ""
+                    }`}
               </span>
             </div>
             <div style={{ position: "relative", height: 14, background: "var(--surface-raised)", borderRadius: 2 }}>
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: scale(v),
-                  background: LANE_COLOURS[lane.key] ?? "var(--ink-3)",
-                  opacity: 0.35,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  left: `calc(${scale(v)} - 2px)`,
-                  top: -3,
-                  bottom: -3,
-                  width: 4,
-                  background: LANE_COLOURS[lane.key] ?? "var(--ink-3)",
-                }}
-                aria-hidden="true"
-              />
+              {noMedian ? (
+                // A lane that never reaches its median runs off the right edge of the
+                // clock: full width, hatched, no marker -- there is no minute to mark.
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundImage: `repeating-linear-gradient(135deg, ${colour} 0 3px, transparent 3px 8px)`,
+                    opacity: 0.35,
+                  }}
+                  aria-label={`${lane.label}: no median, fewer than half detected`}
+                />
+              ) : (
+                <>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: scale(v),
+                      background: colour,
+                      opacity: 0.35,
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `calc(${scale(v)} - 2px)`,
+                      top: -3,
+                      bottom: -3,
+                      width: 4,
+                      background: colour,
+                    }}
+                    aria-hidden="true"
+                  />
+                </>
+              )}
             </div>
           </div>
         );
@@ -94,9 +132,11 @@ export function BaselineRace({ data }: { data: Benchmark }) {
         one clock, minutes after ignition. Every lane is calibrated to the same alert
         budget on the same confusion set, and the learned component is IDENTICAL in
         PlumeRank and in B1 -- so the gap is the ranking primitive and not a bigger
-        model. Slowest lane: {minutes(slowest)} min
-        {lanes.length < 3 ? ` (only ${lanes.length} of 3 lanes published)` : ""}.
-        {slowest === 0 ? ` scale ${ABSENT}` : ""}
+        model. A hatched lane detected fewer than half the fires: its median is off the
+        clock, which is a result and not a gap in the file.
+        {timed.length ? ` Slowest timed lane: ${minutes(slowest)} min.` : ""}
+        {lanes.length < 3 ? ` (only ${lanes.length} of 3 lanes published)` : ""}
+        {timed.length && slowest === 0 ? ` scale ${ABSENT}` : ""}
       </p>
     </div>
   );

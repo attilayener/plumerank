@@ -120,6 +120,8 @@ function readSystems(doc: unknown): SystemResult[] {
       // -- and it is `null` on an arm with no ignition clock, which num() reads as absent.
       p50_minutes: num(r, "ttd.p50_minutes"),
       p95_minutes: num(r, "ttd.p95_minutes"),
+      n_detected: num(r, "ttd.n_detected"),
+      n: num(r, "ttd.n"),
       n_missed: num(r, "ttd.n_missed"),
       // The CONFUSE-set rate, not the arm's own, and the choice is the same one
       // headline_block makes: this column exists to show the operating point all three

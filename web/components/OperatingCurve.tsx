@@ -112,6 +112,13 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
             {s.label}
           </span>
         ))}
+        {data.systems
+          .filter((sys) => !series.some((s) => s.key === sys.key))
+          .map((sys) => (
+            <span key={sys.key} style={{ fontSize: "var(--size-label)", color: "var(--ink-3)" }}>
+              {sys.label}: no median at any published budget
+            </span>
+          ))}
         <span style={{ fontSize: "var(--size-label)", color: "var(--ink-3)" }}>
           y axis starts at 0; peak {minutes(y1)} min
           {op === null

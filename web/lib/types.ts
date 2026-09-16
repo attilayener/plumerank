@@ -100,6 +100,11 @@ export interface SystemResult {
   label: string;
   p50_minutes: number | null;
   p95_minutes: number | null;
+  /** How many of the arm's fires this system detected at all. A lane with a null p50 and
+   *  a detection count is a system that MISSED MORE THAN HALF -- a result, not an absence.
+   *  On the real DEV arm both baselines are in that state; only PlumeRank has a median. */
+  n_detected: number | null;
+  n: number | null;
   n_missed: number | null;
   alerts_per_camera_night: number | null;
   model_invocations_per_camera_night: number | null;

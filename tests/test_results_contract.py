@@ -401,32 +401,57 @@ def test_the_exclusion_rows_carry_a_reason(run: Run) -> None:
 # ---------------------------------------------------------------------------------
 
 
-def test_the_per_system_table_has_a_lane_to_draw(run: Run) -> None:
-    """``BaselineRace`` filters on ``p50_minutes !== null`` and says 'not published' at zero."""
+def test_every_system_has_a_lane_and_the_headline_system_has_a_median(run: Run) -> None:
+    """``BaselineRace`` draws one lane per published system. A lane is drawable when it
+    carries EITHER a p50 OR a detection count -- a null p50 beside ``n_detected`` is a
+    system that missed more than half the fires, whose median is off the clock. That is a
+    result, not an absence: on the real DEV arm B1 finds 1 of 29 and B2 finds 3 of 29.
+
+    Until 2026-09-17 this test demanded a p50 from every system and the component filtered
+    null lanes out with the caption "only 2 of 3 lanes published" -- hiding, on the real
+    file, the single most important comparison on the page behind a publishing apology.
+    """
     rows = _rows(run.payload, "baselines")
-    lanes = [r for r in rows if (r["ttd"] or {}).get("p50_minutes") is not None]
-    assert len(lanes) == len(bench.SYSTEMS), (
-        "every system must publish a p50 on a fire arm; a lane short of the roster is how "
-        "'only 2 of 3 lanes published' reaches the race section"
+    assert {r["system"] for r in rows} == set(bench.SYSTEMS)
+    for r in rows:
+        ttd = r["ttd"] or {}
+        assert isinstance(ttd.get("n_detected"), int) and isinstance(ttd.get("n"), int), (
+            f"{r['system']}: a lane with no p50 must still say how many it detected"
+        )
+        assert ttd.get("p50_minutes") is None or isinstance(ttd["p50_minutes"], (int, float))
+    headline = run.payload["headline_system"]
+    lead = next(r for r in rows if r["system"] == headline)
+    assert lead["ttd"]["p50_minutes"] is not None, (
+        "the headline system must publish a median on a fire arm -- the page's largest "
+        "figure is read from it"
     )
 
 
-def test_the_operating_curve_has_two_points_per_system(run: Run) -> None:
-    """``readOperating`` drops a series with fewer than two points, and ``OperatingCurve``
-    says 'not published' when every series is dropped -- a one-point line is not a curve."""
+def test_the_operating_curve_has_two_points_for_the_headline_system(run: Run) -> None:
+    """``readOperating`` drops a series with fewer than two points and ``OperatingCurve``
+    says 'not published' only when EVERY series is dropped. A baseline that never reaches
+    a median at any budget legitimately has no line; the legend names it as such. The
+    headline system's line is what the figure exists to draw, so it must be drawable."""
     rows = _rows(run.payload, "operating_curve")
+    headline = run.payload["headline_system"]
+    drawable = [r for r in rows if r.get(f"{headline}_p50_minutes") is not None]
+    assert len(drawable) > 1, f"{headline} has {len(drawable)} plottable operating points"
+    # every system has a column at every budget, null or not -- the reader looks the key up
     for system in bench.SYSTEMS:
-        drawable = [r for r in rows if r.get(f"{system}_p50_minutes") is not None]
-        assert len(drawable) > 1, f"{system} has {len(drawable)} plottable operating points"
+        assert all(f"{system}_p50_minutes" in r for r in rows), f"{system} column missing"
 
 
 def test_the_sensitivity_strip_has_two_points_to_draw(run: Run) -> None:
     """``SensitivityStrip`` says 'not published' below two points. Eleven offsets are
-    published, and the drawn series is the headline system's."""
+    published; the drawn series is the headline system's. Not all eleven need a value --
+    an offset that moves the clock PAST a detection reads as the next slot or a miss
+    (test_bench.test_the_offset_shifts_time_to_detection_by_exactly_the_offset), and on
+    the synthetic corpus PlumeRank detects at 0.0 min, so the positive offsets fall off."""
     headline = run.payload["headline_system"]
     rows = _rows(run.payload, "sensitivity.rows")
+    assert [r["offset_minutes"] for r in rows] == list(bench.SENSITIVITY_OFFSETS_MINUTES)
     drawable = [r for r in rows if r.get(f"{headline}_p50_minutes") is not None]
-    assert len(drawable) == len(bench.SENSITIVITY_OFFSETS_MINUTES) > 1
+    assert len(drawable) > 1, f"{headline} has {len(drawable)} plottable sensitivity points"
 
 
 def test_the_classifier_row_is_quoted_from_the_training_manifest(run: Run) -> None:
