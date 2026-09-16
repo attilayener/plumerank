@@ -34,8 +34,8 @@ export PR_INSTANCE_TYPE=t4g.small         # Graviton2, 2 vCPU, 2 GiB, 750 free h
                                           # through 2026-12-31
 export PR_VOLUME_GB=30
 export PR_KEYPAIR=plumerank-admin         # created once, in section 0a below
-export PR_BUCKET=plumerank-corpus         # holds exactly one prefix: corpus/
-export PR_REPO=https://github.com/OWNER/REPO.git   # <- your clone URL
+export PR_BUCKET=plumerank-corpus         # two prefixes: corpus/ (frames) and src/ (the bundle)
+export PR_REPO=s3://plumerank-corpus/src/plumerank.bundle   # a git bundle -- see 4a
 export PR_REF=main
 export PR_DOMAIN=plumerank.org            # registered at any registrar; see step 6
 ```
@@ -64,12 +64,10 @@ survivable here only because nothing on the box is irreplaceable (section 9).
 ## 1. The AMI -- pinned
 
 ```bash
-# NOT YET RESOLVED. This is a sentinel, not an AMI id: it is deliberately malformed so
-# that `run-instances` in section 4 fails with InvalidAMIID.Malformed rather than
-# launching. Resolve it with the ssm command below, paste the real id here, and COMMIT
-# that line. A well-formed id nobody verified is worse than no id at all -- it launches,
-# and then /build-info's AMI echo is being compared against a number somebody typed.
-export PR_AMI=ami-RESOLVE-BEFORE-LAUNCH
+# Resolved 2026-09-17 with the ssm command below and verified with describe-images:
+#   al2023-ami-2023.12.20260914.0-kernel-6.1-arm64, arm64, created 2026-09-10.
+# Re-pinning is a commit, not a runtime lookup (see below).
+export PR_AMI=ami-0016b4a92b3d1a1e4
 ```
 
 Resolve it once, here, and commit the result:
@@ -109,8 +107,10 @@ one shell's history is not a pin.
 ## 2. The instance profile -- `plumerank-instance`, exactly three statements
 
 One profile, one inline policy, three statements. **No long-lived access key ever lands
-on this box**: the corpus upload runs from the developer laptop under `~/.aws/`, weeks
-before the instance exists, which is why nothing below grants `s3:PutObject`.
+on this box**: the corpus upload and the source bundle both run from the developer laptop
+under `~/.aws/` (section 4a), which is why nothing below grants `s3:PutObject` -- and why
+the box reads its source from the bucket rather than cloning a private GitHub repository,
+which would have put a token in `/etc/plumerank.env`.
 `check_submission_readiness.py` greps the repository for `AKIA` to prove none reached git
 either.
 
@@ -152,15 +152,16 @@ Inline policy -- `plumerank-instance-policy.json`:
       "Resource": "*"
     },
     {
-      "Sid": "ReadOnlyOnTheCorpusPrefix",
+      "Sid": "ReadOnlyOnTheCorpusAndSourcePrefixes",
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:ListBucket"],
       "Resource": [
         "arn:aws:s3:::plumerank-corpus",
-        "arn:aws:s3:::plumerank-corpus/corpus/*"
+        "arn:aws:s3:::plumerank-corpus/corpus/*",
+        "arn:aws:s3:::plumerank-corpus/src/*"
       ],
       "Condition": {
-        "StringLikeIfExists": { "s3:prefix": ["corpus", "corpus/*"] }
+        "StringLikeIfExists": { "s3:prefix": ["corpus", "corpus/*", "src", "src/*"] }
       }
     }
   ]
@@ -243,6 +244,40 @@ aws ec2 revoke-security-group-ingress --region "$AWS_REGION" --group-id "$PR_SG"
 
 Almost nothing needs that, because a deploy is `bootstrap.sh` again and the logs are in
 CloudWatch and `/var/log/plumerank-bootstrap.log`.
+
+---
+
+## 4a. The bucket -- the corpus and the source bundle, uploaded from the laptop
+
+Two prefixes, both written from here under `~/.aws/` and read by the box under its
+instance profile. **HOLD is never uploaded.** It is read once, by `bench.py`, on this
+machine (section 8 of `specs/build-plan.md`); the wall refuses HOLD sequence ids by name
+and there is nothing for it to refuse if they are not in the bucket.
+
+```bash
+aws s3api create-bucket --region "$AWS_REGION" --bucket "$PR_BUCKET" \
+  --create-bucket-configuration LocationConstraint="$AWS_REGION"
+aws s3api put-public-access-block --bucket "$PR_BUCKET" \
+  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+# corpus: the DEV and CONFUSE windows the wall replays -- ~2.4 GB, once. The list of
+# directories comes from the two manifests, so nothing outside them can be uploaded.
+for seq in $(python3 -c "import json
+for m, sub in (('manifest_dev.json', 'figlib'), ('manifest_confuse.json', 'mta')):
+    for w in json.load(open('data/' + m))['windows']: print(sub + '/' + w['sequence_id'])"); do
+  aws s3 sync --only-show-errors "data/corpus/$seq" "s3://$PR_BUCKET/corpus/$seq"
+done
+
+# source: a git bundle of the ref to deploy. Re-running this IS the publish step of a
+# deploy; bootstrap.sh fetches from it and resets to it (section 9).
+git bundle create /tmp/plumerank.bundle --branches --tags
+aws s3 cp --only-show-errors /tmp/plumerank.bundle "s3://$PR_BUCKET/src/plumerank.bundle"
+```
+
+The bundle carries the full history, so `/build-info` on the box reports a real commit
+and the `@pytest.mark.live` HEAD comparison holds. When the repository goes public at
+submission, `PLUMERANK_REPO_DEFAULT` in `bootstrap.sh` can become the https:// clone URL
+and this prefix retires.
 
 ---
 

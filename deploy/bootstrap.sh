@@ -42,7 +42,22 @@ set -Eeuo pipefail
 # EDIT THIS ONE LINE and commit it. It is the only edit this file needs, and keeping it
 # in the file is what lets the file itself be the userdata -- no wrapper, no sed, no
 # templating step between the script in the repo and the script that ran on the box.
-PLUMERANK_REPO_DEFAULT="__SET_ME__"
+#
+# An s3:// value is a GIT BUNDLE, not a clone URL. The repository is private until
+# submission, and cloning a private GitHub repo from the box would put a token in
+# /etc/plumerank.env -- the one credential deploy/launch.md section 2 promises never
+# lands here. So the developer laptop runs `git bundle create` and uploads the file to
+# the same bucket the corpus lives in (launch.md section 4a); the instance profile
+# already reads that bucket; git clones from a bundle exactly as it clones from a
+# remote, so /build-info still publishes a real `git rev-parse HEAD` and the live test
+# that compares it with the developer's HEAD still holds. An https:// value still works
+# and is the right choice once the repository is public.
+PLUMERANK_REPO_DEFAULT="s3://plumerank-corpus/src/plumerank.bundle"
+
+# Where the wall's frames come from. The DEV and CONFUSE windows only -- HOLD is read
+# once, by bench.py, on the developer's machine, and is never uploaded (launch.md
+# section 4a). Synced, not copied: a re-run after a corpus change moves only the delta.
+PLUMERANK_CORPUS_S3="s3://plumerank-corpus/corpus/"
 
 APP_USER="plumerank"
 APP_DIR="/opt/plumerank"
@@ -161,7 +176,8 @@ fi
 if [ ! -d "$APP_DIR/.git" ] && [ "$PLUMERANK_REPO" = "__SET_ME__" ]; then
   die "PLUMERANK_REPO is unset and there is no checkout at $APP_DIR.
        Edit PLUMERANK_REPO_DEFAULT at the top of this file and commit it, or re-run as
-         sudo PLUMERANK_REPO=https://github.com/<owner>/<repo>.git bash $0"
+         sudo PLUMERANK_REPO=s3://<bucket>/src/plumerank.bundle bash $0
+       (or an https:// clone URL once the repository is public)"
 fi
 
 export PLUMERANK_DOMAIN
@@ -229,15 +245,30 @@ step "checkout ${PLUMERANK_REF} into ${APP_DIR}"
 git config --global --get-all safe.directory 2>/dev/null | grep -qxF "$APP_DIR" \
   || git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 
+# An s3:// source is a bundle: fetched to a fixed path, then used exactly where a remote
+# URL would be. `aws` is on every AL2023 image; the instance profile is what authorises
+# the read, so there is still no credential on the box.
+GIT_SOURCE="$PLUMERANK_REPO"
+case "$PLUMERANK_REPO" in
+  s3://*)
+    BUNDLE_PATH="/opt/plumerank.bundle"
+    aws s3 cp --only-show-errors "$PLUMERANK_REPO" "$BUNDLE_PATH"
+    git bundle verify "$BUNDLE_PATH" >/dev/null
+    GIT_SOURCE="$BUNDLE_PATH"
+    say "bundle: $(stat -c %s "$BUNDLE_PATH") bytes from ${PLUMERANK_REPO}"
+    ;;
+esac
+
 if [ -d "$APP_DIR/.git" ]; then
   # Fetch-and-reset, not pull: a merge on a deploy box is a conflict waiting to stop
   # the deploy, and nothing on the box is ever meant to be a source of commits.
+  git -C "$APP_DIR" remote set-url origin "$GIT_SOURCE"
   git -C "$APP_DIR" fetch --prune origin "$PLUMERANK_REF"
   git -C "$APP_DIR" reset --hard FETCH_HEAD
 else
   # Full clone, not --depth 1: /build-info publishes `git rev-parse HEAD` and a live
   # test asserts it equals the developer's HEAD, so the history has to be real.
-  git clone --branch "$PLUMERANK_REF" "$PLUMERANK_REPO" "$APP_DIR"
+  git clone --branch "$PLUMERANK_REF" "$GIT_SOURCE" "$APP_DIR"
 fi
 COMMIT_SHA="$(git -C "$APP_DIR" rev-parse HEAD)"
 say "HEAD: ${COMMIT_SHA}"
@@ -270,6 +301,20 @@ esac
 # ---------------------------------------------------------------------------------
 # 5. The frontend -- built here, served as files
 # ---------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------
+# 4b. The corpus -- what the wall replays
+# ---------------------------------------------------------------------------------
+
+step "corpus: ${PLUMERANK_CORPUS_S3} -> ${APP_DIR}/data/corpus"
+# The manifests are in the checkout; the JPEGs are not (data/corpus is gitignored, at
+# 2.4 GB for DEV + CONFUSE). `sync` is idempotent and moves only the delta, so a re-run
+# deploy costs seconds here. The wall refuses any HOLD sequence id by name
+# (api/main.py:_wall_sequences), and HOLD is never in this prefix in the first place.
+mkdir -p "$APP_DIR/data/corpus"
+aws s3 sync --only-show-errors "$PLUMERANK_CORPUS_S3" "$APP_DIR/data/corpus/"
+say "corpus: $(find "$APP_DIR/data/corpus" -type f -name '*.jpg' | wc -l) frames on disk"
+chown -R "$APP_USER:$APP_USER" "$APP_DIR/data"
 
 step "Next.js static export -> ${APP_DIR}/web/out"
 if [ -f "$APP_DIR/web/package.json" ]; then
