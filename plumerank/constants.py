@@ -241,6 +241,32 @@ FUSION_W_S3: Final[float] = 4.0931   # still the largest, and by more than assum
 FUSION_W_S4: Final[float] = 0.9335
 FUSION_W_ESCALATION: Final[float] = 0.7785
 
+#: Per-camera baseline (gate 0, decided 2026-09-16). The fused hazard is ABSOLUTE; the budget
+#: is spent PER CAMERA-NIGHT. results/peak_shape_2026-09-16.md found the 11 DEV sequences no
+#: threshold or budget policy could reach sit on cameras whose quiet night runs 0.15-0.25
+#: hotter than the detectable ones -- a loud camera's fire cannot clear its own floor. So the
+#: hazard that is ranked and thresholded is the camera's departure from its OWN trailing
+#: window: z = (h - mean) / sd over the last BASELINE_WINDOW_FRAMES, squashed to (0, 1).
+#:
+#: Measured at the calibrated operating point (results/baseline_calibrated_2026-09-16.md):
+#: window 15 -> 17/29 detected, p50 32.0 min; window 10 -> 18/29, p50 30.0 min; absolute
+#: hazard -> 9/29, p50 undefined. 10 and 15 are one sequence apart, inside the noise band;
+#: 15 was chosen as the design ("a camera is compared to its own last quarter-hour").
+#: Causal, no added latency. bench.py --baseline absolute is the ablation.
+BASELINE_WINDOW_FRAMES: Final[int] = 15
+#: A camera cannot alert before it has a night to depart from: frames with fewer than this
+#: many predecessors in the window score 0.0.
+BASELINE_WARMUP_FRAMES: Final[int] = 5
+#: A camera with no foreground component emits a CONSTANT hazard (sigmoid(FUSION_BIAS)), so
+#: more than 5% of DEV trailing windows have sd == 0 exactly; without a floor the first blip
+#: on such a camera is a maximal alert. 0.02 is a third of the median trailing sd on DEV
+#: (0.063); the DEV sweep in spike/peak_shape.py is flat across floors 1e-6..0.02.
+BASELINE_SD_FLOOR: Final[float] = 0.02
+#: sigmoid(z / BASELINE_Z_SCALE) keeps the result inside THRESHOLD_SEARCH_LO..HI. Monotone,
+#: so it changes no ordering and no threshold's meaning; 2.0 keeps z in [-8, 8] away from
+#: the saturated tail where THRESHOLD_SEARCH_TOL would stop resolving neighbours.
+BASELINE_Z_SCALE: Final[float] = 2.0
+
 #: The watch list a human actually reads. Detection means "entered the top-k AND fired an
 #: alert" -- being ranked 27th of 40 is not a detection (metrics.py).
 TOP_K: Final[int] = 4

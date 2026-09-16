@@ -84,7 +84,7 @@ from plumerank.constants import (
 )
 from plumerank.escalate import TileClassifier, should_escalate
 from plumerank.metrics import alerts_per_camera_night, pin_opencv_threads
-from plumerank.rank import BudgetState, draw_evidence, emit, fuse
+from plumerank.rank import Baseline, BudgetState, draw_evidence, emit, fuse
 from plumerank.segment import Segmenter
 from plumerank.stabilise import stabilise
 from plumerank.statistic import Tracker, measure
@@ -645,6 +645,7 @@ class Replay:
         self._frame_index: int = 0
         self._ticks: int = 0
         self._alerts_uncapped: int = 0
+        self._baseline: Baseline = Baseline()
         self._invocations_at_night_start: int = 0
         self._last_tick_iso: str | None = None
         self._last_payload: str | None = None
@@ -831,6 +832,9 @@ class Replay:
         self._budget = (
             BudgetState([c.camera_id for c in self._cameras]) if self._cameras else None
         )
+        # The per-camera trailing windows start empty with the background models: a camera
+        # that has no night yet cannot depart from it, and scores 0.0 through the warm-up.
+        self._baseline = Baseline()
 
     async def _run(self) -> None:
         """Tick while anyone is watching; sleep, then exit, when nobody is.
@@ -926,6 +930,14 @@ class Replay:
             camera.prev_work = work
 
         final = self._escalate(classifier, classical, frames)
+        # What is ranked, thresholded and counted is the camera's departure from its own
+        # night (rank.Baseline), not the absolute fusion -- the same series bench.py solves
+        # the threshold on. The escalation gate above reads the ABSOLUTE rank on purpose:
+        # it decides which tiles are worth a model call, and the calibration measured it so.
+        final = [
+            dataclasses.replace(s, hazard=self._baseline.observe(s.camera_id, s.hazard))
+            for s in final
+        ]
         entries = self._write_evidence(emit(final, threshold, budget), frames, picked, index)
 
         self._alerts_uncapped += sum(1 for s in final if s.hazard >= threshold)
@@ -1039,6 +1051,7 @@ class Replay:
             self._classifier.invocations if self._classifier is not None else 0
         )
         self._budget = BudgetState([c.camera_id for c in self._cameras])
+        self._baseline.reset()
 
     def _publish_telemetry(self) -> None:
         """The two measured rates, once per completed camera-night.

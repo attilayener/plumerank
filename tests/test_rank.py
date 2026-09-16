@@ -17,6 +17,10 @@ import pytest
 
 from plumerank import rank
 from plumerank.constants import (
+    BASELINE_SD_FLOOR,
+    BASELINE_WARMUP_FRAMES,
+    BASELINE_WINDOW_FRAMES,
+    BASELINE_Z_SCALE,
     ALERTS_PER_CAMERA_PER_NIGHT,
     FRAMES_PER_WINDOW,
     FUSION_BIAS,
@@ -507,3 +511,92 @@ def test_evidence_crop_box_clamps_to_a_frame_smaller_than_the_minimum_crop():
     """The minimum crop is a floor on legibility, not a promise the frame can keep."""
     comp = Component(x=10, y=10, w=20, h=20, area=400, cx=20.0, cy=20.0)
     assert evidence_crop_box(comp, (90, 100, 3)) == (0, 0, 100, 90)
+
+
+# ---------------------------------------------------------------------------------
+# Per-camera baseline (gate 0, 2026-09-16) -- what is ranked is a camera's departure
+# from its own night, and the wall and the benchmark must compute it identically
+# ---------------------------------------------------------------------------------
+
+
+def _night(seed: int, n: int = 79) -> list[float]:
+    rng = np.random.default_rng(seed)
+    return [float(v) for v in np.clip(rng.normal(0.45, 0.06, n), 0.0, 1.0)]
+
+
+def test_baseline_live_equals_offline_tick_for_tick():
+    """``Baseline.observe`` and ``rebase_series`` are the same function of the same history.
+
+    The benchmark solves the threshold on ``rebase_series``; the wall runs on ``Baseline``.
+    A single frame of disagreement is a threshold the wall never runs at.
+    """
+    live = rank.Baseline()
+    for cam, seed in (("a", 1), ("b", 2), ("c", 3)):
+        series = _night(seed)
+        assert [live.observe(cam, h) for h in series] == rank.rebase_series(series)
+
+
+def test_baseline_is_zero_through_the_warm_up_and_only_then():
+    series = _night(4)
+    out = rank.rebase_series(series)
+    assert out[: BASELINE_WARMUP_FRAMES] == [0.0] * BASELINE_WARMUP_FRAMES
+    assert all(0.0 < v < 1.0 for v in out[BASELINE_WARMUP_FRAMES:])
+
+
+def test_baseline_never_scores_a_frame_against_itself():
+    """A step up on an otherwise flat camera must read as a departure, not as the new normal."""
+    flat = [0.4] * 20
+    out = rank.rebase_series(flat + [0.9])
+    assert out[-1] > 0.99, "the step frame is scored against the flat past only"
+    assert out[BASELINE_WARMUP_FRAMES:-1] == pytest.approx([0.5] * (len(flat) - BASELINE_WARMUP_FRAMES)), "z == 0 on the flat run"
+
+
+def test_baseline_is_causal():
+    """Frame t reads frames < t only: changing the future changes nothing before it."""
+    a = _night(5)
+    b = list(a)
+    b[40:] = [1.0] * (len(b) - 40)
+    assert rank.rebase_series(a)[:40] == rank.rebase_series(b)[:40]
+
+
+def test_baseline_sd_floor_stops_a_flat_camera_from_maximal_alerting_on_a_blip():
+    """A camera with no component emits a constant; the first blip must not be an alert."""
+    flat = [0.35] * 20
+    blip = rank.rebase_series(flat + [0.35 + BASELINE_SD_FLOOR])[-1]
+    # one floor-width above a flat past is z == 1, squashed: well below any solved threshold
+    assert blip == pytest.approx(1.0 / (1.0 + math.exp(-1.0 / BASELINE_Z_SCALE)))
+    assert blip < 0.75
+
+
+def test_baseline_is_monotone_in_the_hazard_given_the_same_past():
+    past = _night(6, n=BASELINE_WINDOW_FRAMES)
+    values = [rank.rebase(h, past) for h in (0.1, 0.3, 0.5, 0.7, 0.9)]
+    assert values == sorted(values) and len(set(values)) == 5
+
+
+def test_baseline_window_is_the_frozen_constant_and_forgets_beyond_it():
+    """A departure older than the window no longer lifts the camera's floor."""
+    series = [0.4] * 10 + [0.95] + [0.4] * (BASELINE_WINDOW_FRAMES + 1)
+    out = rank.rebase_series(series)
+    # while the spike is inside the window the flat frames sit BELOW their own mean (z < 0)
+    assert out[12] < 0.5
+    # once it has left the window they are back on the mean exactly
+    assert out[-1] == pytest.approx(0.5)
+
+
+def test_baseline_reset_forgets_every_camera():
+    live = rank.Baseline()
+    for h in _night(7, n=10):
+        live.observe("a", h)
+    live.reset()
+    assert live.observe("a", 0.9) == 0.0, "a fresh night starts in the warm-up"
+
+
+def test_baseline_refuses_a_non_finite_hazard():
+    with pytest.raises(ValueError, match="non-finite"):
+        rank.Baseline().observe("a", float("nan"))
+
+
+def test_baseline_refuses_a_zero_window():
+    with pytest.raises(ValueError):
+        rank.Baseline(window=0)

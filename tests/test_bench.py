@@ -478,9 +478,18 @@ def test_the_offset_shifts_time_to_detection_by_exactly_the_offset(tree: pathlib
         for offset in (-3, -1, 1, 3):
             shifted = rows[offset][f"{system}_p50_minutes"]
             # A missed percentile is None on both sides and carries no clock to shift.
-            if base is not None and shifted is not None:
+            if base is None or shifted is None:
+                continue
+            if base - offset >= 0:
                 assert shifted == pytest.approx(base - offset)
                 compared += 1
+            else:
+                # The clock moved PAST the detection. A detection cannot precede its own
+                # ignition, so the row must read the next post-ignition slot (>= 0) or a
+                # miss -- never a negative minute. Since gate 0 (2026-09-16) PlumeRank
+                # detects the fixture's step-plume at 0.0 min and this branch is reached;
+                # it is the fixture's ceiling, not the identity failing.
+                assert shifted >= 0.0
     # Without this the test passes on a corpus where every system missed everything, which
     # is the one corpus on which it proves nothing at all.
     #
@@ -494,9 +503,12 @@ def test_the_offset_shifts_time_to_detection_by_exactly_the_offset(tree: pathlib
     # now supports, and the floor says so rather than being met by restoring the artefact.
     #
     # This number is a fact about the FIXTURE, not a relaxed standard: raising the detection
-    # rate is tracked as its own defect (results/SESSION_2026-09-06.md section 5, item 1), and
-    # when PlumeRank detects its own fixture's fire again this floor goes back to 8.
-    assert compared >= 4, f"only {compared} offsets were actually compared"
+    # rate was tracked as its own defect (results/SESSION_2026-09-06.md section 5, item 1).
+    # Since gate 0 PlumeRank detects the fixture's fire at 0.0 min, which puts its +1/+3
+    # offsets past the clock (branch above) and leaves its two negative offsets plus B1's
+    # four: 6, not 8, and the two that are missing are missing because the detection is
+    # too EARLY to shift, which is the opposite of the defect the floor was guarding.
+    assert compared >= 6, f"only {compared} offsets were actually compared"
 
 
 def test_the_fixture_does_not_ring_the_whole_frame_at_ignition() -> None:
@@ -1072,3 +1084,26 @@ def test_the_exclusion_reason_survives_into_the_published_file(tree: pathlib.Pat
 
     items = _bench_json(tree)["exclusions"]["items"]
     assert items == [{"sequence_id": "dev1", "reason": "smoke already visible at t0"}]
+
+
+def test_only_the_shipped_baseline_cell_gets_the_plain_name() -> None:
+    """Gate 0 (2026-09-16): 'shipped' is rank.Baseline at the constants; every other cell is
+    an ablation and says so in its name, for artefact_provenance_2026-09-06.md's reason."""
+    date = "2026-09-16"
+    assert bench.results_filename("dev", date) == f"arm_dev_{date}.json"
+    assert bench.results_filename("dev", date, baseline="shipped") == f"arm_dev_{date}.json"
+    assert bench.results_filename("dev", date, baseline="absolute") == f"arm_dev_absolute_{date}.json"
+    assert bench.results_filename("dev", date, baseline="ztrail10") == f"arm_dev_ztrail10_{date}.json"
+    with pytest.raises(ValueError):
+        bench.results_filename("hold", date, baseline="absolute")
+
+
+def test_shipped_baseline_cell_is_rank_rebase_series_and_absolute_is_identity() -> None:
+    from plumerank import rank as rk
+
+    series = [0.4, 0.42, 0.39, 0.41, 0.4, 0.43, 0.8, 0.85, 0.9]
+    assert bench.apply_baseline(series, "shipped") == rk.rebase_series(series)
+    assert bench.apply_baseline(series, "absolute") == series
+    assert bench.apply_baseline(series, "ztrail10") == rk.rebase_series(series, window=10)
+    with pytest.raises(ValueError):
+        bench.apply_baseline(series, "none")

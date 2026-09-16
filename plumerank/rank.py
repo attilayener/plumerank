@@ -36,6 +36,7 @@ believes is being shown to them -- is the one this project exists to avoid.
 
 from __future__ import annotations
 
+import collections
 import math
 import pathlib
 
@@ -44,6 +45,10 @@ import numpy as np
 
 from .constants import (
     ALERTS_PER_CAMERA_PER_NIGHT,
+    BASELINE_SD_FLOOR,
+    BASELINE_WARMUP_FRAMES,
+    BASELINE_WINDOW_FRAMES,
+    BASELINE_Z_SCALE,
     BUDGET_ALERTS_PER_CAMERA_NIGHT,
     EPS,
     FRAMES_PER_WINDOW,
@@ -64,6 +69,9 @@ from .types import CameraScore, Component, Stats, Track, WatchEntry
 
 __all__ = [
     "fuse",
+    "rebase",
+    "rebase_series",
+    "Baseline",
     "realised_rate",
     "solve_threshold",
     "BudgetState",
@@ -191,6 +199,79 @@ def fuse(stats: Stats, escalation_score: float = 0.0) -> float:
 # ---------------------------------------------------------------------------------
 # The threshold, solved rather than chosen
 # ---------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------------
+# Per-camera baseline -- the hazard that is ranked is the camera's departure from its own night
+# ---------------------------------------------------------------------------------
+
+
+def rebase(
+    hazard: float,
+    past: "collections.deque[float] | list[float]",
+    *,
+    warmup: int = BASELINE_WARMUP_FRAMES,
+    sd_floor: float = BASELINE_SD_FLOOR,
+    z_scale: float = BASELINE_Z_SCALE,
+) -> float:
+    """One camera's hazard this minute, relative to the hazards in ``past``.
+
+    ``past`` is the trailing window and must NOT contain ``hazard`` itself. Returns
+    ``sigmoid(z / z_scale)`` with ``z = (hazard - mean(past)) / max(sd(past), sd_floor)``, or
+    0.0 while fewer than ``warmup`` frames are in hand. Pure; ``Baseline`` keeps the window.
+    """
+    n = len(past)
+    if n < warmup:
+        return 0.0
+    mu = sum(past) / n
+    var = sum((v - mu) ** 2 for v in past) / n
+    sd = max(math.sqrt(var), sd_floor)
+    z = (hazard - mu) / sd
+    return 1.0 / (1.0 + math.exp(-z / z_scale))
+
+
+def rebase_series(series: list[float], window: int = BASELINE_WINDOW_FRAMES, **kw: float) -> list[float]:
+    """A whole camera-night at once -- what ``Baseline`` would have returned tick by tick.
+
+    Offline twin of the live path, for ``bench.py``. The contract that the two agree is
+    tested, because a benchmark that rebases differently from the wall it calibrates would
+    publish a threshold the wall never runs at.
+    """
+    out: list[float] = []
+    for t, hazard in enumerate(series):
+        out.append(rebase(hazard, series[max(0, t - window) : t], **kw))
+    return out
+
+
+class Baseline:
+    """Per-camera trailing windows of ABSOLUTE hazard; one per camera, one night deep.
+
+    ``observe(camera, hazard)`` returns the relative hazard for this minute and then pushes
+    the absolute one, so the window a frame is scored against never contains that frame.
+    ``reset()`` at the camera-night boundary, beside the segmenter's -- the warm-up is a
+    designed state and re-runs on purpose (api/main.py:_Camera.reset).
+    """
+
+    __slots__ = ("window", "_past")
+
+    def __init__(self, window: int = BASELINE_WINDOW_FRAMES) -> None:
+        if window < 1:
+            raise ValueError(f"baseline window must be >= 1 frame, got {window}")
+        self.window = window
+        self._past: dict[str, collections.deque[float]] = {}
+
+    def observe(self, camera_id: str, hazard: float) -> float:
+        if not math.isfinite(hazard):
+            raise ValueError(f"camera {camera_id!r} observed a non-finite hazard {hazard!r}")
+        past = self._past.get(camera_id)
+        if past is None:
+            past = self._past[camera_id] = collections.deque(maxlen=self.window)
+        relative = rebase(hazard, past)
+        past.append(hazard)
+        return relative
+
+    def reset(self) -> None:
+        self._past.clear()
 
 
 def realised_rate(

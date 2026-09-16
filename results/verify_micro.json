@@ -2,7 +2,7 @@
   "arm": "micro",
   "background": "mog2",
   "budget_alerts_per_camera_night": 2.0,
-  "constants_sha256": "66f81f057b54de77a89f2bf3bcc92279c3a761c66f69ce38a7f00e331e9145be",
+  "constants_sha256": "e91e72802333d46361d7f9b7135bda9ff15695b2a912afd0e80c5d0c194c8755",
   "escalation_fraction": 0.006452,
   "frames_per_window": 31,
   "model_invocations_per_camera_night": {
@@ -14,13 +14,13 @@
   "realised_rate_uncapped": {
     "b1_cnn_grid": 3.9194,
     "b2_frame_diff": 0.7839,
-    "plumerank": 1.829
+    "plumerank": 1.3065
   },
   "schema": "plumerank.verify_micro/1",
   "thresholds": {
     "b1_cnn_grid": 0.947388,
     "b2_frame_diff": 0.995178,
-    "plumerank": 0.697937
+    "plumerank": 0.896973
   },
   "ttd": {
     "b1_cnn_grid": {
@@ -42,12 +42,12 @@
       "p95_minutes": null
     },
     "plumerank": {
-      "detection_rate": 0.6,
-      "mean_detected_minutes": 10.667,
+      "detection_rate": 0.4,
+      "mean_detected_minutes": 7.0,
       "n": 5,
-      "n_detected": 3,
-      "n_missed": 2,
-      "p50_minutes": 18.0,
+      "n_detected": 2,
+      "n_missed": 3,
+      "p50_minutes": null,
       "p95_minutes": null
     }
   }

@@ -235,6 +235,8 @@ def _label_copy(payload: bytes, destination: pathlib.Path) -> tuple[int, int]:
 #: a temp directory. Only mornings whose image is still on disk are reused; a deleted frame
 #: falls back to the probe.
 _KNOWN: dict[tuple[str, str], int] = {}
+#: Source frame shape per resolved camera-morning, from the committed pool -- see harvest_one.
+_KNOWN_SHAPE: dict[tuple[str, str], tuple[int, int]] = {}
 
 #: Camera-mornings a previous run searched and found empty. Cached for the same reason as
 #: the hits, and it is the more expensive half: a hole costs the FULL 61-probe search,
@@ -253,6 +255,10 @@ def _load_known() -> None:
             continue
         if (FRAME_DIR / label_filename(entry["camera"], entry["epoch"])).exists():
             _KNOWN[(entry["camera"], entry["date"])] = entry["epoch"]
+            _KNOWN_SHAPE[(entry["camera"], entry["date"])] = (
+                entry["source_width"],
+                entry["source_height"],
+            )
     for hole in payload["sampling_frame"]["holes"]:
         _KNOWN_HOLES.add((hole["camera"], hole["date"]))
 
@@ -269,8 +275,11 @@ def harvest_one(camera: str, day: str) -> dict | None:
     if not destination.exists():
         width, height = _label_copy(fetch_with_retry(url), destination)
     else:
-        source = cv2.imread(str(destination))
-        width, height = (source.shape[1], source.shape[0]) if source is not None else (0, 0)
+        # The file on disk is the LABEL copy (1024 wide), not the source. The source shape
+        # was recorded when it was fetched; carry it forward rather than re-reading the
+        # copy as if it were the archive frame -- the 2026-09-16 re-run did exactly that
+        # and wrote 1024x683 over 63 rows that had said 3072x2048.
+        width, height = _KNOWN_SHAPE.get((camera, day), (0, 0))
     return {
         "camera": camera,
         "date": day,

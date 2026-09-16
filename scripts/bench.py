@@ -1038,62 +1038,31 @@ class AlertTrace:
     budget_capacity: int
 
 
-#: ``--baseline`` cells. Each maps ONE camera's per-frame hazard series to a new series of the
-#: same length, causally (frame t reads frames <= t only), in [0, 1] so ``solve_threshold``'s
-#: bounds still hold. ``none`` is the shipped pipeline and is the identity.
-#:
-#: Why this exists: ``results/alert_budget_2026-09-06.md`` §3 -- in 11 of 29 DEV sequences the
-#: camera's own quiet night outscores its fire, and ``spike/peak_shape.py`` located the cause
-#: not in the shape of the peaks but in the LEVEL of the night: the inverted sequences sit on
-#: cameras whose pre-ignition hazard averages 0.47-0.61 against 0.34-0.43 on the detectable
-#: ones. The fusion emits an absolute hazard; the budget is spent per camera-night. A
-#: per-camera baseline is the mechanism that reconciles the two, and this flag is how it is
-#: MEASURED at the calibrated operating point rather than at the DEV-rate-matched proxy the
-#: spike had to use. It is applied to PlumeRank only -- B1 and B2 are the comparison, not the
-#: thing being changed -- and it is applied identically to the CONFUSE windows the threshold
-#: is solved on and the arm windows it is spent on, which is the whole point of running it here.
-BASELINES: tuple[str, ...] = ("none", "ztrail10", "ztrail15", "ztrail30")
-BASELINE_WARMUP_FRAMES: int = 5
-#: A camera with no foreground component emits a CONSTANT hazard (the fusion bias alone), so
-#: more than 5% of trailing windows on DEV have sd == 0 exactly, and without a floor the
-#: first blip on such a camera is a maximal alert. 0.02 is a third of the median trailing sd
-#: on DEV (0.063); the DEV sweep in spike/peak_shape.py is flat across floors 1e-6..0.02.
-BASELINE_SD_FLOOR: float = 0.02
+#: ``--baseline`` cells. The SHIPPED pipeline rebases every camera's hazard against its own
+#: trailing window (``rank.Baseline``, constants ``BASELINE_*``, gate 0 of 2026-09-16); the
+#: benchmark applies the offline twin ``rank.rebase_series`` to the same final series --
+#: after escalation, before ``emit`` -- on the CONFUSE windows the threshold is solved on
+#: and on the arm windows it is spent on. ``shipped`` is that. ``absolute`` is the pre-gate-0
+#: pipeline and the ablation; ``ztrail<W>`` are other windows for the sensitivity table
+#: (``results/baseline_calibrated_2026-09-16.md``). PlumeRank only -- B1 and B2 are the
+#: comparison, not the thing being changed. Any cell but ``shipped`` takes a filename suffix
+#: and is refused on HOLD.
+BASELINES: tuple[str, ...] = ("shipped", "absolute", "ztrail10", "ztrail30")
 
 
 def apply_baseline(series: list[float], baseline: str) -> list[float]:
-    """One camera-night's hazards -> the same night relative to the camera's own trailing window.
-
-    ``ztrail<W>``: z = (h_t - mean(h[t-W:t])) / std(h[t-W:t]), squashed through
-    sigmoid(z / 2) so the result is a monotone image of z inside (0, 1). The squash changes
-    nothing that matters -- ordering, and therefore every threshold and every rank -- and
-    exists only so the number sits inside ``THRESHOLD_SEARCH_LO..HI``. Frames inside the
-    warm-up (fewer than ``BASELINE_WARMUP_FRAMES`` of history) are pinned to 0.0: a camera
-    cannot alert before it has a night to depart from.
-    """
-    if baseline == "none":
+    """One camera-night's hazards under one cell. ``shipped`` reads the window from constants."""
+    if baseline == "shipped":
+        return rk.rebase_series(series)
+    if baseline == "absolute":
         return list(series)
     if not baseline.startswith("ztrail"):
         raise ValueError(f"unknown baseline {baseline!r}; expected one of {BASELINES}")
-    window = int(baseline[len("ztrail"):])
-    out: list[float] = []
-    for t in range(len(series)):
-        past = series[max(0, t - window) : t]
-        if len(past) < BASELINE_WARMUP_FRAMES:
-            out.append(0.0)
-            continue
-        mu = sum(past) / len(past)
-        var = sum((v - mu) ** 2 for v in past) / len(past)
-        sd = max(math.sqrt(var), BASELINE_SD_FLOOR)
-        z = (series[t] - mu) / sd
-        out.append(1.0 / (1.0 + math.exp(-z / 2.0)))
-    return out
+    return rk.rebase_series(series, window=int(baseline[len("ztrail"):]))
 
 
 def rebase(matrix: ScoreMatrix, baseline: str, system: str = "plumerank") -> None:
     """Apply ``apply_baseline`` to one system's hazards in place, window by window."""
-    if baseline == "none":
-        return
     matrix.hazards[system] = [apply_baseline(w, baseline) for w in matrix.hazards[system]]
 
 
@@ -1778,7 +1747,7 @@ def run_arm(
 
     # After the dump, so features_<arm>.jsonl stays the raw S1-S4 vector fit_fusion.py expects;
     # before evaluate(), so the threshold is solved on the SAME series it is spent on.
-    baseline = getattr(args, "baseline", "none")
+    baseline = getattr(args, "baseline", "shipped")
     rebase(calibration, baseline)
     if matrix is not calibration:
         rebase(matrix, baseline)
@@ -1933,21 +1902,30 @@ def run_arm(
         },
         "latency_ms": matrix.latency_ms,
         "baseline": {
-            "cell": getattr(args, "baseline", "none"),
-            "shipped": getattr(args, "baseline", "none") == "none",
+            "cell": getattr(args, "baseline", "shipped"),
+            "shipped": getattr(args, "baseline", "shipped") == "shipped",
+            "window_frames": (
+                K.BASELINE_WINDOW_FRAMES
+                if getattr(args, "baseline", "shipped") == "shipped"
+                else None
+                if getattr(args, "baseline", "shipped") == "absolute"
+                else int(getattr(args, "baseline")[len("ztrail"):])
+            ),
             "applied_to": ["plumerank"],
-            "warmup_frames": BASELINE_WARMUP_FRAMES,
-            "sd_floor": BASELINE_SD_FLOOR,
+            "warmup_frames": K.BASELINE_WARMUP_FRAMES,
+            "sd_floor": K.BASELINE_SD_FLOOR,
+            "z_scale": K.BASELINE_Z_SCALE,
             "note": (
                 "per-camera trailing-window z-score of the fused hazard, squashed to (0,1); "
-                "solved and spent on the same transformed series. 'none' is the shipped pipeline."
+                "solved and spent on the same series. 'shipped' is rank.Baseline at the "
+                "constants; 'absolute' is the pre-2026-09-16 pipeline and the ablation."
             ),
         },
         "results_file": results_filename(
             args.arm,
             _today(),
             s4=getattr(args, "s4", "on"),
-            baseline=getattr(args, "baseline", "none"),
+            baseline=getattr(args, "baseline", "shipped"),
         ),
         "run": {
             "commit": commit,
@@ -2009,7 +1987,7 @@ def _today() -> str:
     return dt.datetime.now(dt.timezone.utc).date().isoformat()
 
 
-def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "none") -> str:
+def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "shipped") -> str:
     """Where one arm's payload is allowed to land in ``results/``.
 
     Only HOLD may occupy ``bench_<date>.json``. That name is not a convention here, it is
@@ -2044,7 +2022,7 @@ def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "no
             The D40 HOLD run is one frozen run of the shipped configuration; an ablation on
             it is not a thing this plan asks for.
     """
-    shipped = ((s4 == "on") == S4_ENABLED) and baseline == "none"
+    shipped = ((s4 == "on") == S4_ENABLED) and baseline == "shipped"
     if arm == "micro":
         return "verify_micro.json"
     if arm == "hold":
@@ -2056,7 +2034,7 @@ def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "no
             )
         return f"bench_{date}.json"
     cell = "" if (s4 == "on") == S4_ENABLED else f"_s4{s4}"
-    if baseline != "none":
+    if baseline != "shipped":
         cell += f"_{baseline}"
     return f"arm_{arm}{cell}_{date}.json"
 
@@ -2336,11 +2314,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--baseline",
         choices=BASELINES,
-        default="none",
+        default="shipped",
         help=(
-            "per-camera baseline cell for PlumeRank's hazard (see apply_baseline). 'none' is "
-            "the shipped pipeline. Any other value is an ablation cell: it takes a filename "
-            "suffix and is refused on HOLD."
+            "per-camera baseline cell for PlumeRank's hazard (see apply_baseline). 'shipped' "
+            "is rank.Baseline at the frozen constants; 'absolute' is the pre-gate-0 pipeline. "
+            "Any cell but 'shipped' takes a filename suffix and is refused on HOLD."
         ),
     )
     parser.add_argument("--seed", type=int, default=K.TRAIN_SEED)
