@@ -423,7 +423,7 @@ cat > "$ENV_FILE" <<ENVEOF
 PLUMERANK_DOMAIN=${PLUMERANK_DOMAIN}
 PLUMERANK_ROOT=${APP_DIR}
 # Persisted so that a bare re-run redeploys the ref that is actually deployed. Without
-# these, `bash bootstrap.sh` with no arguments would quietly reset a box that is running
+# these, a bare 'bash bootstrap.sh' with no arguments would quietly reset a box that is running
 # a branch back onto main.
 PLUMERANK_REPO=${PLUMERANK_REPO}
 PLUMERANK_REF=${PLUMERANK_REF}
