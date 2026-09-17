@@ -283,17 +283,24 @@ and this prefix retires.
 
 ## 4. Launch
 
-`bootstrap.sh` is passed **as the userdata, unmodified** -- the file in the repository is
-literally the file that ran on the box. Its one configurable line, `PLUMERANK_REPO_DEFAULT`,
+`bootstrap.sh` is passed **as the userdata, unmodified** (gzipped for transport, see
+below) -- the file in the repository is literally the file that ran on the box. Its one configurable line, `PLUMERANK_REPO_DEFAULT`,
 is committed rather than injected, precisely so that no templating step sits between the
 two. Set it before you launch.
 
-Run this **from the repository root**: `--user-data file://deploy/bootstrap.sh` is a
-relative path, and from anywhere else the CLI errors on a missing file rather than
-launching a box with no userdata -- which is the good failure, but only if you know that
-is what it means.
+Run this **from the repository root**: the userdata path is relative, and from anywhere
+else the CLI errors on a missing file rather than launching a box with no userdata --
+which is the good failure, but only if you know that is what it means.
+
+**The script is gzipped on the way in.** EC2 caps userdata at 16 KB and `bootstrap.sh` is
+27 KB, most of it the comments that make it the record of how the box was built; the
+first launch attempt on 2026-09-17 was refused with `Encoded User data is limited to
+25600 bytes`. cloud-init gunzips userdata transparently, so the bytes that run are still
+byte-for-byte the committed file -- a transport encoding, not a templating step.
 
 ```bash
+gzip -9 -c deploy/bootstrap.sh > /tmp/bootstrap.sh.gz     # ~10 KB
+
 export PR_INSTANCE_ID=$(aws ec2 run-instances \
   --region "$AWS_REGION" \
   --image-id "$PR_AMI" \
@@ -304,7 +311,7 @@ export PR_INSTANCE_ID=$(aws ec2 run-instances \
   --metadata-options "HttpTokens=required,HttpEndpoint=enabled,HttpPutResponseHopLimit=1" \
   --block-device-mappings "DeviceName=/dev/xvda,Ebs={VolumeSize=${PR_VOLUME_GB},VolumeType=gp3,DeleteOnTermination=true,Encrypted=true}" \
   --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${PR_NAME}},{Key=Project,Value=PlumeRank}]" \
-  --user-data file://deploy/bootstrap.sh \
+  --user-data fileb:///tmp/bootstrap.sh.gz \
   --query 'Instances[0].InstanceId' --output text)
 
 echo "$PR_INSTANCE_ID"
