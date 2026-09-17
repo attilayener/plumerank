@@ -419,8 +419,12 @@ install -m 0600 -o root -g root /dev/null "$ENV_FILE"
 cat > "$ENV_FILE" <<ENVEOF
 # Written by deploy/bootstrap.sh on $(date -Is). Read by plumerank.service and by
 # caddy.service (via the drop-in below). Edit and re-run bootstrap.sh; do not edit the
-# units. An empty PLUMERANK_DOMAIN means Caddy serves plain HTTP on :80.
-PLUMERANK_DOMAIN=${PLUMERANK_DOMAIN}
+# units. An UNSET PLUMERANK_DOMAIN means Caddy serves plain HTTP on :80 -- unset, not
+# empty: Caddy's {$VAR:default} placeholder falls back only when the variable is absent,
+# and a set-but-empty value yields an empty site address that the parser reads as a
+# global-options block (first launch, 2026-09-17). So the line is written only when
+# there is a domain to write.
+${PLUMERANK_DOMAIN:+PLUMERANK_DOMAIN=${PLUMERANK_DOMAIN}}
 PLUMERANK_ROOT=${APP_DIR}
 # Persisted so that a bare re-run redeploys the ref that is actually deployed. Without
 # these, a bare 'bash bootstrap.sh' with no arguments would quietly reset a box that is running
@@ -443,7 +447,11 @@ DROPIN_EOF
 # Validate before restarting anything: a Caddyfile typo that is only discovered by
 # systemd takes the whole site down, whereas discovering it here leaves the running
 # configuration untouched.
-caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+# Validated under the same environment the unit will run it with: the env file, and
+# nothing else -- `env -i` so an operator's shell cannot make a config validate here
+# that fails under systemd.
+env -i $(grep -v '^#' "$ENV_FILE" | xargs) \
+  caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
 
 chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 # Caddy runs as its own user and has to traverse APP_DIR to reach web/out and

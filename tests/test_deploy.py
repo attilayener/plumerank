@@ -225,8 +225,9 @@ def test_caddy_proxies_exactly_the_documented_routes() -> None:
     unit test passes and only production shows, because the static file_server catches
     it and answers with the export instead of the API.
     """
+    # `.strip()`: since 2026-09-17 the site is an explicit block, so the matcher is indented.
     matcher = next(
-        line for line in _read(CADDYFILE).splitlines() if line.startswith("@backend")
+        line.strip() for line in _read(CADDYFILE).splitlines() if line.strip().startswith("@backend")
     )
     patterns = matcher.split()[2:]
     for route in DOCUMENTED_ROUTES:
@@ -255,7 +256,7 @@ def test_caddy_evaluates_in_written_order() -> None:
     # `handle` blocks are sorted by matcher specificity; only `route` preserves the
     # order these three handlers are written in, and the catch-all is written last.
     text = _read(CADDYFILE)
-    assert re.search(r"^route \{", text, re.MULTILINE), (
+    assert re.search(r"^\s*route \{", text, re.MULTILINE), (
         "the handlers are not inside a route block, so Caddy is free to reorder them "
         "and the static catch-all can be sorted ahead of the API"
     )

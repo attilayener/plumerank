@@ -6,34 +6,39 @@
 # validate and an unconditional domain here would only produce a failing ACME loop.
 # Setting the domain and re-running bootstrap.sh is what turns TLS on. Port 80 stays open
 # afterwards because it carries the ACME challenge and the redirect Caddy installs on it.
-{$PLUMERANK_DOMAIN::80}
+# An EXPLICIT site block. A Caddyfile whose first line is a bare site address treats the
+# rest of the file as that site implicitly -- but only when the address is a literal.
+# With an env placeholder as the address, Caddy 2.8 parses the file as global scope and
+# refuses the matcher: "request matchers may not be defined globally" (first launch,
+# 2026-09-17). The braces cost nothing and remove the ambiguity.
+{$PLUMERANK_DOMAIN::80} {
+	@backend path /api/* /health /build-info
 
-@backend path /api/* /health /build-info
+	# `route`, not three bare `handle` blocks: handle blocks are sorted by path-matcher
+	# specificity rather than by the order they are written in, and a mis-sorted catch-all
+	# would serve the static export where the API belongs. route evaluates in written order.
+	route {
+		reverse_proxy @backend 127.0.0.1:8000 {
+			# The live wall is SSE. Caddy buffers a proxied response by default, which for a
+			# stream means ticks arrive in clumps or never -- a wall that dies silently behind
+			# the proxy while working perfectly against 127.0.0.1:8000 in an ssh session. -1
+			# flushes on every write. Nothing compresses this route, for the same reason.
+			flush_interval -1
+		}
 
-# `route`, not three bare `handle` blocks: handle blocks are sorted by path-matcher
-# specificity rather than by the order they are written in, and a mis-sorted catch-all
-# would serve the static export where the API belongs. route evaluates in written order.
-route {
-	reverse_proxy @backend 127.0.0.1:8000 {
-		# The live wall is SSE. Caddy buffers a proxied response by default, which for a
-		# stream means ticks arrive in clumps or never -- a wall that dies silently behind
-		# the proxy while working perfectly against 127.0.0.1:8000 in an ssh session. -1
-		# flushes on every write. Nothing compresses this route, for the same reason.
-		flush_interval -1
-	}
+		# Evidence crops are files on disk and never pass through Python: one request per
+		# thumbnail against a single-worker Uvicorn that is holding 40 warm background models
+		# would put image serving in contention with the pipeline producing the images.
+		handle_path /evidence/* {
+			root * {$PLUMERANK_ROOT:/opt/plumerank}/web/evidence
+			file_server
+		}
 
-	# Evidence crops are files on disk and never pass through Python: one request per
-	# thumbnail against a single-worker Uvicorn that is holding 40 warm background models
-	# would put image serving in contention with the pipeline producing the images.
-	handle_path /evidence/* {
-		root * {$PLUMERANK_ROOT:/opt/plumerank}/web/evidence
+		# The Next.js static export. try_files covers both export shapes, so a trailingSlash
+		# change in next.config cannot turn /results into a 404 on the box only.
+		root * {$PLUMERANK_ROOT:/opt/plumerank}/web/out
+		encode zstd gzip
+		try_files {path} {path}.html {path}/index.html
 		file_server
 	}
-
-	# The Next.js static export. try_files covers both export shapes, so a trailingSlash
-	# change in next.config cannot turn /results into a 404 on the box only.
-	root * {$PLUMERANK_ROOT:/opt/plumerank}/web/out
-	encode zstd gzip
-	try_files {path} {path}.html {path}/index.html
-	file_server
 }
