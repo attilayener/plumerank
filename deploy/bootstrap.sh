@@ -292,7 +292,9 @@ case "$PLUMERANK_REPO" in
   s3://*)
     BUNDLE_PATH="/opt/plumerank.bundle"
     aws s3 cp --only-show-errors "$PLUMERANK_REPO" "$BUNDLE_PATH"
-    git bundle verify "$BUNDLE_PATH" >/dev/null
+    # `bundle verify` needs a repository to check prerequisites against; on first boot
+    # there is none yet, and `git clone` validates the bundle itself.
+    if [ -d "$APP_DIR/.git" ]; then git -C "$APP_DIR" bundle verify "$BUNDLE_PATH" >/dev/null; fi
     GIT_SOURCE="$BUNDLE_PATH"
     say "bundle: $(stat -c %s "$BUNDLE_PATH") bytes from ${PLUMERANK_REPO}"
     ;;
