@@ -65,10 +65,13 @@ ENV_FILE="/etc/plumerank.env"
 LOG_FILE="/var/log/plumerank-bootstrap.log"
 
 # Pinned so that a re-run is a no-op rather than a silent upgrade of the web server
-# under a running site. Installed from the project's own release RPM because Caddy is
-# not in the AL2023 repos and the RPM brings its own systemd unit, its own user and
-# /var/lib/caddy with it -- roughly forty lines of this script that then do not exist.
+# under a running site. Caddy is not in the AL2023 repos and -- found on the first launch,
+# 2026-09-17, as a 404 at line 217 -- publishes NO RPM, only .deb and .tar.gz. So the
+# binary comes from the release tarball, pinned by sha256, and the dozen lines the RPM
+# was assumed to bring (the caddy user, /var/lib/caddy, the unit, the bind capability)
+# are written here from Caddy's own dist/init/caddy.service.
 CADDY_VERSION="2.8.4"
+CADDY_SHA256="93a3eb31883d678c6590c6d823eb6bb9f7a3af66dcd9d53df3eb2c7528b2af05"
 
 # Node is needed to BUILD the static export and is never needed to serve it: the export
 # is files, and Caddy serves files. Nothing here runs Node at request time.
@@ -213,10 +216,46 @@ step "Caddy ${CADDY_VERSION}"
 if command -v caddy >/dev/null 2>&1 && caddy version | grep -qE "^v${CADDY_VERSION}([^0-9]|$)"; then
   say "caddy v${CADDY_VERSION} already installed -- skipping"
 else
-  caddy_rpm="https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_arm64.rpm"
-  dnf install -y --quiet "$caddy_rpm"
+  caddy_tgz="https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_arm64.tar.gz"
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/caddy.tgz" "$caddy_tgz"
+  echo "${CADDY_SHA256}  $tmp/caddy.tgz" | sha256sum -c --quiet \
+    || die "caddy tarball sha256 mismatch -- refusing to install a binary that is not the pinned one"
+  tar -xzf "$tmp/caddy.tgz" -C "$tmp" caddy
+  install -m 0755 -o root -g root "$tmp/caddy" /usr/bin/caddy
+  rm -rf "$tmp"
   say "caddy: $(caddy version | head -n1)"
 fi
+# What the (nonexistent) RPM would have provided. Every line is idempotent.
+getent group caddy >/dev/null || groupadd --system caddy
+getent passwd caddy >/dev/null || useradd --system --gid caddy --create-home \
+  --home-dir /var/lib/caddy --shell /usr/sbin/nologin --comment "Caddy web server" caddy
+install -d -m 0750 -o caddy -g caddy /var/lib/caddy
+install -d -m 0755 -o root -g root /etc/caddy
+# Caddy's own unit (github.com/caddyserver/dist, init/caddy.service), verbatim but for
+# this comment. Written every run so a re-run repairs a hand-edited unit.
+cat > /etc/systemd/system/caddy.service <<'CADDY_UNIT_EOF'
+[Unit]
+Description=Caddy
+Documentation=https://caddyserver.com/docs/
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
+CADDY_UNIT_EOF
 
 # ---------------------------------------------------------------------------------
 # 2. The service account
@@ -391,7 +430,7 @@ ENVEOF
 install -D -m 0644 "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
 install -D -m 0644 "$APP_DIR/deploy/plumerank.service" /etc/systemd/system/plumerank.service
 
-# The Caddy RPM's unit has no EnvironmentFile, and patching the unit itself would be
+# Caddy's upstream unit has no EnvironmentFile, and patching the unit itself would be
 # undone by the next `dnf install`. A drop-in survives that.
 install -d -m 0755 /etc/systemd/system/caddy.service.d
 cat > /etc/systemd/system/caddy.service.d/10-plumerank.conf <<'DROPIN_EOF'
