@@ -415,15 +415,19 @@ step "install ${ENV_FILE}, Caddyfile and plumerank.service"
 # as PID 1, before it drops to the plumerank and caddy users, so nothing is lost by
 # making it unreadable to them -- and "no long-lived key on the box" stops depending on
 # nobody ever having pasted one.
+#
+# PLUMERANK_DOMAIN is written only when there is a domain -- unset, not empty. Caddy's
+# env placeholder with a default falls back only when the variable is ABSENT; a
+# set-but-empty value expands to an empty site address, which the parser reads as a
+# global-options block (first launch, 2026-09-17). Note also that this heredoc is
+# UNQUOTED so $(date) expands: nothing that looks like a placeholder, a backtick or a
+# $-expansion may appear in its comment lines, which is why this explanation is here.
 install -m 0600 -o root -g root /dev/null "$ENV_FILE"
 cat > "$ENV_FILE" <<ENVEOF
 # Written by deploy/bootstrap.sh on $(date -Is). Read by plumerank.service and by
 # caddy.service (via the drop-in below). Edit and re-run bootstrap.sh; do not edit the
-# units. An UNSET PLUMERANK_DOMAIN means Caddy serves plain HTTP on :80 -- unset, not
-# empty: Caddy's {$VAR:default} placeholder falls back only when the variable is absent,
-# and a set-but-empty value yields an empty site address that the parser reads as a
-# global-options block (first launch, 2026-09-17). So the line is written only when
-# there is a domain to write.
+# units. An UNSET PLUMERANK_DOMAIN means Caddy serves plain HTTP on :80 (see the note
+# above this heredoc for why the line is absent rather than empty).
 ${PLUMERANK_DOMAIN:+PLUMERANK_DOMAIN=${PLUMERANK_DOMAIN}}
 PLUMERANK_ROOT=${APP_DIR}
 # Persisted so that a bare re-run redeploys the ref that is actually deployed. Without
