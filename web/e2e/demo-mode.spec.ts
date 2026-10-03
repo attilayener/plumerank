@@ -17,7 +17,7 @@ test.describe("demo mode", () => {
     await expect(page).toHaveTitle(/PlumeRank/);
     expect(
       await page.locator('meta[name="description"]').getAttribute("content")
-    ).toMatch(/alert budget/i);
+    ).toMatch(/budget of \d+ alerts per camera-night/i);
 
     expect(errors).toEqual([]);
   });
@@ -35,7 +35,12 @@ test.describe("demo mode", () => {
     // degraded/empty states -- DegradedStrip and WatchList's own empty message), or one
     // of those honest states is visible. There is no third state where fabricated rows
     // are drawn from nothing.
-    const honestState = page.getByText(/unavailable|not delivering|none are invented/i).first();
+    // Visible matches only: on narrow viewports the wall's area is display:none, and its
+    // own inline notice comes first in DOM order, ahead of the DegradedStrip below it.
+    const honestState = page
+      .getByText(/unavailable|not delivering|none are invented/i)
+      .filter({ visible: true })
+      .first();
     const rankedRow = page.locator(".watchlist-scroll .row").first();
     await expect(honestState.or(rankedRow).first()).toBeVisible({ timeout: 15_000 });
   });
