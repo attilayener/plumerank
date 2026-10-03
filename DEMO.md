@@ -39,7 +39,7 @@ Block 2 -- PUBLISHED, NOT RECOMPUTED HERE
           command does not produce it. Reproduce with `make fetch && make bench` (~95 min).
 ```
 
-`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **633 passed, 2
+`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **634 passed, 2
 skipped, 97% coverage on `plumerank/`, ~95s, no network, no credentials.**
 
 ### The pair that reproduces the published headline, once it exists

@@ -39,7 +39,10 @@ export default function JudgePage() {
       <Section title="1. Click these, in order">
         <ol style={{ color: "var(--ink-1)", lineHeight: 1.7, paddingLeft: 20 }}>
           <li>
-            <Link href="/">The Wall</Link> — the live ranking, running now, no login.
+            <Link href="/" style={{ textDecoration: "underline" }}>
+              The Wall
+            </Link>{" "}
+            — the live ranking, running now, no login.
           </li>
           <li>
             <code className="code">GET /build-info</code> — real <code className="code">cv2.getBuildInformation()</code>{" "}
@@ -47,8 +50,11 @@ export default function JudgePage() {
             live off the box.
           </li>
           <li>
-            <Link href="/results">/results</Link> — the operating curve, the baseline race, the
-            sensitivity strip, the ablation grid, and the same build-info block in-page.
+            <Link href="/results" style={{ textDecoration: "underline" }}>
+              /results
+            </Link>{" "}
+            — the operating curve, the baseline race, the sensitivity strip, the ablation grid,
+            and the same build-info block in-page.
           </li>
         </ol>
       </Section>
@@ -56,7 +62,7 @@ export default function JudgePage() {
       <Section title="2. The receipt">
         <ul style={{ color: "var(--ink-1)", lineHeight: 1.8, paddingLeft: 20 }}>
           <li>
-            <strong>633 passed, 2 skipped</strong>, 97% coverage on <code className="code">plumerank/</code>
+            <strong>634 passed, 2 skipped</strong>, 97% coverage on <code className="code">plumerank/</code>
           </li>
           <li>
             <strong>1,500 generated cases</strong> (<code className="code">tests/test_invariants.py</code>,
@@ -84,7 +90,7 @@ export default function JudgePage() {
       <Section title="3. Reproduce it yourself">
         <pre className="code" style={{ padding: 12, overflowX: "auto", whiteSpace: "pre" }}>
 {`python3 -m venv .venv && .venv/bin/pip install -r requirements.lock
-make test      # ~95s: 633-test offline suite + coverage + the claim-consistency check
+make test      # ~95s: 634-test offline suite + coverage + the claim-consistency check
 make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
                # micro-corpus metrics against the committed results. Does NOT
                # reproduce the published headline, and says so on screen.`}
