@@ -87,7 +87,7 @@ __all__ = [
 #: Judge-facing documents. Exactly the four the build contract names. FEEDBACK.md is
 #: deliberately absent: it quotes other people's words, and a checker that fails because
 #: a reviewer said "you should have used SIFT" would teach the team to stop quoting.
-DOC_FILES: tuple[str, ...] = ("README.md", "ARCHITECTURE.md", "REPORT.md", "DEMO.md")
+DOC_FILES: tuple[str, ...] = ("README.md", "ARCHITECTURE.md", "REPORT.md", "DEMO.md", "JUDGE.md")
 
 #: Directories that count as real source. ``spike/`` is excluded on purpose -- it is the
 #: pre-gate scratch corner, and a surface used only there is not a surface the product has.
