@@ -13,7 +13,7 @@ these and returns another; nothing passes a bare tuple across a module boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import Sequence as _Sequence
 
 import numpy as np
 
@@ -191,7 +191,7 @@ class Sequence:
     camera_id: str
     arm: str
     """``"dev"`` | ``"hold"`` | ``"confuse"`` | ``"micro"``."""
-    frame_paths: Sequence[str]
+    frame_paths: _Sequence[str]
     t0_index: int | None = None
 
     @property
