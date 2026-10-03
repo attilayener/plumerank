@@ -47,13 +47,18 @@ export function BuildInfoSection() {
   // that could be mistaken for a real build string.
   const fields: [string, string][] = doc
     ? [
-        ["OpenCV", String(doc.opencv_version ?? ABSENT)],
-        ["DNN engine", String(doc.dnn_engine ?? ABSENT)],
+        ["OpenCV", String(doc.opencv?.version ?? ABSENT)],
+        [
+          "DNN engine",
+          doc.dnn?.engine_selected
+            ? `${doc.dnn.engine_selected}${doc.dnn.loaded ? ", model loaded" : ", model NOT loaded"}`
+            : String(doc.dnn?.detail ?? ABSENT),
+        ],
         ["commit", sha(typeof doc.commit === "string" ? doc.commit : null, 40)],
         ["instance_id", String(doc.instance_id ?? "null (not on an EC2 instance)")],
         ["ami_id", String(doc.ami_id ?? "null (not on an EC2 instance)")],
         ["onnx sha256", sha(typeof doc.onnx_sha256 === "string" ? doc.onnx_sha256 : null, 16)],
-        ["constants sha256", sha(typeof doc.constants_sha256 === "string" ? doc.constants_sha256 : null, 16)],
+        ["constants sha256", sha(typeof doc.constants?.sha256 === "string" ? doc.constants.sha256 : null, 16)],
       ]
     : ["OpenCV", "DNN engine", "commit", "instance_id", "ami_id", "onnx sha256", "constants sha256"].map(
         (k): [string, string] => [k, ABSENT],
@@ -104,11 +109,11 @@ export function BuildInfoSection() {
               <span className="badge" style={{ visibility: "hidden" }}>dnn present</span>
             </p>
           ) : null}
-          {doc?.modules ? (
+          {doc?.opencv?.modules ? (
             <p style={{ marginTop: 10, fontSize: "var(--size-label)" }}>
-              {Object.entries(doc.modules).map(([mod, ok]) => (
-                <span key={mod} className="badge" style={{ marginRight: 8, color: ok ? "var(--ok)" : "var(--alert)" }}>
-                  {mod} {ok ? "present" : "MISSING"}
+              {Object.entries(doc.opencv.modules).map(([mod, probe]) => (
+                <span key={mod} className="badge" style={{ marginRight: 8, color: probe.ok ? "var(--ok)" : "var(--alert)" }}>
+                  {mod} {probe.ok ? "present" : "MISSING"}
                 </span>
               ))}
             </p>
@@ -123,7 +128,7 @@ export function BuildInfoSection() {
               style={{ maxHeight: 320, overflow: "auto", marginTop: 8, whiteSpace: "pre" }}
             >
               {doc
-                ? String(doc.build_information ?? "not published by /build-info")
+                ? String(doc.opencv?.build_information ?? "not published by /build-info")
                 : `reading ${ROUTES.buildInfo} ...`}
             </pre>
           </details>

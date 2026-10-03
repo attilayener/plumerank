@@ -174,15 +174,25 @@ export interface Benchmark {
  * GET /build-info
  * ----------------------------------------------------------------------------- */
 
+/** GET /build-info, in the shape api/main.py's build_info() returns -- nested, not flat.
+ *  An earlier flat spelling (opencv_version, dnn_engine, modules) matched no field the
+ *  server has ever sent, so the section rendered ABSENT for every value on the live box. */
 export interface BuildInfo {
-  opencv_version?: string;
-  build_information?: string;
-  modules?: Record<string, boolean>;
-  dnn_engine?: string;
+  opencv?: {
+    version?: string;
+    modules?: Record<string, { ok?: boolean; symbols?: Record<string, boolean> }>;
+    build_information?: string;
+  };
+  dnn?: {
+    engine_requested?: string | null;
+    engine_selected?: string | null;
+    loaded?: boolean;
+    detail?: string | null;
+  };
+  constants?: { sha256?: string | null; committed_sha256?: string | null; matches?: boolean | null };
   instance_id?: string | null;
   ami_id?: string | null;
   commit?: string | null;
   onnx_sha256?: string | null;
-  constants_sha256?: string | null;
   [key: string]: unknown;
 }
