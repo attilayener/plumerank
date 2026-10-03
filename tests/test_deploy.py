@@ -285,7 +285,7 @@ def test_unit_runs_the_interpreter_bootstrap_actually_builds() -> None:
     assert f"ExecStart={app_dir}/.venv/bin/uvicorn" in _read(UNIT), (
         f"the unit and bootstrap.sh disagree about where the venv lives ({app_dir})"
     )
-    assert f'python3.11 -m venv "$APP_DIR/.venv"' in _read(BOOTSTRAP)
+    assert 'python3.11 -m venv "$APP_DIR/.venv"' in _read(BOOTSTRAP)
 
 
 def test_the_one_writable_path_is_created_before_the_unit_starts() -> None:

@@ -184,7 +184,7 @@ def _affine_fallback(
     if corners is None or len(corners) < FALLBACK_MIN_INLIERS:
         return None
 
-    nxt, status, _err = cv2.calcOpticalFlowPyrLK(prev_u8, cur_u8, corners, None)
+    nxt, status, _err = cv2.calcOpticalFlowPyrLK(prev_u8, cur_u8, corners, None)  # type: ignore[call-overload]
     if nxt is None or status is None:
         return None
 

@@ -17,11 +17,11 @@ import pytest
 
 from plumerank import rank
 from plumerank.constants import (
+    ALERTS_PER_CAMERA_PER_NIGHT,
     BASELINE_SD_FLOOR,
     BASELINE_WARMUP_FRAMES,
     BASELINE_WINDOW_FRAMES,
     BASELINE_Z_SCALE,
-    ALERTS_PER_CAMERA_PER_NIGHT,
     FRAMES_PER_WINDOW,
     FUSION_BIAS,
     FUSION_W_ESCALATION,
@@ -318,7 +318,6 @@ def gradient_frame(h: int = 270, w: int = 480) -> np.ndarray:
 def anchored_track(bottom: int = 100) -> tuple[Component, Track]:
     """A pinned foot with a climbing top -- the thing the overlay is drawn to show."""
     t = Track(track_id=1)
-    comp = Component(x=200, y=40, w=30, h=60, area=1800, cx=215.0, cy=70.0)
     for i, top in enumerate((70, 62, 55, 48, 40)):
         c = Component(x=200, y=top, w=30, h=bottom - top, area=30 * (bottom - top),
                       cx=215.0, cy=(top + bottom) / 2.0)

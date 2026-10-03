@@ -239,7 +239,7 @@ def rebase_series(series: list[float], window: int = BASELINE_WINDOW_FRAMES, **k
     """
     out: list[float] = []
     for t, hazard in enumerate(series):
-        out.append(rebase(hazard, series[max(0, t - window) : t], **kw))
+        out.append(rebase(hazard, series[max(0, t - window) : t], **kw))  # type: ignore[arg-type]  # warmup is int; **kw: float is the loosest annotation that covers sd_floor/z_scale too
     return out
 
 

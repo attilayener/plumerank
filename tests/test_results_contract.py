@@ -53,6 +53,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 import bench  # noqa: E402
 import test_bench as fixtures  # noqa: E402  -- the synthetic corpus, defined once
 import train_tile_classifier as trainer  # noqa: E402
+
 from plumerank import constants as K  # noqa: E402
 
 READ_TS = ROOT / "web" / "lib" / "read.ts"

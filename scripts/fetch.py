@@ -1035,7 +1035,7 @@ def explode_pyrosdis_shard(
         batch_size=PYROSDIS_BATCH_ROWS, columns=list(PYROSDIS_COLUMNS)
     ):
         rows = batch.to_pydict()
-        for image, name, annotations in zip(
+        for image, name, label_text in zip(
             rows["image"], rows["image_name"], rows["annotations"]
         ):
             name = str(name)
@@ -1058,7 +1058,7 @@ def explode_pyrosdis_shard(
                 skipped += 1
                 continue
             _atomic_write(image_path, bytes(image["bytes"]))
-            _atomic_write(label_path, (str(annotations).strip() + "\n").encode("ascii"))
+            _atomic_write(label_path, (str(label_text).strip() + "\n").encode("ascii"))
             written += 1
     return written, skipped
 

@@ -87,13 +87,13 @@ from plumerank.constants import (  # noqa: E402
     BUDGET_ALERTS_PER_CAMERA_NIGHT,
     ESCALATION_FRACTION_MAX,
     ESCALATION_TOP_K,
-    escalation_fraction_ceiling,
     MINUTES_PER_FRAME,
     MOG2_VAR_THRESHOLD,
     S4_ENABLED,
     TOP_K,
     WORK_HEIGHT,
     WORK_WIDTH,
+    escalation_fraction_ceiling,
 )
 from plumerank.escalate import TileClassifier, should_escalate  # noqa: E402
 from plumerank.metrics import (  # noqa: E402

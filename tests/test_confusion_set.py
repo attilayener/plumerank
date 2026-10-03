@@ -23,7 +23,7 @@ import re
 import shutil
 import sys
 import zlib
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 import cv2
 import numpy as np

@@ -23,10 +23,9 @@ import hashlib
 import json
 import pathlib
 
+import cv2
 import numpy as np
 import pytest
-
-import cv2
 
 from plumerank.constants import TILE_SIZE, WORK_HEIGHT, WORK_WIDTH
 from plumerank.escalate import TileClassifier

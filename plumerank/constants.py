@@ -24,7 +24,6 @@ Nothing in this file is fitted on HOLD. That is the whole point of the file.
 from __future__ import annotations
 
 import hashlib
-import math
 import pathlib
 from typing import Final
 

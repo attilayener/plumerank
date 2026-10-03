@@ -135,7 +135,9 @@ def test_grouped_cv_really_holds_the_sequence_out():
         inverted = g == 0
         z = x[:, 0] - 0.5
         lab = (z < 0).astype(float) if inverted else (z > 0).astype(float)
-        Xs.append(x); ys.append(lab); gs += [f"seq{g}"] * 40
+        Xs.append(x)
+        ys.append(lab)
+        gs += [f"seq{g}"] * 40
     X, y, groups = np.vstack(Xs), np.concatenate(ys), np.array(gs)
 
     held = np.zeros(len(y))

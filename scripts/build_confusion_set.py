@@ -116,6 +116,17 @@ for _path in (str(_REPO_ROOT), str(_SCRIPTS)):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
+# fetch.py owns the HTTP client and the polite-client settings. Importing it rather than
+# copying them keeps the User-Agent and the retry policy in one place; the build contract
+# fixes scripts/ at six files, so there is no seventh module for them to live in.
+from fetch import (  # noqa: E402
+    RETRY_ATTEMPTS,
+    RETRY_BACKOFF_SECONDS,
+    USER_AGENT,
+    FetchError,
+    fetch_with_retry,
+)
+
 from plumerank.constants import (  # noqa: E402
     CC_CONNECTIVITY,
     EPS,
@@ -132,17 +143,6 @@ from plumerank.constants import (  # noqa: E402
 )
 from plumerank.statistic import s3_diffuse_boundary  # noqa: E402
 from plumerank.types import Component  # noqa: E402
-
-# fetch.py owns the HTTP client and the polite-client settings. Importing it rather than
-# copying them keeps the User-Agent and the retry policy in one place; the build contract
-# fixes scripts/ at six files, so there is no seventh module for them to live in.
-from fetch import (  # noqa: E402
-    RETRY_ATTEMPTS,
-    RETRY_BACKOFF_SECONDS,
-    USER_AGENT,
-    FetchError,
-    fetch_with_retry,
-)
 
 __all__ = [
     "CLASS_QUOTAS",

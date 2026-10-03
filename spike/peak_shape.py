@@ -58,20 +58,20 @@ Reproduce::
 from __future__ import annotations
 
 import argparse
-import collections
 import json
+import pathlib
 import statistics
 import sys
-import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "spike"))
 
+from why_missed import NO_STATS, SLOTS_PER_CAMERA, THRESHOLD, load  # noqa: E402
+
 from plumerank import constants as K  # noqa: E402
 from plumerank import rank as rk  # noqa: E402
 from plumerank.metrics import MINUTES_PER_FRAME, detection_index  # noqa: E402
-from why_missed import NO_STATS, SLOTS_PER_CAMERA, THRESHOLD, load  # noqa: E402
 
 # ---------------------------------------------------------------------------------
 # Transforms: series -> series, same length, causal (frame t uses frames <= t only)

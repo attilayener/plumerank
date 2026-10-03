@@ -39,10 +39,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "spike"))
 
-from plumerank import constants as K  # noqa: E402
-from plumerank import rank as rk  # noqa: E402
 from peak_shape import detections, rate_matched_threshold  # noqa: E402
 from why_missed import FEATURES, THRESHOLD  # noqa: E402
+
+from plumerank import constants as K  # noqa: E402
+from plumerank import rank as rk  # noqa: E402
 
 REFIT = ROOT / "results" / "fusion_refit_2026-09-06.json"
 

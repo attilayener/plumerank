@@ -19,7 +19,6 @@ from plumerank.metrics import (
     time_to_detection,
 )
 
-
 # --- detection -------------------------------------------------------------------
 
 

@@ -361,7 +361,7 @@ _DIS_BY_SHAPE: dict[tuple[int, int], cv2.DISOpticalFlow] = {}
 def _dis(shape: tuple[int, int]) -> cv2.DISOpticalFlow:
     dis = _DIS_BY_SHAPE.get(shape)
     if dis is None:
-        dis = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST)
+        dis = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST)  # type: ignore[attr-defined]
         _DIS_BY_SHAPE[shape] = dis
     return dis
 
@@ -407,7 +407,7 @@ def s4_drift(
     prev_roi = np.ascontiguousarray(prev_roi, dtype=np.uint8)
     cur_roi = np.ascontiguousarray(cur_roi, dtype=np.uint8)
 
-    flow = _dis((h, w)).calc(prev_roi, cur_roi, None)
+    flow = _dis((h, w)).calc(prev_roi, cur_roi, None)  # type: ignore[call-overload]
 
     # DIS reports an unmeasurable geometry by returning nan rather than by raising (see
     # _DIS_BY_SHAPE). Checking the field instead of the shape is deliberate: the exact
@@ -503,7 +503,7 @@ class Tracker:
 
         out: list[Track] = []
         for ci, comp in enumerate(components):
-            tid = assigned.get(ci)
+            tid = assigned.get(ci)  # type: ignore[assignment]  # narrowed to int by the None-check below
             if tid is None:
                 tid = self._next_id
                 self._next_id += 1

@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import pathlib
 
+import cv2
 import numpy as np
 import pytest
-
-import cv2
 
 from plumerank.constants import (
     B1_GRID_STRIDE,

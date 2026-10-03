@@ -28,7 +28,6 @@ if str(_SCRIPTS) not in sys.path:
 
 import check_claims  # noqa: E402
 
-
 # ---------------------------------------------------------------------------------
 # A minimal repository, and the knobs that break exactly one thing in it
 # ---------------------------------------------------------------------------------

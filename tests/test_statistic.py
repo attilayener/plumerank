@@ -26,7 +26,6 @@ import pytest
 
 from plumerank.constants import (
     MAX_PLAUSIBLE_SHIFT_PX,
-    S1_ANCHOR_TOLERANCE_PX,
     S2_ISOTROPIC_RATIO,
     S2_WIDTH_RATE_FLOOR_PX_PER_FRAME,
     S4_MIN_BBOX_PX,

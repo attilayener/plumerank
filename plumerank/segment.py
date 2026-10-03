@@ -258,7 +258,7 @@ def _binarise(raw_mask: np.ndarray) -> np.ndarray:
     ``morphologyEx`` cannot take, so the alternative is a second conversion pass per
     frame per camera.
     """
-    return cv2.compare(raw_mask, MASK_FOREGROUND_VALUE, cv2.CMP_EQ)
+    return cv2.compare(raw_mask, MASK_FOREGROUND_VALUE, cv2.CMP_EQ)  # type: ignore[call-overload]
 
 
 def _components(mask: np.ndarray) -> list[Component]:

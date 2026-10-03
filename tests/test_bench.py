@@ -33,6 +33,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import bench  # noqa: E402
+
 from plumerank import constants as K  # noqa: E402
 from plumerank.constants import WORK_HEIGHT, WORK_WIDTH  # noqa: E402
 
