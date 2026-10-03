@@ -1,6 +1,7 @@
 # --- secrets, never ---
 .env
 .env.*
+!.env.example
 *.pem
 credentials
 
@@ -19,7 +20,16 @@ out/
 dist/
 coverage/
 .coverage
+coverage.xml
 htmlcov/
+.mypy_cache/
+
+# --- Playwright / Lighthouse (web/) ---
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
+web/.lighthouseci/
 
 # --- third-party imagery: NEVER in the history of a repo that flips public ---
 # HPWREN FIgLib / MTA frames. Regenerable from the committed manifests and urls.txt.
