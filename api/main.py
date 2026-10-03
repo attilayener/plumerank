@@ -66,6 +66,7 @@ from typing import Any, AsyncIterator, Iterable
 import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 
 from plumerank.constants import (
@@ -1220,6 +1221,19 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+)
+
+# All four routes are public, unauthenticated GET, with no cookies and nothing to
+# mutate -- there is no credentialed cross-origin state for a CORS policy to protect
+# here. Without this, README.md's own "point your local dev frontend at the live box"
+# instructions (web/.env.example) fail in-browser with a CORS error the moment the
+# frontend's origin differs from the API's, which production (Caddy, same origin)
+# never exercises but a judge or contributor running `npm run dev` locally does.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
 )
 
 

@@ -159,6 +159,25 @@ def test_there_is_no_upload_route() -> None:
             assert "POST" not in route.methods, f"{route.path} accepts POST"
 
 
+def test_cors_allows_a_cross_origin_get_but_not_other_methods(client: TestClient) -> None:
+    """README.md documents pointing a local `npm run dev` at the live box -- a genuinely
+    cross-origin GET from a browser. Without CORS headers that fails silently in-browser
+    (shipcheck caught it: 'blocked by CORS policy', zero console errors on a server-rendered
+    curl check). Scoped to GET only -- there is nothing here for a wider policy to protect."""
+    resp = client.get("/health", headers={"Origin": "http://localhost:3000"})
+    assert resp.headers["access-control-allow-origin"] == "*"
+
+    preflight = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    allowed = preflight.headers.get("access-control-allow-methods", "")
+    assert "POST" not in allowed
+
+
 # ---------------------------------------------------------------------------------
 # /health
 # ---------------------------------------------------------------------------------
