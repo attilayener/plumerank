@@ -293,13 +293,22 @@ export default function ResultsPage() {
           </>
         ) : null}
 
-        <div style={{ marginTop: 34 }}>
-          <BuildInfoSection />
-        </div>
+        {/* Mounted only once /api/benchmark has settled, either way. Drawn from first
+            paint, these sections sat under a one-line "reading" caption and were shoved
+            down by whatever replaced it -- the results, or the degraded strip -- which
+            is a layout shift a reader sees (CLS 0.11-0.15 on this route). Content that
+            appears is not a shift; content that moves is. */}
+        {!loading ? (
+          <>
+            <div style={{ marginTop: 34 }}>
+              <BuildInfoSection />
+            </div>
 
-        <div style={{ marginTop: 26, marginBottom: 12 }}>
-          <ThemeNote />
-        </div>
+            <div style={{ marginTop: 26, marginBottom: 12 }}>
+              <ThemeNote />
+            </div>
+          </>
+        ) : null}
       </main>
     </>
   );

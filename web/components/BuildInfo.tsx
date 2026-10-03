@@ -40,6 +40,11 @@ export function BuildInfoSection() {
 
   const curl = curlCommand(origin);
 
+  // While /build-info is in flight the table is drawn with its fixed keys and ABSENT
+  // values, so the section has its final height from first paint: swapping a one-line
+  // "reading" caption for a seven-row table pushed everything below it 360 px (CLS 0.11
+  // on /results). The values are ABSENT, not guessed -- nothing here is a placeholder
+  // that could be mistaken for a real build string.
   const fields: [string, string][] = doc
     ? [
         ["OpenCV", String(doc.opencv_version ?? ABSENT)],
@@ -50,7 +55,9 @@ export function BuildInfoSection() {
         ["onnx sha256", sha(typeof doc.onnx_sha256 === "string" ? doc.onnx_sha256 : null, 16)],
         ["constants sha256", sha(typeof doc.constants_sha256 === "string" ? doc.constants_sha256 : null, 16)],
       ]
-    : [];
+    : ["OpenCV", "DNN engine", "commit", "instance_id", "ami_id", "onnx sha256", "constants sha256"].map(
+        (k): [string, string] => [k, ABSENT],
+      );
 
   return (
     <section id="build">
@@ -59,7 +66,9 @@ export function BuildInfoSection() {
           Build information
         </h2>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          verify it without leaving the page, or leave the page and verify it anyway
+          {doc || error
+            ? "verify it without leaving the page, or leave the page and verify it anyway"
+            : `reading ${ROUTES.buildInfo} ...`}
         </span>
       </div>
 
@@ -73,8 +82,6 @@ export function BuildInfoSection() {
           {ROUTES.buildInfo} did not answer ({error}). Nothing is rendered from cache:
           a build string is only evidence if it came from the box that is serving this page.
         </div>
-      ) : !doc ? (
-        <p style={{ color: "var(--ink-2)" }}>reading {ROUTES.buildInfo} ...</p>
       ) : (
         <>
           <div className="scroll-x card">
@@ -90,7 +97,14 @@ export function BuildInfoSection() {
             </table>
           </div>
 
-          {doc.modules ? (
+          {/* While loading, the badge line and the summary keep their slots (empty / the
+              same summary text) so the page does not move when the document lands. */}
+          {!doc ? (
+            <p style={{ marginTop: 10, fontSize: "var(--size-label)" }}>
+              <span className="badge" style={{ visibility: "hidden" }}>dnn present</span>
+            </p>
+          ) : null}
+          {doc?.modules ? (
             <p style={{ marginTop: 10, fontSize: "var(--size-label)" }}>
               {Object.entries(doc.modules).map(([mod, ok]) => (
                 <span key={mod} className="badge" style={{ marginRight: 8, color: ok ? "var(--ok)" : "var(--alert)" }}>
@@ -108,7 +122,9 @@ export function BuildInfoSection() {
               className="code"
               style={{ maxHeight: 320, overflow: "auto", marginTop: 8, whiteSpace: "pre" }}
             >
-              {String(doc.build_information ?? "not published by /build-info")}
+              {doc
+                ? String(doc.build_information ?? "not published by /build-info")
+                : `reading ${ROUTES.buildInfo} ...`}
             </pre>
           </details>
         </>

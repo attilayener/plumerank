@@ -112,25 +112,6 @@ export default function WallPage() {
           </div>
         </section>
 
-        {state === "down" || pipelineDown ? (
-          <div style={{ marginTop: 16 }}>
-            <DegradedStrip
-              commit={benchmark?.run.commit ?? null}
-              detail={
-                pipelineDown
-                  ? (meta?.live_pipeline?.detail ??
-                      "the stream reports live_pipeline.available = false") +
-                    ". The stream is connected and the roster is empty because the box " +
-                    "cannot run the pipeline, not because nobody is watching."
-                  : (error ?? "the live stream is not delivering") +
-                    (stale
-                      ? ". The rows below are the last tick received and are NOT current."
-                      : ". No rows are being drawn.")
-              }
-            />
-          </div>
-        ) : null}
-
         <div className="wall-page" style={{ padding: "16px 0 0" }}>
           <div className="area-wall">
             <Wall
@@ -166,6 +147,30 @@ export default function WallPage() {
             <BudgetMeter meta={meta} rows={rows} benchmark={benchmark} />
           </div>
         </div>
+
+        {/* BELOW the wall, not above it. The stream's verdict arrives after first paint,
+            and a strip inserted above the wall pushed the whole wall 107 px down the
+            screen (CLS 0.15 on this route). The wall's own header already says "live
+            pipeline unavailable" in place, so the notice is not lost by moving the
+            committed-results strip under it. */}
+        {state === "down" || pipelineDown ? (
+          <div style={{ marginTop: 16 }}>
+            <DegradedStrip
+              commit={benchmark?.run.commit ?? null}
+              detail={
+                pipelineDown
+                  ? (meta?.live_pipeline?.detail ??
+                      "the stream reports live_pipeline.available = false") +
+                    ". The stream is connected and the roster is empty because the box " +
+                    "cannot run the pipeline, not because nobody is watching."
+                  : (error ?? "the live stream is not delivering") +
+                    (stale
+                      ? ". The rows below are the last tick received and are NOT current."
+                      : ". No rows are being drawn.")
+              }
+            />
+          </div>
+        ) : null}
 
         <footer style={{ marginTop: 22, display: "grid", gap: 10, maxWidth: 900 }}>
           <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", margin: 0 }}>
