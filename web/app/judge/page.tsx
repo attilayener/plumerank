@@ -130,8 +130,9 @@ make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
           <li>Daylight only — no IR hardware, no night detection.</li>
           <li>
             Cloud, not fog, produced the most false alarms on the confusion set (measured
-            before the per-camera baseline was adopted; the fog class itself is being
-            relabelled, because about half its frames show no marine layer).
+            before the per-camera baseline was adopted). A blind census found the &ldquo;fog&rdquo; class
+            picks a marine layer no more often than chance (29% vs 29%), so it is mostly
+            overcast; the threshold uses every confusion window, so only per-class claims change.
           </li>
           <li>
             The soft-boundary statistic the design started from (S3) is not predictive on its
