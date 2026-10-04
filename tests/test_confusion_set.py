@@ -648,6 +648,14 @@ _SPIKE = _ROOT / "spike"
 
 @pytest.fixture(scope="module")
 def labelled_fog_features() -> list[dict[str, float]]:
+    # spike/frames/ is third-party HPWREN imagery and is gitignored (spike/.gitignore), so a
+    # clean clone -- CI included -- does not have it. Skipped, loudly, only when the whole
+    # directory is absent; a partial directory still fails inside labelled_fog_frames.
+    if not (_SPIKE / "frames").is_dir():
+        pytest.skip(
+            "spike/frames/ is gitignored third-party imagery and is not in this checkout; "
+            "the fog-cutline provenance tests run where the labelled frames are on disk"
+        )
     labelled = bcs.labelled_fog_frames(_SPIKE)
     assert len(labelled) == 60
     return [bcs.frame_features(bcs._decode(path.read_bytes())) for _, _, path in labelled]
