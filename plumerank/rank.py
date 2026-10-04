@@ -28,7 +28,7 @@ time-to-detection comparison between two detectors means anything at all.
 Why the roster is never truncated
 ---------------------------------
 ``emit`` returns every camera, ranked, including the ones whose budget is gone. The
-system reorders; it never suppresses (the spec section 9, safeguard 2). A watch list
+system reorders; it never suppresses. A watch list
 that quietly dropped a camera whose two alerts were spent would be a UI that lies about
 its own mechanism, and the failure mode it invites -- a fire on a camera the operator
 believes is being shown to them -- is the one this project exists to avoid.
@@ -609,7 +609,7 @@ def draw_evidence(
 
     **These four calls are honest OpenCV usage but are NOT counted as analysis depth.**
     Drawing a line is not image analysis and writing a file is not image analysis; they are
-    named in the OpenCV 5 design notes section 6a's anti-inflation list and excluded from the
+    named in the surface count's anti-inflation list and excluded from the
     23-surface count. Stating that is cheaper than being caught inflating it.
 
     Args:

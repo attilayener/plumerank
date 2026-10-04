@@ -1,5 +1,6 @@
 {
   "ablation": null,
+  "ablation_source": null,
   "arm": "dev",
   "background": "mog2",
   "baseline": {
@@ -24,7 +25,7 @@
       "model_calls": 51,
       "model_calls_per_camera_night": 1.803,
       "system": "plumerank",
-      "threshold": 0.84916,
+      "threshold": 0.8491604639866016,
       "ttd": {
         "detection_rate": 0.5862,
         "mean_detected_minutes": 16.882,
@@ -44,7 +45,7 @@
       "model_calls": 103095,
       "model_calls_per_camera_night": 3645.0,
       "system": "b1_cnn_grid",
-      "threshold": 1.0,
+      "threshold": 0.99999999994233,
       "ttd": {
         "detection_rate": 0.2069,
         "mean_detected_minutes": 19.5,
@@ -64,7 +65,7 @@
       "model_calls": 0,
       "model_calls_per_camera_night": 0.0,
       "system": "b2_frame_diff",
-      "threshold": 0.995602,
+      "threshold": 0.9956024626209324,
       "ttd": {
         "detection_rate": 0.1034,
         "mean_detected_minutes": 22.0,
@@ -88,7 +89,7 @@
         "model_calls": 103095,
         "model_calls_per_camera_night": 3645.0,
         "system": "b1_cnn_grid_rebased",
-        "threshold": 0.774952,
+        "threshold": 0.7749523242849979,
         "ttd": {
           "detection_rate": 0.4828,
           "mean_detected_minutes": 13.786,
@@ -108,7 +109,7 @@
         "model_calls": 0,
         "model_calls_per_camera_night": 0.0,
         "system": "b2_frame_diff_rebased",
-        "threshold": 0.760331,
+        "threshold": 0.7603308377925903,
         "ttd": {
           "detection_rate": 0.3448,
           "mean_detected_minutes": 7.5,
@@ -131,7 +132,7 @@
     "slots_per_camera": 2,
     "system": "plumerank",
     "target_alerts_per_camera_night": 2.0,
-    "threshold": 0.84916
+    "threshold": 0.8491604639866016
   },
   "classifier": {
     "dataset": "pyro-sdis",
@@ -145,7 +146,7 @@
   "denominator": {
     "arm": "dev",
     "criteria": "data/excluded.json",
-    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it, and results/hold_access.log records no HOLD read because no HOLD pixel has been scored.",
+    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it; results/hold_access.log records every read of HOLD pixels, each after the constants freeze it names.",
     "excluded": 1,
     "excluded_sequence_ids": [
       "20250121_LiliacFire_rm-s-mobo-c"
@@ -178,7 +179,7 @@
       "20250123_Border2Fire_om-w-mobo-m"
     ],
     "count": 1,
-    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it, and results/hold_access.log records no HOLD read because no HOLD pixel has been scored.",
+    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it; results/hold_access.log records every read of HOLD pixels, each after the constants freeze it names.",
     "items": [
       {
         "reason": "night frame -- 00:05 local, black sky over a field of city lights, no daylight scene. PlumeRank is daylight-only and says so on every screen.",
@@ -190,7 +191,7 @@
     "sequence_ids": [
       "20250121_LiliacFire_rm-s-mobo-c"
     ],
-    "source": "/Users/edycu/Hackathon/devpost/devpost-opencv26/plume/build/data/excluded.json"
+    "source": "data/excluded.json"
   },
   "frames_per_window": 79,
   "headline": {
@@ -202,36 +203,36 @@
     "p50_minutes": 32.0,
     "p95_minutes": null
   },
-  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50   32.0 min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 2.23% of frames touched by ONNX\n  model calls    : PlumeRank 2 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : advantage not finite at all 11 offsets in [-5,+5]\n  background     : mog2\n  commit c3a38bb003812e992a1321ed8d75efecadd7f440  instance local (not EC2)  wall clock 9m09s  2026-10-04\n-> results/arm_dev_2026-10-04.json",
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50   32.0 min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 2.23% of frames touched by ONNX\n  model calls    : PlumeRank 2 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : advantage not finite at all 11 offsets in [-5,+5]\n  background     : mog2\n  commit 68b6def985e5e536fc0e643c42ad84e1987c94fc  instance local (not EC2)  wall clock 9m30s  2026-10-04\n-> results/arm_dev_2026-10-04.json",
   "headline_system": "plumerank",
   "latency_ms": {
     "b1": {
-      "mean_ms": 54.432,
+      "mean_ms": 60.182,
       "n": 2291,
-      "p50_ms": 53.82,
-      "p95_ms": 57.441,
-      "total_ms": 124703.599
+      "p50_ms": 56.569,
+      "p95_ms": 70.616,
+      "total_ms": 137876.794
     },
     "b2": {
       "mean_ms": 0.014,
       "n": 2291,
       "p50_ms": 0.013,
-      "p95_ms": 0.017,
-      "total_ms": 31.194
+      "p95_ms": 0.018,
+      "total_ms": 32.269
     },
     "classical": {
-      "mean_ms": 7.159,
+      "mean_ms": 8.12,
       "n": 2291,
-      "p50_ms": 7.062,
-      "p95_ms": 8.838,
-      "total_ms": 16401.256
+      "p50_ms": 7.464,
+      "p95_ms": 10.587,
+      "total_ms": 18602.98
     },
     "escalation": {
-      "mean_ms": 1.232,
+      "mean_ms": 1.788,
       "n": 51,
-      "p50_ms": 1.198,
-      "p95_ms": 1.357,
-      "total_ms": 62.815
+      "p50_ms": 1.253,
+      "p95_ms": 2.029,
+      "total_ms": 91.179
     }
   },
   "model_invocations_per_camera_night": {
@@ -245,75 +246,338 @@
     {
       "b1_cnn_grid_p50_minutes": null,
       "b1_cnn_grid_realised_rate_uncapped": 0.2475,
-      "b1_cnn_grid_threshold": 1.0,
+      "b1_cnn_grid_threshold": 0.9999999999990127,
       "b2_frame_diff_p50_minutes": null,
       "b2_frame_diff_realised_rate_uncapped": 0.3182,
-      "b2_frame_diff_threshold": 0.9974,
+      "b2_frame_diff_threshold": 0.997400233978942,
       "budget_alerts_per_camera_night": 0.5,
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 0.601,
-      "plumerank_threshold": 0.973873
+      "plumerank_threshold": 0.9738730634025216
     },
     {
       "b1_cnn_grid_p50_minutes": null,
       "b1_cnn_grid_realised_rate_uncapped": 0.2828,
-      "b1_cnn_grid_threshold": 1.0,
+      "b1_cnn_grid_threshold": 0.9999999999973795,
       "b2_frame_diff_p50_minutes": null,
       "b2_frame_diff_realised_rate_uncapped": 0.8132,
-      "b2_frame_diff_threshold": 0.996287,
+      "b2_frame_diff_threshold": 0.9962871287128714,
       "budget_alerts_per_camera_night": 1.0,
       "budget_slots_per_camera": 1,
       "plumerank_p50_minutes": null,
       "plumerank_realised_rate_uncapped": 1.2728,
-      "plumerank_threshold": 0.916638
+      "plumerank_threshold": 0.9166375228873337
     },
     {
       "b1_cnn_grid_p50_minutes": null,
       "b1_cnn_grid_realised_rate_uncapped": 0.4596,
-      "b1_cnn_grid_threshold": 1.0,
+      "b1_cnn_grid_threshold": 0.99999999994233,
       "b2_frame_diff_p50_minutes": null,
       "b2_frame_diff_realised_rate_uncapped": 1.8385,
-      "b2_frame_diff_threshold": 0.995602,
+      "b2_frame_diff_threshold": 0.9956024626209324,
       "budget_alerts_per_camera_night": 2.0,
       "budget_slots_per_camera": 2,
       "plumerank_p50_minutes": 32.0,
       "plumerank_realised_rate_uncapped": 2.3688,
-      "plumerank_threshold": 0.84916
+      "plumerank_threshold": 0.8491604639866016
     },
     {
       "b1_cnn_grid_p50_minutes": null,
       "b1_cnn_grid_realised_rate_uncapped": 4.3841,
-      "b1_cnn_grid_threshold": 0.999849,
+      "b1_cnn_grid_threshold": 0.9998490912246308,
       "b2_frame_diff_p50_minutes": null,
       "b2_frame_diff_realised_rate_uncapped": 4.3841,
-      "b2_frame_diff_threshold": 0.99484,
+      "b2_frame_diff_threshold": 0.9948404849944107,
       "budget_alerts_per_camera_night": 4.0,
       "budget_slots_per_camera": 4,
       "plumerank_p50_minutes": 13.0,
       "plumerank_realised_rate_uncapped": 4.9498,
-      "plumerank_threshold": 0.763831
+      "plumerank_threshold": 0.763830552221642
     },
     {
       "b1_cnn_grid_p50_minutes": null,
       "b1_cnn_grid_realised_rate_uncapped": 8.3086,
-      "b1_cnn_grid_threshold": 0.997316,
+      "b1_cnn_grid_threshold": 0.9973160484142757,
       "b2_frame_diff_p50_minutes": null,
       "b2_frame_diff_realised_rate_uncapped": 8.3086,
-      "b2_frame_diff_threshold": 0.993252,
+      "b2_frame_diff_threshold": 0.9932516027443483,
       "budget_alerts_per_camera_night": 8.0,
       "budget_slots_per_camera": 8,
       "plumerank_p50_minutes": 8.0,
       "plumerank_realised_rate_uncapped": 9.5814,
-      "plumerank_threshold": 0.687661
+      "plumerank_threshold": 0.6876610118210338
+    }
+  ],
+  "per_sequence": [
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "om-w-mobo-c",
+      "plumerank_ttd_minutes": 8.0,
+      "sequence_id": "20240622_Border58Fire_om-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 5.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 0.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "tdlln-n-mobo-c",
+      "plumerank_ttd_minutes": 38.0,
+      "sequence_id": "20240625_DelMarFire_tdlln-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 29.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 7.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ws-e-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240701_McCainfire_ws-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "tp-w-mobo-c",
+      "plumerank_ttd_minutes": 1.0,
+      "sequence_id": "20240724_GroveFire_tp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "cp-s-mobo-c",
+      "plumerank_ttd_minutes": 32.0,
+      "sequence_id": "20240905_ValleyFire_cp-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 14.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": 29.0,
+      "camera_id": "ws-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240907_ChurchFire_ws-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ws-s-mobo-c",
+      "plumerank_ttd_minutes": 19.0,
+      "sequence_id": "20240907_FIRE_ws-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wilson-e-mobo-c",
+      "plumerank_ttd_minutes": 14.0,
+      "sequence_id": "20240908_BridgeFire_wilson-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 9.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241108_GardenFire_rm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 4.0,
+      "b1_cnn_grid_ttd_minutes": 38.0,
+      "b2_frame_diff_rebased_ttd_minutes": 3.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "dwpgm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241113_Fire_dwpgm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "69bravo-e-mobo-c",
+      "plumerank_ttd_minutes": 21.0,
+      "sequence_id": "20250107_PalisadesFire_69bravo-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "dwpgm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250107_PalisadesFire_dwpgm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 11.0,
+      "b1_cnn_grid_ttd_minutes": 20.0,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "om-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250123_Border2Fire_om-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "tdlln-s-mobo-c",
+      "plumerank_ttd_minutes": 34.0,
+      "sequence_id": "20250123_GilmanFire_tdlln-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": 21.0,
+      "b2_frame_diff_rebased_ttd_minutes": 3.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-e-mobo-c",
+      "plumerank_ttd_minutes": 30.0,
+      "sequence_id": "20250514_PrescribedFire_hp-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 13.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 18.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-n-mobo-c",
+      "plumerank_ttd_minutes": 13.0,
+      "sequence_id": "20250520_CrossingFire_hp-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 38.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 28.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250610_CahuillaFire_hp-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 1.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 1.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-e-mobo-c",
+      "plumerank_ttd_minutes": 13.0,
+      "sequence_id": "20250612_HighwayFire_hp-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 14.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-s-mobo-c",
+      "plumerank_ttd_minutes": 12.0,
+      "sequence_id": "20250616_MissionFire_rm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 19.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 1.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-n-mobo-c",
+      "plumerank_ttd_minutes": 7.0,
+      "sequence_id": "20250716_DaleBradfordFire_hp-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 14.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ws-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250724_PostaFire_ws-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": 11.0,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20251009_RanchoFire_bm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": 9.0,
+      "camera_id": "mp-n-mobo-c",
+      "plumerank_ttd_minutes": 8.0,
+      "sequence_id": "20251102_ScissorsFire_mp-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 1.0,
+      "b1_cnn_grid_ttd_minutes": 3.0,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260428_LiveOakFire_rm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260502_MissionFire_rm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 12.0,
+      "b1_cnn_grid_ttd_minutes": 24.0,
+      "b2_frame_diff_rebased_ttd_minutes": 0.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-s-mobo-c",
+      "plumerank_ttd_minutes": 17.0,
+      "sequence_id": "20260618_MissionFire_rm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ws-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260715_ThornFire_ws-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bm-s-mobo-c",
+      "plumerank_ttd_minutes": 9.0,
+      "sequence_id": "20260722_CreelmanFire_bm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 23.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": 28.0,
+      "camera_id": "hp-n-mobo-c",
+      "plumerank_ttd_minutes": 11.0,
+      "sequence_id": "20260820_ChiaFire_hp-n-mobo-c"
     }
   ],
   "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
   "results_file": "arm_dev_2026-10-04.json",
   "run": {
     "calibration_manifest_sha256": "42157351223964176c8af43b822e225a94c195bf6ab9140b8d7c95ae7548f3b0",
-    "commit": "c3a38bb003812e992a1321ed8d75efecadd7f440",
-    "constants_sha256": "209d8549929c14cb92cdd7d005cd3943b20aa02249200c890605a87b04507bf2",
+    "commit": "68b6def985e5e536fc0e643c42ad84e1987c94fc",
+    "constants_sha256": "ce9da71c7288fb3ada201a3852011668ce8bb05f3142b60a88abd32a637906f1",
     "cpu_credit_balance_after": null,
     "cpu_credit_balance_before": null,
     "date": "2026-10-04",
@@ -321,8 +585,8 @@
     "instance_id": null,
     "opencv_version": "5.0.0",
     "python": "3.11.1",
-    "started": "2026-10-04T07:03:12+00:00",
-    "wall_clock_seconds": 549.0
+    "started": "2026-10-04T07:40:46+00:00",
+    "wall_clock_seconds": 570.8
   },
   "schema": "plumerank.bench/1",
   "seed": 20261026,

@@ -46,7 +46,7 @@ _RESULTS = _ROOT / "results"
 #: sits an hour off the paired ignition across a daylight-saving boundary.
 _PACIFIC = ZoneInfo("America/Los_Angeles")
 
-#: seed-data.md section 4: a CONFUSE window is the same span on the same camera at the same
+#: the corpus design: a CONFUSE window is the same span on the same camera at the same
 #: time of day as a HOLD sequence. This is the tolerance that "same time of day" means.
 _CONFUSE_CLOCK_TOLERANCE_MINUTES = 45
 
@@ -140,7 +140,7 @@ def _centre_epoch(window: dict) -> int:
     [("dev", "hold"), ("dev", "confuse"), ("hold", "confuse")],
 )
 def test_arms_disjoint(left: str, right: str) -> None:
-    """No sequence id appears in two of DEV / HOLD / CONFUSE (seed-data.md rule 1).
+    """No sequence id appears in two of DEV / HOLD / CONFUSE.
 
     Parametrised per pair rather than written as one function over all three, because the
     CONFUSE manifest arrives later in the build than the other two: one function would skip
@@ -175,7 +175,7 @@ def test_confuse_shares_cameras() -> None:
     confuse = _load("confuse")
     hold = _load("hold")
 
-    # The pairing rule from seed-data.md section 4, re-derived: one HOLD window per camera,
+    # The pairing rule from the corpus design, re-derived: one HOLD window per camera,
     # the earliest by sequence id, so the pairing is a rule rather than a coin flip.
     paired: dict[str, dict] = {}
     for window in sorted(hold["windows"], key=lambda w: str(w["sequence_id"])):
@@ -387,7 +387,7 @@ def test_wall_manifest_has_no_hold_id() -> None:
     fire = [tile for tile in tiles if int(tile["tile"]) == int(wall["fire_tile"])]
     assert len(fire) == 1, f"tile {wall['fire_tile']} is pinned as the fire but appears {len(fire)} times"
     assert fire[0]["arm"] == "dev", (
-        "the pinned fire tile must be DEV -- seed-data.md section 3 pays for that choice on "
+        "the pinned fire tile must be DEV -- the corpus design pays for that choice on "
         "screen and in the video rather than sourcing it from HOLD"
     )
 

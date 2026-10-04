@@ -21,23 +21,27 @@ make test      # offline suite + coverage + claim-consistency check
 make verify    # clean-venv sanity check (does NOT reproduce the published headline)
 ```
 
-**`make verify`, executed end-to-end for this README, no shortcuts:**
+Output of `make verify`'s final step (`scripts/bench.py --arm micro`), pasted verbatim; the full
+target also rebuilds the `.venv` from `requirements-dev.lock` and runs the offline suite first:
 
 ```
-real: 1:53.67 (includes a from-scratch .venv rebuild + pip install from requirements-dev.lock)
-
-Block 1 -- REPRODUCED HERE (the real OpenCV 5 pipeline, run live against real pixels)
+========================================================================
+REPRODUCED HERE
+========================================================================
+  what           : the micro corpus, recomputed live by the real OpenCV 5 pipeline
   corpus         : data/micro/ (10 windows x 31 frames)
-  PlumeRank      : 2/5 detected
-  B1 (same ONNX, every frame) : 1/5 detected
-  B2 (frame differencing)     : 0/5 detected
-  realised alert rate  : 1.57 alerts/camera-night (target 2.00, uncapped on this slice)
-  escalation fraction  : 0.65% of frames touched by the ONNX tile classifier
-  checked against results/verify_micro.json : MATCH (byte-for-byte)
+  PlumeRank      : p50    n/a min   p95    n/a min   (2/5 detected)
+  B1 CNN grid    : p50    n/a min   p95    n/a min   (1/5 detected)      (the SAME onnx, every frame)
+  B2 frame-diff  : p50    n/a min   p95    n/a min   (0/5 detected)
+  realised rate  : 1.57 alerts/camera-night on the 5 non-fire micro windows (target 2.00, uncapped)
+  escalation     : 0.65% of frames touched by ONNX (top-2 of a 10-window roster; the published figure in block 2 is the same rule over a larger one)
+  checked against: results/verify_micro.json -- MATCH (byte-for-byte)
 
-Block 2 -- PUBLISHED, NOT RECOMPUTED HERE
-  status: no committed HOLD run in results/ -- nothing is published yet, and this
-          command does not produce it. Reproduce with `make fetch && make bench` (~95 min).
+========================================================================
+PUBLISHED, NOT RECOMPUTED HERE
+========================================================================
+  status         : no committed HOLD run in results/ -- nothing is published yet, and this command does not produce it
+  reproduce with: make fetch && make bench  (about 95 min)
 ```
 
 `make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **664 passed, 2
@@ -59,18 +63,22 @@ is checkable, not just assertable.
 ## What is not measured yet, and why that is honest rather than broken
 
 The HOLD arm — the only run whose number this project is willing to call a headline — has not
-executed. `scripts/bench.py`'s calibration gate (`_check_calibration`) refuses to publish an
-operating point it cannot support: *"Publishing this as a calibrated operating point would be a
-fabrication."* Concretely, right now:
+executed. Concretely, right now:
 
-- `GET /api/benchmark` → `404`, with a message naming the missing file, not a number.
-- The live Wall's `/health` reports `live_pipeline.available: false` with the same reason, and
-  the UI shows that degraded state rather than inventing a ranking.
-- `GET /build-info` and `GET /health` are unaffected — they do not depend on calibration.
+- `GET /api/benchmark` → `404`, with a message naming the missing `results/bench_*.json`, not a
+  number.
+- The live Wall runs on the threshold the newest shipped DEV run solved on the fire-free
+  confusion set (`results/arm_dev_<date>.json` → `calibration.threshold`). The threshold depends
+  only on that confusion set, so it is the one the held-out run will solve too; the Wall labels
+  it as development-calibrated, and `/health` reports it under `live_pipeline.calibration_kind`.
+- `scripts/bench.py`'s calibration gate (`_check_calibration`) refuses to publish any threshold
+  it could not bring to the budget, from either side: *"Publishing this as a calibrated
+  operating point would be a fabrication."*
 
 The **DEV** arm exists (the data the fusion weights were fit on — diagnostic only, never the
-claim): 17/29 detected, p50 32.0 min, 1.99 alerts/camera-night, baselines B1 6/29 and B2 3/29 as deployed,
-14/29 and 10/29 through PlumeRank's own per-camera baseline
+claim): 17/29 detected, p50 32.0 min; threshold calibrated to 1.99 alerts/camera-night on the
+confusion set (2.37 realised on DEV). Like-for-like, B1 and B2 through PlumeRank's own
+per-camera baseline detect 14/29 and 10/29; as deployed, 6/29 and 3/29
 (`results/arm_dev_2026-10-04.json`).
 
 ## What a real-run receipt looks like for this project
@@ -78,7 +86,8 @@ claim): 17/29 detected, p50 32.0 min, 1.99 alerts/camera-night, baselines B1 6/2
 There is no per-call provider bill here (no hosted LLM API, no metered generation) — the
 "receipt" is the pipeline actually executing against real pixels and being checked against a
 committed expectation, which is exactly what the block above shows. The AWS side has its own
-receipt: one `t4g.small` (Graviton) instance, one S3 bucket (corpus: 5,082 frames, 2.38 GB),
+receipt: one `t4g.small` (Graviton) instance, one S3 bucket (corpus: the DEV and CONFUSE
+frames the box replays, 5,082 objects / 2.38 GB per `aws s3 ls --summarize`),
 CloudWatch metrics plus drift (±15%) and silence alarms on the alert budget — all funded by a $150 AWS compute
 grant from this competition, not a personal card.
 

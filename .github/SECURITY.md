@@ -17,11 +17,13 @@ triage. Please give us a reasonable window to patch before public disclosure.
 
 ## Scope notes specific to this project
 - The live endpoint is a single-tenant research box with no user accounts, no
-  upload path, and no dispatch/actuation capability by design (`specs/spec.md`
-  §7, §9 in the project kitchen). The security-relevant surface is small:
+  upload path, and no dispatch/actuation capability by design. The
+  security-relevant surface is small:
   four read-only API routes (`/build-info`, `/health`, `/api/watchlist`,
   `/api/benchmark`) and a Next.js static frontend.
-- The AWS instance profile attached to the live box carries **read-only**
-  statements only; it cannot write or delete anything in the corpus bucket.
-- Camera imagery is public wildland surveillance (HPWREN FIgLib); the pipeline
-  persists derived statistics, not frames, and no personal data is processed.
+- The AWS instance profile attached to the live box has read-only access to the
+  corpus bucket (it cannot write or delete anything there) plus
+  `cloudwatch:PutMetricData` scoped to the `PlumeRank` namespace.
+- Camera imagery is public wildland footage (HPWREN FIgLib); the box writes only
+  small evidence crops and thumbnails of it for the screen, and no personal data
+  is processed.

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fit the hazard fusion weights on DEV -- the step build-plan.py D11 specified and that
+"""Fit the hazard fusion weights on DEV -- the step the original plan (D11) specified and that
 ``plumerank/constants.py`` has been standing in for with a-priori guesses.
 
 WHAT THIS CLOSES
 ----------------
-the build plan D11 says ``rank.py`` fuses S1-S4 with "a weighted logistic, weights fit on
+the original plan (D11) says ``rank.py`` fuses S1-S4 with "a weighted logistic, weights fit on
 DEV". They were never fit. ``constants.py`` carries FUSION_BIAS/W_S1..W_S4/W_ESCALATION as
 values written before any data was seen, and every number the project has published so far --
 including the CONFUSE per-class split that came within a hair of aborting the project on

@@ -38,7 +38,7 @@ MINUTES_PER_FRAME: Final[float] = SECONDS_PER_FRAME / 60.0
 #: Every window -- DEV, HOLD and CONFUSE alike -- is 81 frames: 40 before the ignition
 #: clock, the ignition frame itself, and 40 after. A CONFUSE window is the same span on
 #: the same camera at the same time of day, which is what makes "one camera-night"
-#: comparable between the arms (seed-data.md section 4).
+#: comparable between the arms.
 FRAMES_PER_WINDOW: Final[int] = 81
 IGNITION_FRAME_INDEX: Final[int] = 40
 
@@ -47,8 +47,7 @@ IGNITION_FRAME_INDEX: Final[int] = 40
 MINUTES_PER_CAMERA_NIGHT: Final[float] = FRAMES_PER_WINDOW * MINUTES_PER_FRAME
 
 #: Working resolution. FIgLib frames are 3072x2048; the pipeline runs at 480x270 so that
-#: 40 concurrent MOG2 models fit in the 2 GiB of a t4g.small (the spec section 11, ~11 MB
-#: per camera -> ~432 MB) and so the classical path stays inside its 30 ms budget.
+#: 40 concurrent MOG2 models fit in the 2 GiB of a t4g.small and so the classical path stays inside its 30 ms budget.
 WORK_WIDTH: Final[int] = 480
 WORK_HEIGHT: Final[int] = 270
 
@@ -388,7 +387,7 @@ TILE_SWAP_RB: Final[bool] = True
 # file, except the ones that made the model" is a sentence a judge takes apart in one line.
 
 #: A tile is positive when a smoke box covers at least this fraction OF THE TILE
-#: (the architecture notes section 5). Fraction-of-tile and not IoU: a 96 px tile sitting wholly
+#:. Fraction-of-tile and not IoU: a 96 px tile sitting wholly
 #: inside a large plume has an IoU near zero and is unambiguously smoke, so IoU would file
 #: the clearest positives in the corpus as negatives. a priori.
 POSITIVE_OVERLAP_MIN: Final[float] = 0.30
@@ -406,7 +405,7 @@ TRAIN_SEED: Final[int] = 20261026
 
 #: Export at the oldest opset that carries Conv/Relu/MaxPool/Flatten/Gemm. The realistic
 #: failure of this stage is not "the model is inaccurate", it is "the model does not load"
-#: (the OpenCV 5 design notes section 8.2), and a newer opset buys nothing for five operators.
+#:, and a newer opset buys nothing for five operators.
 ONNX_OPSET: Final[int] = 12
 
 #: The export is rejected outright if its logits differ from PyTorch's by this much on 20
@@ -423,7 +422,7 @@ HEARTBEAT_SECONDS: Final[float] = 60.0
 #: The replay loop starts on the first SSE client and stops this long after the last one
 #: disconnects. t4g.small is burstable: a wall that ran continuously would sit above the
 #: 20%-per-vCPU baseline all day and throttle the endpoint mid-judging
-#: (the architecture notes section 3, the scope ledger A13).
+#:.
 REPLAY_IDLE_STOP_SECONDS: Final[float] = 120.0
 
 # ---------------------------------------------------------------------------------

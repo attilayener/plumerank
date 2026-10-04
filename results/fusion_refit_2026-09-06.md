@@ -37,7 +37,7 @@ On DEV, at the shipped operating point, the learned tile classifier's score is e
 **against** fire. The `dnn` escalation path is the project's only learned component and the
 reason `readNetFromONNX` / `blobFromImage` / `forward` are defended surfaces. A term that
 enters the hazard with a negative fitted weight is not decoration in the R1 sense — it is
-running and it is being read — but it is not doing what the OpenCV 5 design notes §4 says it does.
+running and it is being read — but it is not doing what the design said it does.
 
 ## 3. What this does not say
 

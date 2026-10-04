@@ -40,7 +40,7 @@ Sep 1 gate returned AUC ≤ 0.514, four of them **below 0.5** — fog scoring mo
 smoke (`s3_gate_mechanical_attempt.md` §2, §4b).
 
 **(c) The real CONFUSE arm.** `cloud_shadow` is the worst adversary at 4.00 alerts/camera-night
-— the class `seed-data.md` predicted S3 "should reject most cleanly", because its boundary is
+— the class the corpus design predicted S3 "should reject most cleanly", because its boundary is
 hard and that is exactly what S3 measures (`d11_fitted_2026-09-06.md` §4).
 
 ## 3. The one observation that points the other way, and it matters

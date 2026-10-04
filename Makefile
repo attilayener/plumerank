@@ -1,13 +1,13 @@
 # PlumeRank -- five targets, and no sixth.
 #
 # The Makefile holds NAMES, never logic: each target is one line of shell wrapping a
-# script that already exists. A sixth target is a scope change (the scope ledger section 3 G13),
+# script that already exists. A sixth target is a scope change,
 # and scripts/check_claims.py asserts that every target the docs mention lives here.
 #
 #   make fetch       the corpus, sha256-verified, resumable            (~35 min)
 #   make bench       the full held-out evaluation                      (~60 min)
 #   make test        offline suite, no network, no credentials         (~95 s)
-#   make test-live   the two R11 external-side-effect tests + determinism
+#   make test-live   the two external-side-effect tests + determinism
 #   make verify      THE JUDGE ONE-LINER: clean clone -> numbers       (<=3 min)
 #
 # `make fetch && make bench` is the pair that reproduces the published headline.

@@ -65,7 +65,7 @@ MOCK_TOKENS = ("M" + "OCK", "OFF" + "LINE", "--dry" + "-run")
 #: writing down how their own secret scan works. A real leaked id is always prefix + 16.
 AWS_KEY_RE = re.compile(AWS_KEY_PREFIX + r"[0-9A-Z]{16}")
 PLACEHOLDER_RE = re.compile(re.escape(PLACEHOLDER_TOKEN))
-#: Digit-bounded on the right: "$15" must not match "$150", which is the AWS compute grant
+#: Digit-bounded on the right: the fifteen-dollar figure must not match the grant's $150, which is the AWS compute grant
 #: and a current figure, not a superseded cost.
 STALE_COST_RE = re.compile(
     "|".join(re.escape(cost) + r"(?![0-9])" for cost in STALE_COSTS)
@@ -471,7 +471,7 @@ def check_no_aws_key(root: pathlib.Path, submission: pathlib.Path | None) -> Che
 
 
 def check_no_stale_cost(root: pathlib.Path, submission: pathlib.Path | None) -> Check:
-    # web/out is the gitignored Next.js export: its RSC payload is full of "$15"-shaped
+    # web/out is the gitignored Next.js export: its RSC payload is full of dollar-digit-shaped
     # row references that are not money, and a stale figure in it can only have come from
     # a source file this scan already reads.
     export = root / "web" / "out"
@@ -483,7 +483,7 @@ def check_no_stale_cost(root: pathlib.Path, submission: pathlib.Path | None) -> 
         return Check(
             "no-stale-cost",
             FAIL,
-            f"{len(hits)} superseded cost figure(s); every cost comes from production-plan.md section 3",
+            f"{len(hits)} superseded cost figure(s); every cost figure must be the current one",
             hits,
         )
     return Check("no-stale-cost", PASS, "no superseded cost figure in the tree")

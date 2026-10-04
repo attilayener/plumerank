@@ -9,7 +9,7 @@ entire ridgeline comes back as foreground, which is precisely where S1's base-an
 statistic lives. So the library's design and this project's primitive are in structural
 tension, and the only honest resolution is to bolt registration in *front* of the model
 and then publish how well it worked (``residual_error``), rather than to average the
-failure away (the OpenCV 5 design notes section 8.1).
+failure away.
 
 The two paths, and the single line between them
 -----------------------------------------------

@@ -153,7 +153,7 @@ MICRO_FIRE_LEAD_IN_FRAMES: int = WARMUP_FRAMES
 #: and on a five-window arm that difference is large enough to change which windows the
 #: ranking admits -- so at 92 the committed corpus was measurably not the array the
 #: pipeline computes from the archive frame, which is the one thing it exists to be. 98 is
-#: the highest setting whose committed tree still fits the <=25 MB envelope seed-data.md
+#: the highest setting whose committed tree still fits the <=25 MB envelope the corpus design
 #: section 8 states for data/micro/ (about 19 MB at 310 frames; quality 100 is 28 MB).
 MICRO_JPEG_QUALITY: int = 98
 

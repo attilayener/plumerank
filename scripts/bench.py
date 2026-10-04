@@ -131,7 +131,7 @@ SYSTEMS: tuple[str, ...] = ("plumerank", "b1_cnn_grid", "b2_frame_diff")
 #: headline is not a decision a reader gets to take.
 HEADLINE_SYSTEM = "plumerank"
 
-#: The exact spellings the production plan section 7 prints. They are keys as well as
+#: The exact spellings the published output format prints. They are keys as well as
 #: labels: /results renders them and DEMO.md quotes them, so they are fixed here once.
 SYSTEM_LABELS: dict[str, str] = {
     "plumerank": "PlumeRank",
@@ -343,8 +343,7 @@ def cpu_credit_balance(instance_id: str | None) -> float | None:
 
     Printed before and after the run because ``t4g.small`` is burstable: a run that
     started with a full balance and one that started throttled are different experiments,
-    and the reader has to be able to tell which one they got (the production plan section
-    1). Uses telemetry.py's boto3 factory rather than importing boto3 here, so the "only
+    and the reader has to be able to tell which one they got. Uses telemetry.py's boto3 factory rather than importing boto3 here, so the "only
     boto3 in the project" claim in the module map stays true.
 
     Every failure -- no boto3, no credentials, no such metric, off instance -- degrades to
@@ -580,7 +579,7 @@ def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
     string rather than refused.
 
     The **reason** is carried rather than dropped. The exclusion pass is a manual
-    eyeballing of a contact sheet (the scope ledger D6) and "why was this sequence dropped"
+    eyeballing of a contact sheet and "why was this sequence dropped"
     is the first question a hostile reader asks about a denominator that moved; a list of
     bare ids answers the count and refuses the question. It is also the shape
     ``web/lib/read.ts:readExclusions`` reads -- records with ``sequence_id`` and
@@ -1383,7 +1382,7 @@ def evaluate(
 
 
 # ---------------------------------------------------------------------------------
-# The human block -- shape fixed by the production plan section 7
+# The human block -- shape fixed by the published output format
 # ---------------------------------------------------------------------------------
 
 
@@ -1407,7 +1406,7 @@ def _clock(seconds: float) -> str:
 
 
 def headline_block(payload: dict[str, Any]) -> str:
-    """The block the production plan section 7 specifies, built from the payload.
+    """The block the published output format specifies, built from the payload.
 
     Built from the payload rather than from the live objects so that the string stored in
     ``results/bench_<date>.json``, the string ``/api/benchmark`` serves and the string
@@ -1457,7 +1456,7 @@ def headline_block(payload: dict[str, Any]) -> str:
         ),
         _row("t0 sensitivity", _sensitivity_line(payload)),
         _row("background", payload["background"]),
-        # The one line with no label column, because the production plan section 7 prints
+        # The one line with no label column, because the published output format prints
         # it that way: it is the run's provenance rather than one of its measurements.
         f"  commit {run['commit'] or 'not a checkout'}  instance {run['instance']}  "
         f"wall clock {_clock(run['wall_clock_seconds'])}  {run['date']}",
@@ -2389,7 +2388,7 @@ def run_micro(
     computed = _dump(verify_payload(payload))
 
     if getattr(args, "write_expected", False):
-        # The regeneration path the build plan assumes at the D40 freeze, and which was
+        # The regeneration path assumed at the constants freeze, and which was
         # missing: every constant change invalidates this file, and without a named way to
         # rewrite it the only options were hand-editing a byte-contract or leaving `make
         # verify` red. Deliberately explicit -- never automatic on mismatch, because a

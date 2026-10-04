@@ -16,17 +16,17 @@ flowchart TB
         STAB["stabilise.py<br/>phaseCorrelate + createHanningWindow<br/>+ phaseCorrelateIterative (new in 5.x)<br/>estimateAffine2D(USAC_MAGSAC)"]
         SEG["segment.py<br/>createBackgroundSubtractorMOG2<br/>morphologyEx . createCLAHE<br/>connectedComponentsWithStats"]
         STAT["statistic.py -- the custom primitive<br/>S1 base anchoring . S2 growth anisotropy<br/>S3 diffuse-boundary (Laplacian vs Sobel)<br/>S4 DISOpticalFlow drift, in-box"]
-        RANK["rank.py<br/>fuse -> per-camera baseline<br/>(trailing 15 min) -> alert-budget<br/>threshold -> ranked watch list + evidence crop"]
+        RANK["rank.py<br/>fuse -> [escalate top-2] -> per-camera baseline<br/>(trailing 15 min) -> alert-budget<br/>threshold -> ranked watch list + evidence crop"]
     end
 
-    ESC["escalate.py -- ~2% of frames<br/>dnn.readNetFromONNX(ENGINE_NEW)<br/>dnn.blobFromImage -> dnn.Net.forward<br/>one tile score, folded into the hazard"]
+    ESC["escalate.py -- the top-2 ranked cameras<br/>whose fused hazard clears a floor (~2% of frames)<br/>dnn.readNetFromONNX(ENGINE_NEW)<br/>dnn.blobFromImage -> dnn.Net.forward<br/>one tile score, folded into the hazard"]
 
     ONNX[("tile_classifier.onnx<br/>96x96, trained on Pyro-SDIS tiles<br/>one model, two uses -- see below")]
 
     subgraph EVAL["Evaluation -- same box, offline"]
         BENCH["scripts/bench.py<br/>time-to-detection vs the ignition clock<br/>p50/p95, +-5 min sensitivity, ablation grid"]
-        BASE["Two baselines, same budget<br/>B1: the SAME onnx over every frame<br/>B2: frame differencing"]
-        RES[("results/ -- committed<br/>bench_<date>.json, verify_micro.json")]
+        BASE["Two baselines, same budget on CONFUSE<br/>B1: the SAME onnx over every frame<br/>B2: frame differencing<br/>each also through the per-camera baseline"]
+        RES[("results/ -- committed<br/>arm_dev_<date>.json, bench_<date>.json (HOLD), verify_micro.json")]
     end
 
     subgraph BOX["One AWS t4g.small (Graviton) -- always on, judge-facing"]
@@ -35,10 +35,10 @@ flowchart TB
         CADDY["Caddy -- reverse proxy + static files"]
     end
 
-    CW["CloudWatch -- the alert budget as a metric,<br/>with a drift alarm and a silence alarm"]
+    CW["CloudWatch -- the alert budget as a metric,<br/>drift alarms at +-15% and a heartbeat-silence alarm"]
 
     FIG --> S3B --> STAB --> SEG --> STAT --> RANK
-    RANK -->|"top-k, above threshold"| ESC --> RANK
+    RANK -->|"rank <= 2 and hazard >= floor, before the baseline"| ESC --> RANK
     ONNX --> ESC
     ONNX --> BASE
     PYR -->|"training only -- never touches FIgLib"| ONNX
@@ -55,8 +55,9 @@ flowchart TB
 `tile_classifier.onnx` is the **only** trained component. It is run through
 `dnn.readNetFromONNX(ENGINE_NEW)` in two different places with two different jobs:
 
-1. **`escalate.py`** -- scores the ~2% of frames the classical statistics flag, and that score
-   folds into the fused hazard.
+1. **`escalate.py`** -- scores the camera-frames ranked in the top 2 whose fused hazard clears
+   `ESCALATION_HAZARD_MIN` (~2% of frames), and that score is folded into the fused hazard
+   before the per-camera baseline.
 2. **Baseline B1** -- the *identical* model, run over a full-frame tile grid on **every** frame.
 
 Because the model is the same on both sides, a difference between PlumeRank and B1 cannot be
@@ -81,9 +82,10 @@ the ranked list with one evidence crop per entry (drawn server-side with `cv2.li
 
 **There is no pre-rendered ranking anywhere on the judged path.** The background model warms
 from the pre-ignition frames FIgLib supplies, on screen -- exactly what a real camera start
-looks like. `GET /api/benchmark` 404s rather than inventing a number when no HOLD run exists
-yet (`scripts/bench.py`'s `_check_calibration`), and the live Wall shows that honestly instead
-of a fabricated ranking.
+looks like. `GET /api/benchmark` 404s while no `results/bench_*.json` exists. Until then the
+live Wall runs on the threshold the newest shipped DEV run solved on the fire-free confusion
+set -- the only arm the threshold depends on -- and says so on screen. `bench.py` refuses to
+publish any threshold it could not calibrate to the budget (`_check_calibration`).
 
 ## API endpoints -- four, all GET
 
@@ -91,7 +93,7 @@ of a fabricated ranking.
 |---|---|
 | `GET /build-info` | `cv2.getBuildInformation()` verbatim, `cv2.__version__`, a module-availability probe, the instance id and AMI id, the git commit sha |
 | `GET /health` | liveness, uptime, replay state, the live-pipeline availability flag and reason |
-| `GET /api/watchlist` | Server-Sent Events: a `meta` event (camera roster, budget, threshold), then one tick per minute |
+| `GET /api/watchlist` | Server-Sent Events: a `meta` event (camera roster, budget, threshold), then one tick per replayed frame (one minute of footage, replayed at about one tick per second) |
 | `GET /api/benchmark` | `results/bench_<date>.json` served verbatim, or `404` with an explicit message if it does not exist yet |
 
 Evidence crops are static files served by Caddy directly -- image serving never touches the
@@ -110,7 +112,8 @@ every `make test` run.
 ## Deployment
 
 One `t4g.small` (Graviton/ARM) EC2 instance, one S3 bucket for the corpus, CloudWatch for the
-alert-budget metric and a drift/silence alarm, and an IAM instance profile carrying read-only
-statements only. `deploy/bootstrap.sh` provisions it from a git bundle in S3;
+alert-budget metric with drift and heartbeat-silence alarms (`deploy/alarms.sh`), and an IAM
+instance profile with read-only S3 access to the corpus plus `cloudwatch:PutMetricData` scoped
+to the `PlumeRank` namespace. `deploy/bootstrap.sh` provisions it from a git bundle in S3;
 `deploy/Caddyfile` reverse-proxies `/api/*`, `/health` and `/build-info` to Uvicorn on the same
 origin as the static frontend, so there is no cross-origin request in production at all.

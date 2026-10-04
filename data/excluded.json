@@ -1,6 +1,6 @@
 {
   "generated": "2026-09-04",
-  "pass": "Manual. One human looked at the first frame of every window in data/manifest_dev.json and data/manifest_hold.json -- 90 frames, one contact sheet -- and wrote down what was wrong with the ones below. There is no automatic stage: the earlier design used the escalation detector, which does not exist yet, and an exclusion list produced by a model that has not been trained is a circular dependency (the scope ledger D6).",
+  "pass": "Manual. One human looked at the first frame of every window in data/manifest_dev.json and data/manifest_hold.json -- 90 frames, one contact sheet -- and wrote down what was wrong with the ones below. There is no automatic stage: the earlier design used the escalation detector, which does not exist yet, and an exclusion list produced by a model that has not been trained is a circular dependency.",
   "contact_sheet": "data/contact_sheet.jpg",
   "inspected": {
     "windows": 90,
@@ -10,14 +10,14 @@
     "note": "CONFUSE is not in this pass because data/manifest_confuse.json did not exist when it ran. Its 45 windows must be added by a second pass before the headline is published, and the count below will move when they are.",
     "denominator_note": "These are the windows LOOKED AT, which is the manifest count and not the measured-on count. What each arm is actually measured on is in denominator below, and neither number is ever published without the other."
   },
-  "hold_note": "This pass looked at the FIRST FRAME of the HOLD windows, and that is stated here rather than left to be discovered. It is the pass seed-data.md section 5.1 specifies, it reads one frame 40 minutes BEFORE each ignition, and nothing fitted in plumerank/constants.py was chosen from it. results/hold_access.log records detector reads of HOLD pixels, which is a different act and still has not happened. This sentence is repeated wherever the exclusion count is published -- data/wall.json, data/micro/PROVENANCE.md, data/micro/manifest_micro.json and every scripts/bench.py payload -- because a disclosure that lives only in the file nobody opens is a disclosure a hostile judge gets to announce.",
+  "hold_note": "This pass looked at the FIRST FRAME of the HOLD windows, and that is stated here rather than left to be discovered. It is the pass the corpus design specifies, it reads one frame 40 minutes BEFORE each ignition, and nothing fitted in plumerank/constants.py was chosen from it. results/hold_access.log records detector reads of HOLD pixels, which is a different act and still has not happened. This sentence is repeated wherever the exclusion count is published -- data/wall.json, data/micro/PROVENANCE.md, data/micro/manifest_micro.json and every scripts/bench.py payload -- because a disclosure that lives only in the file nobody opens is a disclosure a hostile judge gets to announce.",
   "criteria": [
     "total whiteout",
     "camera inside cloud",
     "a lens fully obscured",
     "a night frame, in a daylight-only system",
     "a corrupt or missing frame",
-    "smoke already present in frame 1, which breaks the ignition clock (seed-data.md 5.1)"
+    "smoke already present in frame 1, which breaks the ignition clock"
   ],
   "not_a_reason": "Hard is not a reason. Haze, glare, low cloud, a dirty lens and a busy skyline all stay in -- they are what the ranking exists to survive, and dropping them would flatter the published number. Where a frame could not be judged, the sequence was kept.",
   "count": 7,

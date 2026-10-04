@@ -38,7 +38,7 @@ labels, in ``scripts/build_confusion_set.py``, where they already live.
 
 Where this lives, and why not in ``scripts/``
 ---------------------------------------------
-``specs/build-contract.md`` W6 fixes ``scripts/`` at six files. This is a one-off
+The repo layout fixes ``scripts/`` at six files. This is a one-off
 measurement that answers one question and is then finished, which is what ``spike/``
 already holds -- ``propose_boxes.py`` and ``s3_separation.py`` are the same kind of
 object, and ``spike/`` is judge-facing, so the census is auditable without becoming part

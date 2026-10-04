@@ -1059,7 +1059,7 @@ def test_the_excluded_count_beside_an_arm_is_that_arms_own_exclusions(
 
     Printing the whole file's length beside one arm's denominator hands a reader an
     addition that does not come out -- "48 sequences, 20 excluded" over a manifest of 60 --
-    and the count is one of the three numbers the scope ledger section 8a says may move and
+    and the count is one of the three numbers the scope record says may move and
     must therefore be machine-derived every time it is printed.
     """
     (tree / "data" / "excluded.json").write_text(

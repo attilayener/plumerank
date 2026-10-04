@@ -1,7 +1,7 @@
 # Per-camera baseline at the calibrated operating point: 17–18 of 29, and the median exists
 
 **Date:** 2026-09-16 · **Status: measured, NOT adopted.** `plumerank/` is unchanged; the
-decision is a human gate (gate 0 of the 2026-09-16 gate record, not in this repo).
+decision was a human one, taken on 2026-09-16.
 Follows `peak_shape_2026-09-16.md`, which could only rate-match on DEV.
 
 Both cells: threshold solved on the 33 CONFUSE windows for 2.00 alerts/camera-night

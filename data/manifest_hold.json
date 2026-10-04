@@ -10,7 +10,7 @@
  "catalogue": "521 sequences published; 400 span the canonical +/-2400 s at 60 s cadence.",
  "selection": [
   "60 sequences, at most 2 per camera so no single camera dominates the headline.",
-  "STRENGTHENING BEYOND THE SPEC, RECORDED HERE: HOLD is disjoint from DEV on CAMERA, not only on sequence id. seed-data.md rule 1 requires only sequence-id disjointness. Camera disjointness costs nothing (170 cameras are available) and it means the six constants of S1-S3 and the fusion weights were fit on cameras the headline was never measured on. An advantage measured on the same cameras it was fitted on is the first thing a hostile judge attacks.",
+  "STRENGTHENED, RECORDED HERE: HOLD is disjoint from DEV on CAMERA, not only on sequence id. the corpus design requires only sequence-id disjointness. Camera disjointness costs nothing (170 cameras are available) and it means the six constants of S1-S3 and the fusion weights were fit on cameras the headline was never measured on. An advantage measured on the same cameras it was fitted on is the first thing a hostile judge attacks.",
   "Newest first (2024-2026) so the camera hardware and framing match the 2026 MTA archive that the CONFUSE arm is drawn from."
  ],
  "sha256_note": "Per-file sha256 is NOT in this manifest and that is deliberate: hashing 10,935 images requires downloading them, which is what scripts/fetch.py does. On the first fetch it writes data/fetch_receipt.json with a sha256 per file; that receipt is committed and every later fetch verifies against it. The manifest pins WHICH frames; the receipt pins WHAT they contained.",

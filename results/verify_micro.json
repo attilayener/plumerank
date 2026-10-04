@@ -18,9 +18,9 @@
   },
   "schema": "plumerank.verify_micro/1",
   "thresholds": {
-    "b1_cnn_grid": 0.9473741706319231,
-    "b2_frame_diff": 0.995148378749899,
-    "plumerank": 0.8969219785419407
+    "b1_cnn_grid": 0.947374,
+    "b2_frame_diff": 0.995148,
+    "plumerank": 0.896922
   },
   "ttd": {
     "b1_cnn_grid": {

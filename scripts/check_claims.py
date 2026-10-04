@@ -47,7 +47,7 @@ The defended-surface count
 --------------------------
 This script is the authority on it. It prints what it finds TODAY, from the source on
 disk, and a document may quote only the number it printed on the day that document was
-written. The build plan predicts 23, falling to 22 if the ablation gate deletes S4 and to
+written. The plan predicted 23, falling to 22 if the ablation gate deletes S4 and to
 21 if GSOC is descoped too -- a prediction is not a measurement, and this file never
 prints one.
 """

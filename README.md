@@ -12,7 +12,7 @@
 
   ![OpenCV 5](https://img.shields.io/badge/OpenCV-5.0.0-5C3EE8?style=flat&logo=opencv&logoColor=white)
   ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat&logo=python&logoColor=white)
-  ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white)
+  ![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688?style=flat&logo=fastapi&logoColor=white)
   ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat&logo=next.js)
   ![ONNX](https://img.shields.io/badge/ONNX-runtime%3A_cv2.dnn-005CED?style=flat&logo=onnx&logoColor=white)
   ![AWS Graviton](https://img.shields.io/badge/AWS-Graviton_t4g.small-FF9900?style=flat&logo=amazonaws&logoColor=white)
@@ -34,8 +34,8 @@ will survive contact with a real shift before it gets muted. The number that mat
 different: **how many minutes after ignition does a human actually look at the right camera,
 given she will only tolerate a fixed number of interruptions per camera per night?**
 
-**PlumeRank publishes that number.** It watches a camera network and emits, every minute, a
-ranked shortlist of which cameras a human should look at now — each entry carrying its own
+**PlumeRank publishes that number.** It watches a camera network and emits, once per frame (one
+minute of footage), a ranked shortlist of which cameras a human should look at now — each entry carrying its own
 cropped evidence tile — calibrated to a fixed budget of **2 alerts per camera-night**. It never
 suppresses a camera and never dispatches an engine. It reorders human attention.
 
@@ -47,21 +47,29 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 > (HOLD) evaluation — the only run whose number is allowed to be called the headline — has not
 > run yet. What exists today is the **DEV** arm (the data the fusion weights were fit on, never
 > the number a judge should be shown as proof): **17 of 29 sequences detected, median
-> time-to-detection 32.0 minutes, at 1.99 alerts/camera-night** (`results/arm_dev_2026-10-04.json`).
+> time-to-detection 32.0 minutes**, with the threshold calibrated to 1.99 alerts/camera-night
+> on the fire-free confusion set (it realises 2.37 on DEV itself) (`results/arm_dev_2026-10-04.json`).
 > That number is for orientation only. Until the HOLD run exists, `/api/benchmark` on the live
-> box correctly 404s and the live wall correctly shows itself as degraded rather than inventing
-> a ranking — see [`JUDGE.md`](JUDGE.md) and `api/main.py`'s `_calibrated_threshold`.
+> box 404s (there is no `results/bench_*.json` to serve), and the live wall runs on the
+> threshold solved on the confusion set by that DEV run — labelled as such on screen. The
+> threshold depends only on the confusion set, so it is the one the held-out run will solve
+> too. See [`JUDGE.md`](JUDGE.md) and `api/main.py`'s `_calibrated_threshold`.
 
 | Metric | DEV (orientation only — never the claim) |
 |---|---|
 | Detected | 17 / 29 |
 | Median time-to-detection | 32.0 min |
-| Realised alert rate | 1.99 alerts/camera-night (target 2.0) |
+| Alert rate | 1.99 alerts/camera-night on the confusion set (the calibration target is 2.0); 2.37 realised on DEV |
 | Escalation fraction (frames touched by the ONNX classifier) | 2.23% — over the 2% design cap the run itself records (`within_max: false`) |
-| Baseline B1 (same CNN, every frame) | 6 / 29 detected — no median |
-| Baseline B2 (frame differencing) | 3 / 29 detected — no median |
-| B1 through PlumeRank's own per-camera baseline (like-for-like) | 14 / 29 detected — no median |
-| B2 through PlumeRank's own per-camera baseline (like-for-like) | 10 / 29 detected — no median |
+| **B1 through PlumeRank's own per-camera baseline (like-for-like)** | **14 / 29 detected — no median** (2.51 realised on DEV) |
+| **B2 through PlumeRank's own per-camera baseline (like-for-like)** | **10 / 29 detected — no median** (2.05 realised on DEV) |
+| B1 as deployed (same CNN, every frame, no baseline) | 6 / 29 detected — no median (0.46 realised on DEV; its threshold sits within 1e-6 of 1.0 — saturated CNN probabilities) |
+| B2 as deployed (frame differencing, no baseline) | 3 / 29 detected — no median (1.84 realised on DEV) |
+
+Every system is calibrated to the same budget **on the confusion set** (all five land at 1.99).
+On DEV the realised rates differ, as listed. The per-sequence results — which sequences each
+system catches, when, and which it misses — are in the same file under `per_sequence`, and
+summarised in [`REPORT.md`](REPORT.md) §6.
 
 ## Honest limitations
 
@@ -78,21 +86,24 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
    and S2 0.50 are near chance (`results/statistics_confound_2026-09-06.md`). S3 was never tested
    against fog directly. What carries the ranking is scoring each camera against its own
    trailing 15 minutes, not any single statistic.
-7. **One fusion weight is not identified.** Refitting moves `FUSION_W_ESCALATION` from +0.78 to
+3. **Two fusion weights are not what the design assumed.** S3 carries the largest fusion weight
+   (`FUSION_W_S3 = 4.0931`, `plumerank/constants.py`) despite its AUC of 0.44 on its own, and no
+   S3-off ablation has been run yet. Separately, one weight is not identified: refitting moves `FUSION_W_ESCALATION` from +0.78 to
    −0.38 for a 0.0006 change in leave-one-sequence-out AUC; the shipped value is kept because
    it scores two sequences and six minutes of p50 better on DEV
    (`results/refit_through_baseline_2026-09-16.md`). DEV is the tuning arm, so that choice is
    in-sample by construction.
-3. **The novelty is a metric reframe, not a new sensor.** The individual OpenCV operations are
+4. **The novelty is a metric reframe, not a new sensor.** The individual OpenCV operations are
    well-known; what is new is the primitive that composes them and the attention-budget
    objective they are pointed at.
-4. **One instance, no HA, no static mirror.** The endpoint is a single free-tier Graviton box.
+5. **One instance, no HA, no static mirror.** The endpoint is a single Graviton `t4g.small`
+   (unlimited credit mode), funded by the competition's AWS compute grant.
    Every published number is committed in `results/` so the claim survives the box going down.
-5. **No managed cloud vision API baseline.** Both baselines are calibrated to the same alert
-   budget as PlumeRank; one of them (B1) shares PlumeRank's own neural network, run over every
+6. **No managed cloud vision API baseline.** Both baselines are calibrated to the same alert
+   budget as PlumeRank on the confusion set; one of them (B1) shares PlumeRank's own neural network, run over every
    frame instead of the ~2% the classical stage escalates — a controlled experiment, not a
    contest between differently-sized models.
-6. **No upload path, no dispatch path, no suppression path — by design, not by omission.** See
+7. **No upload path, no dispatch path, no suppression path — by design, not by omission.** See
    "Responsible use" below.
 
 ---
@@ -101,12 +112,14 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 
 Over a rolling, stabilised window, each foreground component on each camera is measured for:
 
-| # | Statistic | Physical claim |
-|---|---|---|
-| S1 | **Base anchoring** | a fire is tied to the ground; a cloud is not |
-| S2 | **Vertical growth anisotropy** | a plume rises faster than it spreads |
-| S3 | **Diffuse-boundary contrast** | *measured not to separate on its own* — kept in the fused model anyway, see limitation 2 |
-| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not — kept on evidence: 17/29 with it vs. 14/29 without, under the shipped baseline |
+| # | Statistic | Design hypothesis | Measured on its own (DEV, AUC pre- vs post-ignition) |
+|---|---|---|---|
+| S1 | **Base anchoring** | a fire is tied to the ground; a cloud is not | 0.528 — near chance |
+| S2 | **Vertical growth anisotropy** | a plume rises faster than it spreads | 0.50 — chance |
+| S3 | **Diffuse-boundary contrast** | smoke has a soft edge | 0.44 — anti-predictive (limitations 2 and 3) |
+| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | kept on evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.23%), so the two effects are not separated |
+
+None of the four is a good detector alone (`results/statistics_confound_2026-09-06.md`).
 
 Those four fold into a per-camera hazard (a fixed logistic, weights fit on DEV, no presence
 term). Each camera is then scored against **its own trailing 15 minutes** — a camera that runs
@@ -157,7 +170,7 @@ HPWREN FIgLib replay ──▶ stabilise (phaseCorrelate + MAGSAC) ──▶ seg
 ```
 
 One t4g.small (Graviton/ARM) instance, one S3 bucket for the corpus, CloudWatch for the alert
-budget and a silence alarm. No Lambda, no managed vision API, no second instance.
+budget (drift alarms at ±15%) and a heartbeat-silence alarm. No Lambda, no managed vision API, no second instance.
 
 ---
 
@@ -171,7 +184,9 @@ budget and a silence alarm. No Lambda, no managed vision API, no second instance
    drift alarm, not a constant buried in a config file.
 4. **Every ranked entry ships its evidence crop**, so a human can overrule the ranking in one
    glance.
-5. **Derived statistics are persisted, not frames.** No identifiable data exists in the pipeline.
+5. **No new imagery is collected.** The wall replays public HPWREN FIgLib footage of
+   landscapes; the only frames it writes are small evidence crops and thumbnails of that
+   footage for the screen, overwritten on every replay.
 
 ---
 

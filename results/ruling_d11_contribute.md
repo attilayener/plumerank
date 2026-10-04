@@ -56,7 +56,7 @@ detector rather than a property of the roster.**
 
 It does **not** retroactively fire the abort on 1.5385. §7.3 recorded two unmet preconditions,
 and the second is disqualifying on its own: **the fusion weights are not fitted.** `constants.py`
-carries a-priori values written before any data was seen, while the build plan D11 specifies "a
+carries a-priori values written before any data was seen, while the original plan (D11) specifies "a
 weighted logistic, weights fit on DEV". A criterion evaluated on an instrument the spec says is
 not yet built measures the instrument, not the primitive.
 
