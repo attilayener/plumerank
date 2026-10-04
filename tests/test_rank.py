@@ -1,7 +1,7 @@
 """Tests for the fusion, the solved threshold, the budget and the evidence crop.
 
 Two of these are not really unit tests but assertions about the product's promises:
-``test_emit_never_suppresses_a_spent_camera`` is spec.md section 9 safeguard 2, and
+``test_emit_never_suppresses_a_spent_camera`` is the spec section 9 safeguard 2, and
 ``test_solve_threshold_closed_form`` is the only reason to believe the published operating
 point is the one the system actually runs at.
 """
@@ -260,7 +260,7 @@ def test_emit_does_not_spend_budget_below_the_threshold():
 
 
 def test_emit_never_suppresses_a_spent_camera():
-    """spec.md section 9 safeguard 2: the system reorders, it never suppresses. A camera
+    """the spec section 9 safeguard 2: the system reorders, it never suppresses. A camera
     whose two alerts are gone still occupies its rank, carries its budget_spent count, and
     is merely not alerting -- because a row the operator cannot see is a row she cannot
     overrule."""
@@ -599,3 +599,20 @@ def test_baseline_refuses_a_non_finite_hazard():
 def test_baseline_refuses_a_zero_window():
     with pytest.raises(ValueError):
         rank.Baseline(window=0)
+
+
+def test_solve_threshold_resolves_scores_crowded_under_the_high_bound():
+    """B1's saturated CNN probabilities sit within 1e-4 of 1.0. Bisection stopped at its
+    tolerance and returned the high bound -- zero alerts. The order statistic does not."""
+    rng = np.random.default_rng(3)
+    windows = [list(1.0 - rng.random(FRAMES_PER_WINDOW) * 1e-6) for _ in range(33)]
+    t = solve_threshold(windows, target=2.0)
+    assert t < THRESHOLD_SEARCH_HI
+    assert 1.9 <= realised_rate(windows, t) <= 2.0
+
+
+def test_solve_threshold_never_overshoots_on_ties():
+    """A tie at the cut is excluded whole: under target is allowed, over never."""
+    windows = [[0.5] * 3 + [0.1] * (FRAMES_PER_WINDOW - 3) for _ in range(10)]
+    t = solve_threshold(windows, target=2.0)
+    assert realised_rate(windows, t) <= 2.0

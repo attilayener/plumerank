@@ -28,7 +28,7 @@ time-to-detection comparison between two detectors means anything at all.
 Why the roster is never truncated
 ---------------------------------
 ``emit`` returns every camera, ranked, including the ones whose budget is gone. The
-system reorders; it never suppresses (``spec.md`` section 9, safeguard 2). A watch list
+system reorders; it never suppresses (the spec section 9, safeguard 2). A watch list
 that quietly dropped a camera whose two alerts were spent would be a UI that lies about
 its own mechanism, and the failure mode it invites -- a fire on a camera the operator
 believes is being shown to them -- is the one this project exists to avoid.
@@ -60,9 +60,7 @@ from .constants import (
     FUSION_W_S4,
     S4_ENABLED,
     THRESHOLD_SEARCH_HI,
-    THRESHOLD_SEARCH_ITERS,
     THRESHOLD_SEARCH_LO,
-    THRESHOLD_SEARCH_TOL,
 )
 from .metrics import alerts_per_camera_night
 from .types import CameraScore, Component, Stats, Track, WatchEntry
@@ -325,7 +323,7 @@ def solve_threshold(
     target: float = BUDGET_ALERTS_PER_CAMERA_NIGHT,
     frames_per_window: int = FRAMES_PER_WINDOW,
 ) -> float:
-    """Bisect for the lowest hazard threshold whose realised alert rate is within budget.
+    """Solve for the lowest hazard threshold whose realised alert rate is within budget.
 
     Args:
         hazard_windows: one list of per-frame hazards per CONFUSE window. One window is one
@@ -342,10 +340,14 @@ def solve_threshold(
         strictest threshold overshoots. Both are honest answers about the corpus, and both
         are visible in ``results/`` next to the rate they actually produced.
 
-    The search is monotone by construction -- ``realised_rate`` is non-increasing in the
-    threshold -- so bisection is exact rather than heuristic, and 60 halvings of the unit
-    interval land far inside THRESHOLD_SEARCH_TOL. A grid search would need the same number
-    of rate evaluations to reach a tenth of the precision.
+    Solved on the sorted hazards, not by bisection. The realised rate is a step function
+    that only moves at an observed hazard, so the answer is an order statistic: the budget
+    allows at most ``k`` alerts, and the lowest threshold that admits no more than ``k`` sits
+    just above the ``(k+1)``-th largest hazard. Bisection on the unit interval stopped at
+    ``THRESHOLD_SEARCH_TOL`` instead, and for a system whose scores crowd into the last 1e-4
+    below 1.0 -- B1's saturated CNN probabilities on CONFUSE -- it stopped at the high bound
+    and calibrated B1 to zero alerts a night while the check above it only looked for
+    overshoot. Exact on any distribution, ties included.
     """
     if not hazard_windows:
         raise ValueError("solve_threshold() of an empty arm -- nothing to calibrate on")
@@ -354,28 +356,28 @@ def solve_threshold(
 
     lo, hi = THRESHOLD_SEARCH_LO, THRESHOLD_SEARCH_HI
 
-    # The bounds are checked before the loop, not clamped after it: "even alerting on
-    # everything is inside budget" and "even the strictest threshold overshoots" are
-    # different facts about the corpus, and a bisection that silently returned a midpoint
-    # for either would report a calibrated system that is not calibrated.
+    # The bounds are checked first, and realised_rate validates every hazard on the way:
+    # "even alerting on everything is inside budget" and "even the strictest threshold
+    # overshoots" are different facts about the corpus, and neither may come back as a
+    # threshold that looks calibrated.
     if realised_rate(hazard_windows, lo, frames_per_window) <= target:
         return lo
     if realised_rate(hazard_windows, hi, frames_per_window) > target:
         return hi
 
-    for _ in range(THRESHOLD_SEARCH_ITERS):
-        if hi - lo <= THRESHOLD_SEARCH_TOL:
-            break
-        mid = 0.5 * (lo + hi)
-        if realised_rate(hazard_windows, mid, frames_per_window) > target:
-            lo = mid
-        else:
-            hi = mid
+    lengths = [len(w) for w in hazard_windows]
+    ranked = sorted((float(h) for w in hazard_windows for h in w), reverse=True)
+    # k = the most alerts the budget allows, in realised_rate's own unit. k < len(ranked),
+    # because alerting on every frame was already shown to overshoot.
+    k = 0
+    while alerts_per_camera_night(k + 1, lengths) <= target:
+        k += 1
 
-    # hi, never mid: hi is the side of the bracket that is known to satisfy the budget.
-    # Returning the midpoint would hand back a threshold whose realised rate was never
-    # measured to be within target.
-    return hi
+    # Strictly above the (k+1)-th largest hazard: every frame tied with it is excluded with
+    # it, so a tie can leave the realised rate under target, never over. _check_calibration
+    # in scripts/bench.py rejects a rate that lands outside the drift band on either side.
+    threshold = math.nextafter(ranked[k], math.inf)
+    return min(max(threshold, lo), hi)
 
 
 # ---------------------------------------------------------------------------------
@@ -461,7 +463,7 @@ def emit(
 
     A camera whose budget is gone **still appears**, with ``alerted=False`` and its
     ``budget_spent`` count, and the list is never truncated to the top-k. This is
-    ``spec.md`` section 9 safeguard 2 expressed as code rather than as a paragraph: the
+    the spec section 9 safeguard 2 expressed as code rather than as a paragraph: the
     system reorders, it never suppresses. ``TOP_K`` is a *metrics* concept -- what counts as
     a detection -- and applying it here would delete the evidence a human needs to overrule.
 
@@ -607,7 +609,7 @@ def draw_evidence(
 
     **These four calls are honest OpenCV usage but are NOT counted as analysis depth.**
     Drawing a line is not image analysis and writing a file is not image analysis; they are
-    named in ``opencv5-defense.md`` section 6a's anti-inflation list and excluded from the
+    named in the OpenCV 5 design notes section 6a's anti-inflation list and excluded from the
     23-surface count. Stating that is cheaper than being caught inflating it.
 
     Args:

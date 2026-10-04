@@ -215,6 +215,7 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Run]:
 
     patch = pytest.MonkeyPatch()
     patch.setattr(bench, "git_commit", lambda _root: COMMIT)
+    patch.setattr(bench, "assert_tree_clean", lambda _root: None)
     patch.setattr(bench, "ablation_cells", _two_cell_grid)
     buffer = io.StringIO()
     try:

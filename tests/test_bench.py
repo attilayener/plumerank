@@ -249,6 +249,9 @@ def commit(monkeypatch: pytest.MonkeyPatch) -> str:
     """A fixed HEAD sha. bench refuses to read HOLD outside a checkout, and a tmp dir is
     not one -- patching the lookup is how the refusal stays testable without a git write."""
     monkeypatch.setattr(bench, "git_commit", lambda root: SHA)
+    # The tmp tree is not a checkout either, so the clean-tree guard is stubbed with the
+    # sha; test_hold_refuses_a_dirty_checkout exercises the real one against a real repo.
+    monkeypatch.setattr(bench, "assert_tree_clean", lambda root: None)
     return SHA
 
 
@@ -723,9 +726,12 @@ def test_the_published_rate_is_measured_not_taken_from_the_solver(
 
 
 def test_the_operating_curve_covers_the_requested_budget(tree: pathlib.Path) -> None:
-    assert _run(tree, "--arm", "dev", "--budget", "3.0") == 0
+    # 2.4, not a round number: the synthetic CONFUSE arm resolves rates in steps of ~2.5
+    # and B2's synthetic scores tie at the top, so any budget a whole step above 0.0 is
+    # (correctly) refused as undershoot by _check_calibration.
+    assert _run(tree, "--arm", "dev", "--budget", "2.4") == 0
     budgets = [r["budget_alerts_per_camera_night"] for r in _bench_json(tree)["operating_curve"]]
-    assert 3.0 in budgets, "the published operating point must be a point on the curve"
+    assert 2.4 in budgets, "the published operating point must be a point on the curve"
     assert budgets == sorted(set(budgets))
 
 
@@ -894,7 +900,7 @@ def test_an_ablation_cell_cannot_occupy_the_shipped_arm_filename(tree: pathlib.P
 
     Until 2026-09-06 it did not. ``--s4 off`` wrote ``arm_dev_<date>.json``, the same file a
     normal run writes, so the D10 ablation left an S4-OFF cell under the canonical name and
-    four documents plus ``project.json`` reported it as the product: 41.4% detection against
+    four documents plus the project record reported it as the product: 41.4% detection against
     the shipped pipeline's 31.0%. Nothing was copied wrong and nothing was hidden -- the name
     simply did not carry the cell. See ``results/artefact_provenance_2026-09-06.md``.
 
@@ -1040,7 +1046,7 @@ def test_the_excluded_count_beside_an_arm_is_that_arms_own_exclusions(
 
     Printing the whole file's length beside one arm's denominator hands a reader an
     addition that does not come out -- "48 sequences, 20 excluded" over a manifest of 60 --
-    and the count is one of the three numbers complexity.md section 8a says may move and
+    and the count is one of the three numbers the scope ledger section 8a says may move and
     must therefore be machine-derived every time it is printed.
     """
     (tree / "data" / "excluded.json").write_text(
@@ -1108,3 +1114,50 @@ def test_shipped_baseline_cell_is_rank_rebase_series_and_absolute_is_identity() 
     assert bench.apply_baseline(series, "ztrail10") == rk.rebase_series(series, window=10)
     with pytest.raises(ValueError):
         bench.apply_baseline(series, "none")
+
+
+# ---------------------------------------------------------------------------------
+# Calibration is validated before HOLD is opened, and from both sides (audit 2026-10-04)
+# ---------------------------------------------------------------------------------
+
+
+def test_hold_refuses_a_dirty_checkout(tmp_path: pathlib.Path) -> None:
+    """The constants freeze covers one file; this covers every tracked one."""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = ["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    (repo / "rank.py").write_text("x = 1\n")
+    subprocess.run([*git, "add", "rank.py"], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "init"], check=True)
+    (repo / "scratch.json").write_text("{}")  # untracked: allowed
+    bench.assert_tree_clean(repo)
+    (repo / "rank.py").write_text("x = 2\n")
+    with pytest.raises(SystemExit, match="tracked files differ from HEAD"):
+        bench.assert_tree_clean(repo)
+
+
+def test_an_uncalibratable_system_stops_hold_before_the_read_is_logged(
+    tree: pathlib.Path, commit: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one logged HOLD read must not be spent on a run that cannot publish."""
+    _freeze(tree)
+    monkeypatch.setattr(bench.rk, "solve_threshold", lambda *a, **k: 0.0)
+    calls = _counting(monkeypatch)
+    with pytest.raises(SystemExit, match="fabrication"):
+        _run(tree, "--arm", "hold", "--budget", "0.001")
+    assert not (tree / "results" / "hold_access.log").exists()
+    assert calls[0] == 1, "only CONFUSE may have been replayed"
+
+
+def test_undershoot_with_headroom_is_refused() -> None:
+    """B1 at 0.0 alerts on a corpus where one alert is worth 0.03 is not calibrated."""
+    with pytest.raises(SystemExit, match="below the 1.700 floor"):
+        bench._check_calibration({"b1_cnn_grid": (1.0, 0.0)}, 2.0, step=0.03)
+
+
+def test_undershoot_at_the_corpus_resolution_is_accepted() -> None:
+    """One more alert would overshoot, so 0.0 is the tightest honest answer."""
+    bench._check_calibration({"plumerank": (0.6, 0.0)}, 2.0, step=5.0)

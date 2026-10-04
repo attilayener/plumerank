@@ -2,7 +2,7 @@
   "arm": "micro",
   "background": "mog2",
   "budget_alerts_per_camera_night": 2.0,
-  "constants_sha256": "209d8549929c14cb92cdd7d005cd3943b20aa02249200c890605a87b04507bf2",
+  "constants_sha256": "ce9da71c7288fb3ada201a3852011668ce8bb05f3142b60a88abd32a637906f1",
   "escalation_fraction": 0.006452,
   "frames_per_window": 31,
   "model_invocations_per_camera_night": {
@@ -18,9 +18,9 @@
   },
   "schema": "plumerank.verify_micro/1",
   "thresholds": {
-    "b1_cnn_grid": 0.947388,
-    "b2_frame_diff": 0.995178,
-    "plumerank": 0.896973
+    "b1_cnn_grid": 0.9473741706319231,
+    "b2_frame_diff": 0.995148378749899,
+    "plumerank": 0.8969219785419407
   },
   "ttd": {
     "b1_cnn_grid": {

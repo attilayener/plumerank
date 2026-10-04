@@ -48,7 +48,7 @@ It prints exactly two labelled blocks, and the labels are the whole point. Block
 ``REPRODUCED HERE`` recomputes the micro metrics live and asserts them byte-for-byte
 against the committed ``results/verify_micro.json``. Block 2 ``PUBLISHED, NOT RECOMPUTED
 HERE`` prints the HOLD headline verbatim out of ``results/bench_<date>.json`` with the
-~95-minute command that actually reproduces it. A judge who runs the 3-minute command,
+~135-minute command that actually reproduces it. A judge who runs the 3-minute command,
 prints a p50 that is not the README's p50 and concludes the headline does not reproduce
 is the single worst outcome available to this submission, so no string in this file
 describes the short command as reproducing the long one.
@@ -59,6 +59,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import hashlib
 import json
 import math
 import os
@@ -130,7 +131,7 @@ SYSTEMS: tuple[str, ...] = ("plumerank", "b1_cnn_grid", "b2_frame_diff")
 #: headline is not a decision a reader gets to take.
 HEADLINE_SYSTEM = "plumerank"
 
-#: The exact spellings production-plan.md section 7 prints. They are keys as well as
+#: The exact spellings the production plan section 7 prints. They are keys as well as
 #: labels: /results renders them and DEMO.md quotes them, so they are fixed here once.
 SYSTEM_LABELS: dict[str, str] = {
     "plumerank": "PlumeRank",
@@ -143,6 +144,21 @@ SYSTEM_NOTES: dict[str, str] = {
     "b2_frame_diff": "",
 }
 LABEL_WIDTH = 15
+
+#: B1 and B2 a second time, through the SAME per-camera baseline PlumeRank ships with.
+#: The baseline alone took PlumeRank from 9/29 to 17/29 on DEV, so comparing a rebased
+#: PlumeRank with raw baselines credits the pipeline with what the rebasing did. These rows
+#: make the comparison like-for-like; the raw rows stay, because "what does B1 do as
+#: deployed" is also a fair question. Derived from the cached hazards -- no pixels -- and
+#: kept OUT of ScoreMatrix.systems, so the curve, sensitivity strip and web lanes are
+#: unchanged and the rows land in the payload's ``baselines_rebased``.
+REBASED: dict[str, str] = {
+    "b1_cnn_grid_rebased": "b1_cnn_grid",
+    "b2_frame_diff_rebased": "b2_frame_diff",
+}
+SYSTEM_LABELS.update(
+    {"b1_cnn_grid_rebased": "B1 rebased", "b2_frame_diff_rebased": "B2 rebased"}
+)
 
 #: Ignition-clock offsets for --sensitivity, in minutes. Eleven, symmetric, one per
 #: frame: FIgLib's cadence is 60 s, so an offset of k minutes is exactly k frames and the
@@ -318,7 +334,7 @@ def cpu_credit_balance(instance_id: str | None) -> float | None:
 
     Printed before and after the run because ``t4g.small`` is burstable: a run that
     started with a full balance and one that started throttled are different experiments,
-    and the reader has to be able to tell which one they got (production-plan.md section
+    and the reader has to be able to tell which one they got (the production plan section
     1). Uses telemetry.py's boto3 factory rather than importing boto3 here, so the "only
     boto3 in the project" claim in the module map stays true.
 
@@ -380,6 +396,47 @@ def assert_constants_frozen(root: pathlib.Path) -> str:
             f"the held-out arm, whatever the intent."
         )
     return actual
+
+
+def assert_tree_clean(root: pathlib.Path) -> None:
+    """Refuse to touch HOLD from a checkout whose tracked files differ from HEAD.
+
+    The constants freeze covers ``constants.py`` and nothing else, so before this check a
+    HOLD run could execute an edited ``rank.py``, ``bench.py`` or CONFUSE manifest while
+    ``hold_access.log`` and ``run.commit`` named a commit that contains none of it -- a
+    result nobody could reproduce from the sha it publishes. Tracked files only: untracked
+    scratch (a labelling file, an earlier DEV payload) cannot change what HEAD runs.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SystemExit(f"refusing to read HOLD: git status failed ({exc})") from exc
+    if out.returncode != 0:
+        raise SystemExit(f"refusing to read HOLD: git status failed\n{out.stderr.strip()}")
+    dirty = out.stdout.strip()
+    if dirty:
+        raise SystemExit(
+            "refusing to read HOLD: tracked files differ from HEAD, so the commit this run "
+            "would publish is not the code it would execute. Commit or stash first:\n"
+            + dirty
+        )
+
+
+def manifest_sha256(root: pathlib.Path, arm: str) -> str | None:
+    """sha256 of an arm's manifest file, or ``None`` when it is absent.
+
+    Logged beside the constants hash on every HOLD read, so the confusion set the budget
+    was calibrated on is pinned as firmly as the constants are.
+    """
+    path = _manifest_path(root, arm)
+    if not path.is_file():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def log_hold_access(root: pathlib.Path, commit: str, note: str) -> pathlib.Path:
@@ -471,7 +528,7 @@ def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
     string rather than refused.
 
     The **reason** is carried rather than dropped. The exclusion pass is a manual
-    eyeballing of a contact sheet (complexity.md D6) and "why was this sequence dropped"
+    eyeballing of a contact sheet (the scope ledger D6) and "why was this sequence dropped"
     is the first question a hostile reader asks about a denominator that moved; a list of
     bare ids answers the count and refuses the question. It is also the shape
     ``web/lib/read.ts:readExclusions`` reads -- records with ``sequence_id`` and
@@ -512,7 +569,9 @@ def load_exclusions(root: pathlib.Path) -> tuple[list[dict[str, str]], str]:
 
     return (
         [{"sequence_id": k, "reason": records[k]} for k in sorted(records)],
-        str(path),
+        # Relative to the checkout: an absolute path publishes the operator's home
+        # directory in every committed payload and means nothing on anyone else's disk.
+        path.relative_to(root).as_posix() if path.is_relative_to(root) else path.name,
     )
 
 
@@ -1066,6 +1125,13 @@ def rebase(matrix: ScoreMatrix, baseline: str, system: str = "plumerank") -> Non
     matrix.hazards[system] = [apply_baseline(w, baseline) for w in matrix.hazards[system]]
 
 
+def add_rebased(matrix: ScoreMatrix, baseline: str) -> None:
+    """Add the ``REBASED`` rows: each raw baseline's hazards through ``apply_baseline``."""
+    for derived, source in REBASED.items():
+        matrix.hazards[derived] = [apply_baseline(w, baseline) for w in matrix.hazards[source]]
+        matrix.model_calls[derived] = matrix.model_calls.get(source, 0)
+
+
 def alert_trace(matrix: ScoreMatrix, system: str, threshold: float, per_camera: int) -> AlertTrace:
     """Run the real ``rank.emit`` over the cached hazards, tick by tick."""
     keys = matrix.keys
@@ -1176,7 +1242,10 @@ class SystemResult:
         return {
             "system": self.system,
             "label": SYSTEM_LABELS[self.system],
-            "threshold": round(self.threshold, 6),
+            # Unrounded: the solver now returns the float just above an observed hazard, and
+            # B1's sits within 1e-6 of 1.0 -- rounded to 6 places it would publish as 1.0,
+            # a threshold that realises zero alerts if anyone re-applies it.
+            "threshold": self.threshold,
             "calibration_realised_rate_uncapped": round(self.calibration_rate, 4),
             "arm_realised_rate_uncapped": round(self.arm_rate, 4),
             "budget_slots_spent": self.budget_spent,
@@ -1193,9 +1262,18 @@ def evaluate(
     system: str,
     budget: float,
     per_camera: int,
+    *,
+    solved: tuple[float, float] | None = None,
 ) -> tuple[SystemResult, AlertTrace]:
-    """Calibrate on CONFUSE, score on the arm. The trace comes back for re-scoring."""
-    threshold, calibration_rate = calibrate(calibration, system, budget)
+    """Calibrate on CONFUSE, score on the arm. The trace comes back for re-scoring.
+
+    ``solved`` is a ``calibrate()`` answer already in hand. ``run_arm`` solves and checks
+    every system on CONFUSE before HOLD is opened, and passes the answers in here rather
+    than solving twice.
+    """
+    threshold, calibration_rate = (
+        solved if solved is not None else calibrate(calibration, system, budget)
+    )
     trace = alert_trace(matrix, system, threshold, per_camera)
     ttds, dropped = ttds_from_trace(matrix, trace)
     if dropped:
@@ -1223,7 +1301,7 @@ def evaluate(
 
 
 # ---------------------------------------------------------------------------------
-# The human block -- shape fixed by production-plan.md section 7
+# The human block -- shape fixed by the production plan section 7
 # ---------------------------------------------------------------------------------
 
 
@@ -1247,7 +1325,7 @@ def _clock(seconds: float) -> str:
 
 
 def headline_block(payload: dict[str, Any]) -> str:
-    """The block production-plan.md section 7 specifies, built from the payload.
+    """The block the production plan section 7 specifies, built from the payload.
 
     Built from the payload rather than from the live objects so that the string stored in
     ``results/bench_<date>.json``, the string ``/api/benchmark`` serves and the string
@@ -1297,7 +1375,7 @@ def headline_block(payload: dict[str, Any]) -> str:
         ),
         _row("t0 sensitivity", _sensitivity_line(payload)),
         _row("background", payload["background"]),
-        # The one line with no label column, because production-plan.md section 7 prints
+        # The one line with no label column, because the production plan section 7 prints
         # it that way: it is the run's provenance rather than one of its measurements.
         f"  commit {run['commit'] or 'not a checkout'}  instance {run['instance']}  "
         f"wall clock {_clock(run['wall_clock_seconds'])}  {run['date']}",
@@ -1397,7 +1475,7 @@ def operating_curve(
         }
         for system in matrix.systems:
             result, _ = evaluate(matrix, calibration, system, budget, per_camera)
-            row[f"{system}_threshold"] = round(result.threshold, 6)
+            row[f"{system}_threshold"] = result.threshold
             row[f"{system}_realised_rate_uncapped"] = round(result.arm_rate, 4)
             row[f"{system}_p50_minutes"] = (
                 None if result.summary is None else _finite(result.summary.p50)
@@ -1516,7 +1594,7 @@ def run_ablation(
             "n": 0 if summary is None else summary.n,
             "n_detected": 0 if summary is None else summary.n_detected,
             "n_missed": 0 if summary is None else summary.n_missed,
-            "threshold": round(result.threshold, 6),
+            "threshold": result.threshold,
             "realised_rate_uncapped": round(result.arm_rate, 4),
             "escalation_fraction": round(matrix.escalation_fraction, 6),
             "model_calls_per_camera_night": round(result.model_calls_per_camera_night, 3),
@@ -1559,7 +1637,7 @@ def _append_csv_row(path: pathlib.Path, columns: Sequence[str], row: dict[str, A
 
 
 def write_sensitivity_csv(path: pathlib.Path, rows: list[dict[str, Any]]) -> None:
-    """The sensitivity strip as raw rows, committed alongside the JSON (LESSONS rule 36)."""
+    """The sensitivity strip as raw rows, committed alongside the JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_file():
         path.unlink()
@@ -1668,6 +1746,18 @@ def run_arm(
     denominator = arm_denominator(root, args.arm, exclusion_records)
     commit = git_commit(root)
     facts = instance_facts()
+    # Once, up front: a HOLD run in a cell that has nowhere safe to land must stop before
+    # HOLD is opened, not after an hour of replay -- and a run that crosses midnight UTC
+    # must not file under a different date than the one it started on.
+    try:
+        results_file = results_filename(
+            args.arm,
+            _today(),
+            s4=getattr(args, "s4", "on"),
+            baseline=getattr(args, "baseline", "shipped"),
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
     if args.arm == "hold":
         constants_sha = assert_constants_frozen(root)
@@ -1676,8 +1766,10 @@ def run_arm(
                 "refusing to read HOLD: this is not a git checkout, so hold_access.log "
                 "could not name a commit anybody can check out"
             )
+        assert_tree_clean(root)
     else:
         constants_sha = K.freeze_hash()
+    confuse_manifest_sha = manifest_sha256(root, "micro" if args.arm == "micro" else "confuse")
 
     windows = load_arm(root, args.arm, excluded)
     calibration_windows = load_calibration(root, args.arm, excluded)
@@ -1701,15 +1793,6 @@ def run_arm(
             f"committed files do not produce."
         )
 
-    if args.arm == "hold":
-        log_hold_access(
-            root,
-            commit,
-            f"arm=hold windows={len(windows)} manifest={denominator['manifest_windows']} "
-            f"excluded={denominator['excluded']} bg={args.bg} budget={args.budget} "
-            f"constants={constants_sha[:12]}",
-        )
-
     credits_before = cpu_credit_balance(facts["instance_id"])
     print(f"CPUCreditBalance before : {_credits(credits_before)}", flush=True)
 
@@ -1726,6 +1809,28 @@ def run_arm(
         escalation_enabled=True,
         classifier=classifier,
     )
+    # Calibrated and checked BEFORE the arm is replayed. Every threshold depends on CONFUSE
+    # alone, so a system the confusion set cannot bring inside the budget is knowable now --
+    # and on HOLD, finding it out after the replay would have spent the one logged read on
+    # a run that cannot publish.
+    baseline = getattr(args, "baseline", "shipped")
+    rebase(calibration, baseline)
+    add_rebased(calibration, baseline)
+    solved = {
+        system: calibrate(calibration, system, args.budget)
+        for system in (*SYSTEMS, *REBASED)
+    }
+    _check_calibration(solved, args.budget, alert_step(calibration))
+
+    if args.arm == "hold":
+        log_hold_access(
+            root,
+            commit,
+            f"arm=hold windows={len(windows)} manifest={denominator['manifest_windows']} "
+            f"excluded={denominator['excluded']} bg={args.bg} budget={args.budget} "
+            f"constants={constants_sha[:12]} confuse_manifest={(confuse_manifest_sha or 'absent')[:12]}",
+        )
+
     if args.arm == "confuse":
         # The confusion set IS the arm here, so a second replay would read the identical
         # JPEGs a second time -- at twice the CPU, and with MOG2 drawing from a different
@@ -1746,23 +1851,20 @@ def run_arm(
         dump_features(root, args.arm, matrix)
 
     # After the dump, so features_<arm>.jsonl stays the raw S1-S4 vector fit_fusion.py expects;
-    # before evaluate(), so the threshold is solved on the SAME series it is spent on.
-    baseline = getattr(args, "baseline", "shipped")
-    rebase(calibration, baseline)
+    # before evaluate(), so the threshold is spent on the same series it was solved on.
+    # The calibration matrix was rebased above, before the solve; on the CONFUSE arm the
+    # two are one object and it must not be rebased twice.
     if matrix is not calibration:
         rebase(matrix, baseline)
+        add_rebased(matrix, baseline)
 
     per_camera = _per_camera_slots(args.budget)
     results: dict[str, SystemResult] = {}
     traces: dict[str, AlertTrace] = {}
-    for system in SYSTEMS:
+    for system in (*SYSTEMS, *REBASED):
         results[system], traces[system] = evaluate(
-            matrix, calibration, system, args.budget, per_camera
+            matrix, calibration, system, args.budget, per_camera, solved=solved[system]
         )
-    # Before the sensitivity strip, the operating curve and any ablation grid, because an
-    # operating point the corpus never reached invalidates all three -- and because the
-    # ablation is forty minutes of work nobody should spend on a run that cannot publish.
-    _check_calibration(results, args.budget)
 
     sensitivity: dict[str, Any] | None = None
     if args.sensitivity:
@@ -1831,6 +1933,14 @@ def run_arm(
         "headline_system": HEADLINE_SYSTEM,
         "headline": results[HEADLINE_SYSTEM].to_json()["ttd"],
         "baselines": [results[s].to_json() for s in SYSTEMS],
+        "baselines_rebased": {
+            "rows": [results[s].to_json() for s in REBASED],
+            "note": (
+                "B1 and B2 through the same per-camera trailing z-score PlumeRank ships "
+                "with, calibrated on the same CONFUSE arm to the same budget -- the "
+                "like-for-like comparison. 'baselines' keeps them as deployed."
+            ),
+        },
         # The deployed operating point, with a top-level home because it needs one:
         # ``api/main.py:_calibrated_threshold`` reads exactly ``calibration.threshold`` and
         # then exactly ``threshold``, and refuses to walk the document looking for a number
@@ -1840,7 +1950,7 @@ def run_arm(
         # be two different numbers.
         "calibration": {
             "system": HEADLINE_SYSTEM,
-            "threshold": round(results[HEADLINE_SYSTEM].threshold, 6),
+            "threshold": results[HEADLINE_SYSTEM].threshold,
             "target_alerts_per_camera_night": args.budget,
             "realised_alerts_per_camera_night_uncapped": round(
                 results[HEADLINE_SYSTEM].calibration_rate, 4
@@ -1921,14 +2031,10 @@ def run_arm(
                 "constants; 'absolute' is the pre-2026-09-16 pipeline and the ablation."
             ),
         },
-        "results_file": results_filename(
-            args.arm,
-            _today(),
-            s4=getattr(args, "s4", "on"),
-            baseline=getattr(args, "baseline", "shipped"),
-        ),
+        "results_file": results_file,
         "run": {
             "commit": commit,
+            "calibration_manifest_sha256": confuse_manifest_sha,
             "constants_sha256": constants_sha,
             "instance": facts["instance_type"] or "local (not EC2)",
             "instance_id": facts["instance_id"],
@@ -1955,21 +2061,53 @@ def run_arm(
     return payload
 
 
-def _check_calibration(results: dict[str, SystemResult], budget: float) -> None:
-    """Refuse to publish an operating point the corpus never reached.
+def alert_step(calibration: ScoreMatrix) -> float:
+    """What one more false alarm adds to the calibration rate -- the corpus's resolution.
+
+    Every system on one arm shares the same windows, so any system's lengths will do.
+    """
+    lengths = [len(w) for w in next(iter(calibration.hazards.values()))]
+    return alerts_per_camera_night(1, lengths)
+
+
+def _check_calibration(
+    solved: dict[str, tuple[float, float]], budget: float, step: float
+) -> None:
+    """Refuse to publish an operating point the corpus never reached -- from either side.
 
     ``solve_threshold`` documents that it returns its bounds when the target is
     unreachable. Those are honest answers about the corpus and a dishonest headline: the
     block would say "calibrated to 2.00 alerts/camera-night" over a system that alerts on
     everything. Verified here, printed afterwards, and loud in between.
+
+    Two-sided, because undershoot is the same lie told about a baseline. Until 2026-10-04
+    this only rejected overshoot, and B1 went into the DEV file at threshold 1.0 and 0.0
+    alerts a night -- "three systems, one budget" with one of the three given no budget at
+    all. A rate below ``budget * (1 - BUDGET_DRIFT_TOLERANCE)`` is outside the same band the
+    drift alarm watches, and is refused the same way -- unless one more alert (``step``)
+    would already overshoot the budget. That is the corpus's resolution, not a defect: the
+    micro corpus's 16-frame windows make every alert worth 5 alerts/camera-night, so 0.0 is
+    the tightest honest answer there. On CONFUSE one alert is worth ~0.03, and B1's 0.0 had
+    some sixty alerts of headroom.
+
+    ``solved`` maps each system to its ``calibrate()`` answer, ``(threshold, rate)``.
     """
-    for system, result in results.items():
-        if result.calibration_rate > budget + K.THRESHOLD_SEARCH_TOL:
+    floor = budget * (1.0 - K.BUDGET_DRIFT_TOLERANCE)
+    for system, (threshold, rate) in solved.items():
+        if rate > budget + K.THRESHOLD_SEARCH_TOL:
             raise SystemExit(
                 f"{SYSTEM_LABELS[system]}: the confusion set cannot be brought inside "
                 f"{budget:.2f} alerts/camera-night -- the strictest threshold "
-                f"({result.threshold:.6f}) still realises {result.calibration_rate:.3f}. "
+                f"({threshold:.6f}) still realises {rate:.3f}. "
                 f"Publishing this as a calibrated operating point would be a fabrication."
+            )
+        if rate < floor and rate + step <= budget + K.THRESHOLD_SEARCH_TOL:
+            raise SystemExit(
+                f"{SYSTEM_LABELS[system]}: calibrated to {rate:.3f} alerts/camera-night at "
+                f"threshold {threshold:.6f}, below the {floor:.3f} floor of the "
+                f"{budget:.2f} budget's drift band. A system held under its budget is not "
+                f"compared at the same operating point -- publishing it as one would be a "
+                f"fabrication."
             )
 
 
@@ -2009,7 +2147,7 @@ def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "sh
     This is a defect fix, and the defect was expensive. Until 2026-09-06 the S4 cell was
     absent from the name, so ``--s4 off`` wrote the same file a normal run does. The D10
     ablation on 2026-09-05 left an S4-OFF run under ``arm_dev_<date>.json``, four documents
-    and ``project.json`` read it as the product, and PlumeRank's DEV detection rate was
+    and the project record read it as the product, and PlumeRank's DEV detection rate was
     published as 41.4% when the shipped pipeline's is 31.0%. Nobody copied anything wrong;
     a flag that changed the result did not change the filename.
     See ``results/artefact_provenance_2026-09-06.md``.
@@ -2056,7 +2194,7 @@ def _dump(payload: dict[str, Any]) -> str:
 BLOCK_1 = "REPRODUCED HERE"
 BLOCK_2 = "PUBLISHED, NOT RECOMPUTED HERE"
 RULE = "=" * 72
-REPRODUCE_COMMAND = "reproduce with: make fetch && make bench  (about 95 min)"
+REPRODUCE_COMMAND = "reproduce with: make fetch && make bench  (about 135 min)"
 
 
 def verify_payload(payload: dict[str, Any]) -> dict[str, Any]:
