@@ -49,8 +49,14 @@ function Section({
   );
 }
 
+/** Development-set orientation numbers, from results/arm_dev_2026-10-04.json (shipped
+ *  configuration). Shown only in the pending state and always labelled in-sample. */
+const DEV = { detected: 17, n: 29, p50: 32.0, rate: 1.99, file: "results/arm_dev_2026-10-04.json" };
+
 export default function ResultsPage() {
   const { data, loading, error } = useBenchmark();
+  // 404 is the designed "not run yet" answer from api/main.py, not an outage.
+  const pending = error !== null && / 404\b/.test(error);
 
   // The denominator, said in full. run.n_sequences is what the bench divided by AFTER the
   // exclusion list was applied, and printing it alone under "read exactly once" reads as
@@ -65,10 +71,31 @@ export default function ResultsPage() {
     <>
       <TopBar />
       <main style={{ padding: "24px 16px 0", maxWidth: 1000, margin: "0 auto" }}>
-        {error ? (
+        {error && pending ? (
+          <section>
+            <p className="label" style={{ margin: "0 0 6px" }}>held-out result</p>
+            <h1 className="display" style={{ fontSize: "var(--size-metric-s)", margin: "0 0 10px" }}>
+              Not run yet
+            </h1>
+            <p style={{ color: "var(--ink-1)", margin: "0 0 10px", maxWidth: 760 }}>
+              The headline is measured once, on held-out fires the system has never seen,
+              after every constant is frozen. That run has not happened, so this page shows
+              no headline rather than a stand-in. The baseline race, operating curve,
+              sensitivity strip and ablation grid all come out of the same run and appear
+              here when it is published.
+            </p>
+            <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", margin: 0, maxWidth: 760 }}>
+              For orientation only, on the development set the constants were fit on
+              (in-sample): {DEV.detected} of {DEV.n} fires detected, median {DEV.p50.toFixed(1)}{" "}
+              min after ignition, at {DEV.rate.toFixed(2)} alerts per camera-night on the
+              confusion set. Source: <span className="mono">{DEV.file}</span> in the repository.
+            </p>
+          </section>
+        ) : error ? (
           <DegradedStrip
+            title="results unavailable"
             commit={null}
-            detail={`/api/benchmark did not answer (${error}). Nothing below is rendered from a bundled copy: this page has none, on purpose.`}
+            detail={`/api/benchmark did not answer (${error}). Nothing is rendered from a bundled copy.`}
           />
         ) : null}
 
@@ -122,7 +149,7 @@ export default function ResultsPage() {
             <Section
               id="race"
               title="Three systems, one clock"
-              note="PlumeRank, B1 (the same CNN on every frame) and B2 (frame differencing), all calibrated to the same budget on the same confusion set."
+              note="PlumeRank, B1 (the same CNN on every frame) and B2 (frame differencing), each with its threshold solved to the same budget on the same confusion set. The per-camera baseline is part of PlumeRank's pipeline only."
             >
               <BaselineRace data={data} />
             </Section>
@@ -156,7 +183,7 @@ export default function ResultsPage() {
                     {data.systems.length === 0 ? (
                       <tr>
                         <td colSpan={6} style={{ color: "var(--ink-3)" }}>
-                          per-system results not published in results/bench_&lt;date&gt;.json
+                          per-system results not published yet — it appears here after the held-out run
                         </td>
                       </tr>
                     ) : (
@@ -225,7 +252,11 @@ export default function ResultsPage() {
                       <th scope="row">escalation fraction</th>
                       <td className="mono" style={{ fontWeight: 400 }}>
                         {percent(data.escalation.fraction, 2)}
-                        {data.escalation.max !== null ? ` (asserted at or under ${percent(data.escalation.max, 0)})` : ""}
+                        {data.escalation.max === null || data.escalation.fraction === null
+                          ? ""
+                          : data.escalation.fraction <= data.escalation.max
+                            ? ` (within the ${percent(data.escalation.max, 0)} ceiling)`
+                            : ` (above the ${percent(data.escalation.max, 0)} ceiling)`}
                       </td>
                     </tr>
                     <tr>

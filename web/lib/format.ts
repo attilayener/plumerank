@@ -1,11 +1,12 @@
 /**
- * Formatting. Every function takes `number | null` and renders the null as an em-dash
- * pair rather than as 0, "-" or "n/a": a missing measurement and a measurement of zero
- * are different claims, and this product is scored on not confusing them.
+ * Formatting. Every function takes `number | null` and renders the null as an em dash
+ * rather than as 0, "-" or "n/a": a missing measurement and a measurement of zero are
+ * different claims, and this product is scored on not confusing them. (It was a literal
+ * "--" until 2026-10-04, which read on screen as a rendering bug, not as "not yet".)
  */
 
 /** The one string that means "the file did not publish this". */
-export const ABSENT = "--";
+export const ABSENT = "\u2014";
 
 export function minutes(v: number | null, digits = 1): string {
   return v === null ? ABSENT : v.toFixed(digits);

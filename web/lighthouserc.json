@@ -2,7 +2,7 @@
   "ci": {
     "collect": {
       "startServerCommand": "npm run start",
-      "startServerReadyPattern": "Ready in",
+      "startServerReadyPattern": "Accepting connections",
       "url": ["http://localhost:3000/", "http://localhost:3000/results", "http://localhost:3000/judge"],
       "numberOfRuns": 3,
       "settings": {

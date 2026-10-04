@@ -53,6 +53,19 @@ export function Clock({
   // actually about. The moment a wall-clock origin IS published the two swap back.
   const leadIsOffset = wallEpoch === null;
 
+  // Nothing is replaying (no tick yet, or the pipeline is unavailable): say that in words
+  // rather than drawing a clock face of dashes, which reads as a rendering bug.
+  if (frameIndex === null) {
+    return (
+      <div className="card" style={{ padding: "14px 16px" }}>
+        <div className="label">since ignition</div>
+        <p style={{ color: "var(--ink-2)", margin: "6px 0 0" }}>
+          the clock starts with the first replayed frame.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="card" style={{ padding: "14px 16px" }}>
       <div className="label">{leadIsOffset ? "since ignition" : "simulated wall time"}</div>
@@ -80,7 +93,7 @@ export function Clock({
       <div className="label" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
         frame {frameIndex === null ? ABSENT : frameIndex}
         {meta?.frame_count ? ` of ${meta.frame_count}` : ""}
-        {leadIsOffset ? " - the replay publishes no wall-clock origin" : ""}
+        {leadIsOffset ? " - replay time, not wall-clock time" : ""}
       </div>
     </div>
   );

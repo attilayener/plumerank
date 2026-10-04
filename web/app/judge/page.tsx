@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TopBar } from "@/components/TopBar";
 
 /**
  * "/judge" -- built for exactly one reader. No auth, no cookies, no rate limit, no
@@ -27,6 +28,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function JudgePage() {
   return (
+    <>
+    <TopBar />
     <main style={{ padding: "20px 16px 48px", maxWidth: 820, margin: "0 auto" }}>
       <p className="label" style={{ margin: "0 0 6px" }}>
         for judges
@@ -42,7 +45,9 @@ export default function JudgePage() {
             <Link href="/" style={{ textDecoration: "underline" }}>
               The Wall
             </Link>{" "}
-            — the live ranking, running now, no login.
+            — the live ranking, no login. It starts once the held-out run has published the
+            calibrated alert threshold; until then it shows its own &ldquo;live pipeline
+            unavailable&rdquo; state rather than a made-up ranking.
           </li>
           <li>
             <code className="code">GET /build-info</code> — real <code className="code">cv2.getBuildInformation()</code>{" "}
@@ -53,8 +58,10 @@ export default function JudgePage() {
             <Link href="/results" style={{ textDecoration: "underline" }}>
               /results
             </Link>{" "}
-            — the operating curve, the baseline race, the sensitivity strip, the ablation grid,
-            and the same build-info block in-page.
+            — the build-info block in-page and, after the held-out run, the headline, the
+            baseline race, the operating curve, the sensitivity strip and the ablation grid.
+            Until then it says &ldquo;not run yet&rdquo; and shows the development-set
+            numbers, labelled in-sample.
           </li>
         </ol>
       </Section>
@@ -62,7 +69,7 @@ export default function JudgePage() {
       <Section title="2. The receipt">
         <ul style={{ color: "var(--ink-1)", lineHeight: 1.8, paddingLeft: 20 }}>
           <li>
-            <strong>634 passed, 2 skipped</strong>, 97% coverage on <code className="code">plumerank/</code>
+            <strong>664 passed, 2 skipped</strong>, 97% coverage on <code className="code">plumerank/</code>
           </li>
           <li>
             <strong>1,500 generated cases</strong> (<code className="code">tests/test_invariants.py</code>,
@@ -81,8 +88,8 @@ export default function JudgePage() {
           </li>
           <li>HOLD arm (the only number allowed to be the headline): not yet run — see §4 below</li>
           <li>
-            One AWS <code className="code">t4g.small</code> (Graviton), one S3 bucket, CloudWatch
-            metrics and a drift alarm on the alert budget. No Lambda, no managed vision API.
+            One AWS <code className="code">t4g.small</code> (Graviton) and one S3 bucket. No
+            Lambda, no managed vision API.
           </li>
         </ul>
       </Section>
@@ -90,22 +97,21 @@ export default function JudgePage() {
       <Section title="3. Reproduce it yourself">
         <pre className="code" style={{ padding: 12, overflowX: "auto", whiteSpace: "pre" }}>
 {`python3 -m venv .venv && .venv/bin/pip install -r requirements.lock
-make test      # ~95s: 634-test offline suite + coverage + the claim-consistency check
+make test      # ~95s: 664-test offline suite + coverage + the claim-consistency check
 make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
                # micro-corpus metrics against the committed results. Does NOT
                # reproduce the published headline, and says so on screen.`}
         </pre>
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)" }}>
           The pair that reproduces the held-out headline itself, once it exists:{" "}
-          <code className="code">make fetch</code> then <code className="code">make bench</code>, ≈95
+          <code className="code">make fetch</code> then <code className="code">make bench</code>, ≈135
           minutes. Nobody needs to run that to evaluate this submission.
         </p>
       </Section>
 
       <Section title="4. What is not measured yet">
         <p style={{ color: "var(--ink-1)" }}>
-          The HOLD run has not happened. Until <code className="code">results/bench_&lt;date&gt;.json</code>{" "}
-          exists, <code className="code">GET /api/benchmark</code> returns 404 with an explicit message
+          The HOLD run has not happened. Until its results file is committed, <code className="code">GET /api/benchmark</code> returns 404 with an explicit message
           instead of a fabricated number, and the Wall reports its own degraded state rather than a
           fake ranking. That is a deliberate design decision, not an outage — if the box is showing
           a live ranking when you read this, the run has completed since this page was written.
@@ -116,8 +122,14 @@ make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
         <ul style={{ color: "var(--ink-1)", lineHeight: 1.8, paddingLeft: 20 }}>
           <li>Daylight only — no IR hardware, no night detection.</li>
           <li>
-            Cloud, not fog, is the real adversary — the statistic this project was built around
-            does not separate smoke from fog on its own.
+            Cloud, not fog, produced the most false alarms on the confusion set (measured
+            before the per-camera baseline was adopted; the fog class itself is being
+            relabelled, because about half its frames show no marine layer).
+          </li>
+          <li>
+            The soft-boundary statistic the design started from (S3) is not predictive on its
+            own — AUC 0.44 on the development frames where it is defined. The measured result
+            comes from the budget-calibrated ranking as a whole, not from that one signal.
           </li>
           <li>One instance, no HA — every published number is committed in the repository.</li>
           <li>No dispatch, no suppression, no upload path — architecturally absent.</li>
@@ -131,5 +143,6 @@ make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
         </p>
       </Section>
     </main>
+    </>
   );
 }

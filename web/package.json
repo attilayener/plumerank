@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "npx serve@latest out -p 3000",
+    "start": "npx serve@14.2.6 out -p 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",

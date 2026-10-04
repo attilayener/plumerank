@@ -98,20 +98,18 @@ export function Wall({
       >
         <span className="label">the wall</span>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          {roster.length} cameras, all of them, always
+          {roster.length === 0 ? "every camera, always, once it is running" : `${roster.length} cameras, all of them, always`}
         </span>
       </div>
 
       {roster.length === 0 ? (
         <p style={{ color: "var(--ink-2)", margin: 0 }}>
           {pipelineDown
-            ? live?.detail ??
-              "live pipeline unavailable -- the stream published an empty roster and said why."
+            ? "No live ranking on this box yet -- the reason is given below the wall."
             : meta === null
-              ? "no camera roster: the `meta` event of /api/watchlist has not arrived."
-              : "the `meta` event arrived carrying no cameras."}{" "}
-          No placeholder tiles are drawn -- a wall of invented cameras would be the one
-          thing on this screen a judge could not tell from a real one.
+              ? "connecting to the live stream..."
+              : "the stream arrived carrying no cameras."}{" "}
+          No placeholder tiles are drawn.
         </p>
       ) : (
         <div
@@ -147,10 +145,8 @@ export function Wall({
           the same sentence three times is how a designed state turns into noise. */}
       {paused ? (
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", marginTop: 8 }}>
-          replay paused -- no viewers. The loop is on-demand: it starts on the first SSE
-          connection and stops about two minutes after the last one drops, because a
-          burstable t4g.small that ran the wall continuously would throttle the endpoint
-          mid-judging. It restarts on the next connection.
+          replay paused. The replay runs only while someone is watching and restarts on
+          its own -- reload the page if it does not resume within a few seconds.
         </p>
       ) : null}
 
@@ -163,9 +159,7 @@ export function Wall({
 
       {topK === null && roster.length > 0 ? (
         <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", marginTop: 8 }}>
-          top-k was not published by the stream, so no tile is dimmed. The wall dims by
-          the pipeline&apos;s own cutoff or not at all -- dimming by a guessed one would
-          be the frontend drawing a mechanism the server never described.
+          the stream did not publish its watch-list cutoff, so no tile is dimmed.
         </p>
       ) : null}
 
@@ -174,12 +168,12 @@ export function Wall({
           "you demoed on the fire you tuned on", and answering it before it is asked is
           cheaper than answering it afterwards. The wall never reads HOLD. */}
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", marginTop: 10 }}>
-        demo sequence: DEV arm -- constants were fit on this fire. The headline is
-        measured on{" "}
+        demo sequence: development set -- the constants were fit on these fires. The
+        headline {holdSequences === null ? "will be" : "is"} measured on{" "}
         {holdSequences === null || holdExcluded === null
           ? "the"
           : `${holdSequences} of the ${holdSequences + holdExcluded}`}{" "}
-        HOLD sequences the system has never seen
+        held-out sequences the system has never seen
         {holdExcluded === null
           ? ""
           : ` -- ${holdExcluded} excluded by the pre-stated criteria in data/excluded.json, listed with their reasons on /results`}

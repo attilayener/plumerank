@@ -78,6 +78,10 @@ export interface WatchMeta {
    *  dims every tile outside it and NEVER guesses the cutoff -- see Wall.tsx. */
   top_k?: number;
   drift_tolerance?: number;
+  /** One record per camera on the wall, straight from the manifests. `arm` is which
+   *  corpus the window came from; `confuse` windows are fire-free confusion-set nights,
+   *  and that manifest label -- never a statistic -- is what styles a row as --fog. */
+  sequences?: { camera_id: string; sequence_id?: string; arm?: string }[];
 }
 
 /** The `tick` event. Either a bare array of rows or an object carrying them. */
@@ -89,7 +93,10 @@ export interface WatchTick {
   rows: WatchRow[];
 }
 
-export type StreamState = "connecting" | "live" | "idle" | "down";
+/** `connected`: the `meta` event arrived and the first tick has not yet.
+ *  `unavailable`: `meta` arrived carrying live_pipeline.available = false -- the stream
+ *  is open and healthy, the box simply cannot run the pipeline, and no tick will come. */
+export type StreamState = "connecting" | "connected" | "live" | "idle" | "down" | "unavailable";
 
 /* --------------------------------------------------------------------------------
  * GET /api/benchmark -- results/bench_<date>.json, verbatim from disk.
@@ -123,7 +130,9 @@ export interface CurveSeries {
 
 export interface SensitivityPoint {
   offset_minutes: number;
-  p50_minutes: number;
+  /** Null at an offset where fewer than half the fires were detected, so the median is
+   *  off the clock. Kept as an explicit gap rather than dropped from the strip. */
+  p50_minutes: number | null;
   p95_minutes: number | null;
 }
 

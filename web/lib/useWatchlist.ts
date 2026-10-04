@@ -100,8 +100,14 @@ export function useWatchlist(): WatchlistState {
 
     source.addEventListener("meta", (ev) => {
       try {
-        setMeta(JSON.parse((ev as MessageEvent<string>).data) as WatchMeta);
+        const parsed = JSON.parse((ev as MessageEvent<string>).data) as WatchMeta;
+        setMeta(parsed);
         setError(null);
+        // The stream answered, so "connecting" is over either way. A meta carrying the
+        // degraded flag will never be followed by a tick: that is its own state, and the
+        // top bar must not keep saying "connecting" under a banner that says why not.
+        if (parsed.live_pipeline?.available === false) setState("unavailable");
+        else setState((prev) => (prev === "connecting" || prev === "down" || prev === "unavailable" ? "connected" : prev));
         // The silence clock starts at `meta`, not at the first tick. A stream that
         // hands over a camera roster and then never ticks is exactly the stopped-loop
         // case the idle state was designed for, and starting the clock at the first
@@ -156,7 +162,10 @@ export function useWatchlist(): WatchlistState {
 
     const silence = window.setInterval(() => {
       if (lastTick.current === 0) return;
-      if (Date.now() - lastTick.current > SILENCE_MS) setState("idle");
+      // An unavailable pipeline never ticks by design; silence there is not a stopped loop.
+      if (Date.now() - lastTick.current > SILENCE_MS) {
+        setState((prev) => (prev === "unavailable" ? prev : "idle"));
+      }
     }, 2_000);
 
     return () => {

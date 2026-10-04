@@ -29,7 +29,7 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
   if (series.length === 0) {
     return (
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)" }}>
-        operating curve not published in results/bench_&lt;date&gt;.json
+        operating curve not published yet — it appears here after the held-out run
       </p>
     );
   }

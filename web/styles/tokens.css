@@ -34,8 +34,10 @@
   --ink-1: #C6D2DE;
   /* secondary, camera metadata */
   --ink-2: #8595A6;
-  /* labels, axis ticks, the HPWREN credit */
-  --ink-3: #56646F;
+  /* labels, axis ticks, the HPWREN credit. #808D9A, not the original #56646F: that
+   * measured 2.55:1 on --surface-raised and failed WCAG AA. This passes 4.5:1 on all
+   * three surfaces (5.71 canvas, 5.18 surface, 4.58 raised). */
+  --ink-3: #808D9A;
 
   /* the system's own voice -- live tick, focus rings, rank badges, links */
   --signal: #56C2FF;
@@ -94,7 +96,7 @@
     --ink-0: #F2F6FA;
     --ink-1: #C6D2DE;
     --ink-2: #8595A6;
-    --ink-3: #56646F;
+    --ink-3: #808D9A;
 
     --signal: #56C2FF;
     --alert: #FFB020;

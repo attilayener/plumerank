@@ -4,31 +4,40 @@ import Link from "next/link";
 import { useState } from "react";
 import { BudgetMeter } from "@/components/BudgetMeter";
 import { Clock } from "@/components/Clock";
-import { DegradedStrip } from "@/components/DegradedStrip";
+import { DegradedStrip, humaneReason } from "@/components/DegradedStrip";
 import { EvidenceCard } from "@/components/EvidenceCard";
 import { ThemeNote } from "@/components/ThemeNote";
 import { TopBar } from "@/components/TopBar";
 import { Wall } from "@/components/Wall";
-import { WatchList } from "@/components/WatchList";
-import { minutes, ABSENT } from "@/lib/format";
+import { WatchList, confusionCamerasOf } from "@/components/WatchList";
+import { minutes } from "@/lib/format";
 import { useBenchmark } from "@/lib/useBenchmark";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useWatchlist } from "@/lib/useWatchlist";
 import type { WatchRow } from "@/lib/types";
 
+function str(v: unknown): string | null {
+  return typeof v === "string" && v !== "" ? v : null;
+}
+
 /**
  * "/" -- The Wall. The thirty-second demo.
  *
- * Everything on this screen is live: the roster, the ranks, the crops, the budget
- * slots. There is no pre-rendered ranking anywhere on the judged path -- the replay
- * loop starts when you connect and the background model warms from the pre-ignition
- * frames FIgLib supplies, on screen, which is exactly what a real deployment does at
- * camera start.
+ * Everything on the wall is live once the pipeline can run: the roster, the ranks,
+ * the crops, the budget slots. There is no pre-rendered ranking anywhere on the judged
+ * path -- the replay loop starts when you connect and the background model warms from
+ * the pre-ignition frames FIgLib supplies, on screen. Until the held-out run publishes
+ * the calibrated threshold, the wall shows its designed "unavailable" state instead.
  */
 
 /** Slots per camera when the stream does not publish its own. The operating design is
  *  2 (constants.ALERTS_PER_CAMERA_PER_NIGHT); it decides a badge, never a measurement. */
 const DEFAULT_SLOTS_PER_CAMERA = 2;
+
+/** The development-set orientation numbers, shown only while no held-out result is
+ *  published. Copied from results/arm_dev_2026-10-04.json (shipped configuration) and
+ *  labelled in-sample on screen -- they are never presented as the headline. */
+const DEV = { detected: 17, n: 29, p50: 32.0, rate: 1.99, file: "results/arm_dev_2026-10-04.json" };
 
 export default function WallPage() {
   const { meta, rows, frameIndex, warm, framesSeen, state, stale, error } = useWatchlist();
@@ -57,6 +66,8 @@ export default function WallPage() {
   // count -- an addition a reader can check, rather than a third figure that could
   // disagree with the two it summarises.
   const holdExcluded = publishedHold && benchmark !== null ? benchmark.exclusions.count : null;
+  const holdP50 = publishedHold ? (benchmark?.headline.p50_minutes ?? null) : null;
+  const confusionCameras = confusionCamerasOf(meta);
 
   return (
     <>
@@ -72,42 +83,56 @@ export default function WallPage() {
         <section className="landing">
           <div>
             <h1 className="display">
-              Forty cameras. Two alerts each. Which one do you look at?
+              Two alerts per camera a night. Which camera do you look at first?
             </h1>
             <p style={{ color: "var(--ink-1)", margin: 0 }}>
-              PlumeRank ranks a camera network by an anchored plume-growth statistic that
-              OpenCV does not ship -- a plume is tied to the ground while its top climbs,
-              and its boundary is soft where a cloud shadow&apos;s is hard. The ranking runs
-              live below, under the same hard alert budget a dispatcher actually lives with.
+              PlumeRank ranks a wildfire-camera network so the camera most likely showing a
+              new plume reaches the top of a dispatcher&apos;s watch list -- under a hard
+              budget of two alerts per camera-night, with the threshold solved on fire-free
+              days rather than picked by hand. OpenCV 5 does the per-frame work: background
+              modelling, optical flow and plume geometry, fused into one ranked hazard.
             </p>
           </div>
 
           <div>
-            <p style={{ margin: "0 0 8px" }}>
-              <span className="mono num" style={{ fontSize: "var(--size-metric-s)", color: "var(--ink-0)" }}>
-                {minutes(benchmark?.headline.p50_minutes ?? null)}
-              </span>{" "}
-              <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-                min median time-to-detection at{" "}
-                {benchmark === null || benchmark.budget.target === null
-                  ? ABSENT
-                  : benchmark.budget.target.toFixed(1)}{" "}
-                alerts per camera-night, on{" "}
-                {holdSequences === null || holdExcluded === null
-                  ? ABSENT
-                  : `${holdSequences} of ${holdSequences + holdExcluded}`}{" "}
-                held-out sequences{holdExcluded === null ? "" : `, ${holdExcluded} excluded`}
-              </span>
-            </p>
+            {holdP50 !== null && benchmark !== null ? (
+              <p style={{ margin: "0 0 8px" }}>
+                <span className="mono num" style={{ fontSize: "var(--size-metric-s)", color: "var(--ink-0)" }}>
+                  {minutes(holdP50)}
+                </span>{" "}
+                <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
+                  min median time-to-detection
+                  {benchmark.budget.target === null
+                    ? ""
+                    : ` at ${benchmark.budget.target.toFixed(1)} alerts per camera-night`}
+                  {holdSequences === null || holdExcluded === null
+                    ? ", on the held-out sequences"
+                    : `, on ${holdSequences} of ${holdSequences + holdExcluded} held-out sequences, ${holdExcluded} excluded`}
+                </span>
+              </p>
+            ) : (
+              <p style={{ margin: "0 0 8px" }}>
+                <span className="mono num" style={{ fontSize: "var(--size-metric-s)", color: "var(--ink-0)" }}>
+                  {DEV.p50.toFixed(1)}
+                </span>{" "}
+                <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
+                  min median time-to-detection on the development set: {DEV.detected} of{" "}
+                  {DEV.n} fires detected at {DEV.rate.toFixed(2)} alerts per camera-night.
+                  In-sample -- the constants were fit on these fires. The held-out result has
+                  not been run yet and is the only number this project will call its headline.
+                </span>
+              </p>
+            )}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <code className="code">make verify</code>
               <span className="label" style={{ textTransform: "none", letterSpacing: 0, flex: "1 1 200px" }}>
-                about 3 min -- recomputes the micro-corpus metrics. It does not reproduce
-                the headline; <Link href="/results#reproduce">the 95-minute pair</Link> does.
+                about 3 min -- re-runs the tests and recomputes a small committed sample.
+                The full held-out run is <Link href="/results#reproduce">a separate pair of commands</Link>.
               </span>
             </div>
             <p style={{ margin: "8px 0 0", fontSize: "var(--size-label)" }}>
-              <Link href="/results">the full results, the operating curve and the build string</Link>
+              <Link href="/results">results and the build string</Link> ·{" "}
+              <Link href="/judge">the 30-second path for judges</Link>
             </p>
           </div>
         </section>
@@ -138,6 +163,7 @@ export default function WallPage() {
                 perCamera={perCamera}
                 threshold={threshold}
                 stream={state}
+                confusionCameras={confusionCameras}
                 onSelect={setSelected}
               />
             </div>
@@ -157,15 +183,15 @@ export default function WallPage() {
           <div style={{ marginTop: 16 }}>
             <DegradedStrip
               commit={benchmark?.run.commit ?? null}
+              file={benchmark ? str(benchmark.raw.results_file) : null}
+              title={pipelineDown ? "live pipeline unavailable" : "live stream not delivering"}
               detail={
                 pipelineDown
-                  ? (meta?.live_pipeline?.detail ??
-                      "the stream reports live_pipeline.available = false") +
-                    ". The stream is connected and the roster is empty because the box " +
-                    "cannot run the pipeline, not because nobody is watching."
+                  ? (humaneReason(meta?.live_pipeline?.detail) ??
+                      "the box reports it cannot run the pipeline.")
                   : (error ?? "the live stream is not delivering") +
                     (stale
-                      ? ". The rows below are the last tick received and are NOT current."
+                      ? ". The rows shown are the last ones received and are NOT current."
                       : ". No rows are being drawn.")
               }
             />

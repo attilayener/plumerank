@@ -10,7 +10,7 @@ import type { Benchmark } from "@/lib/types";
  * `make verify` takes about three minutes and recomputes the MICRO-corpus metrics,
  * asserting them byte-for-byte against the committed results/verify_micro.json. It does
  * NOT reproduce the published headline and this block never lets it be read as though
- * it did. `make fetch && make bench` takes about 95 minutes and is the pair that does.
+ * it did. `make fetch && make bench` takes about 135 minutes and is the pair that does.
  *
  * Collapsing the two into one command is the exact trap this project's strongest asset
  * would otherwise walk into: a judge runs the three-minute one, sees a p50 that is not
@@ -79,7 +79,7 @@ export function ReproduceBlock({ data }: { data: Benchmark | null }) {
 
       <Command
         title="make fetch && make bench"
-        cost="about 95 min"
+        cost="about 135 min"
         claim={
           "THIS is the one that reproduces the published headline: the whole corpus, then the full " +
           "held-out evaluation on the same t4g.small the numbers above were measured on."
@@ -120,8 +120,8 @@ export function ReproduceBlock({ data }: { data: Benchmark | null }) {
         </table>
       </div>
       <p style={{ fontSize: "var(--size-label)", color: "var(--ink-3)", marginTop: 8 }}>
-        Run metadata as published by /api/benchmark, which serves results/bench_&lt;date&gt;.json
-        verbatim from disk -- so this page, the endpoint and the repository cannot disagree
+        Run metadata as published by /api/benchmark, which serves the committed results
+        file verbatim from disk -- so this page, the endpoint and the repository cannot disagree
         about which run produced the numbers above.
       </p>
     </section>

@@ -452,6 +452,11 @@ tbody tr:last-child td { border-bottom: 0; }
  * video wall, she has a shortlist, and the mobile view is this product's honest core.
  * It costs one line of CSS to say so. */
 @media (max-width: 767px) {
+  /* The limits banner wraps to three lines at phone width (~80 px tall), so the 64 px
+   * reserved on body left its last rows of content underneath it. */
+  body { padding-bottom: 112px; }
+  .limits-banner { padding: 8px 12px; }
+
   .area-wall { display: none; }
 
   /* Below 768 px the watch list IS the product, so it goes FIRST -- above the clock,
@@ -489,6 +494,13 @@ tbody tr:last-child td { border-bottom: 0; }
   padding: 0 16px;
   background: var(--canvas);
   border-bottom: 1px solid var(--hairline);
+}
+
+/* At phone width the three links and the status text do not fit in 56 px; the dot
+ * stays (with its title), the words go. */
+@media (max-width: 479px) {
+  .topbar { gap: 14px; }
+  .topbar-status { display: none; }
 }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }

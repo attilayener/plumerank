@@ -83,22 +83,25 @@ export function BudgetMeter({
   const realised = benchmark?.budget.realised_uncapped ?? null;
   const tolerance = benchmark?.budget.drift_tolerance ?? meta?.drift_tolerance ?? null;
 
-  // The drift pill is coloured only when the file publishes the tolerance that defines
-  // drift. A green pill computed against a guessed band would be an assurance the
-  // project has not earned.
-  const drift = realised !== null && target !== null ? Math.abs(realised - target) : null;
+  // What this pill can honestly say. `realised` is the OFFLINE calibration rate from the
+  // committed results file -- solved once on the confusion set -- not a live measurement,
+  // so it is labelled "calibration" and never "drift OK": until 2026-10-04 it read
+  // "drift OK" in green, which looked like live monitoring and could never turn amber.
+  // The band is the published tolerance, read as a fraction of the target, the same way
+  // scripts/bench.py's two-sided calibration check reads it.
+  const band = tolerance !== null && target !== null ? tolerance * target : null;
+  const off = realised !== null && target !== null ? Math.abs(realised - target) : null;
+  const bandText = tolerance === null ? "" : ` (band \u00b1${Math.round(tolerance * 100)}%)`;
   const driftClass =
-    drift === null || tolerance === null
-      ? "badge--spent"
-      : drift <= tolerance
-        ? "badge--ok"
-        : "badge--alert";
+    off === null || band === null ? "badge--spent" : off <= band ? "badge--ok" : "badge--alert";
   const driftText =
-    drift === null || tolerance === null
-      ? "drift tolerance not published"
-      : drift <= tolerance
-        ? "drift OK"
-        : "drift alarm";
+    realised === null
+      ? `calibration: after the held-out run${bandText}`
+      : band === null
+        ? "calibration band not published"
+        : off !== null && off <= band
+          ? `calibration within band${bandText}`
+          : `calibration outside band${bandText}`;
 
   return (
     <section className="card" id="budget" style={{ padding: "14px 16px" }}>
@@ -122,8 +125,8 @@ export function BudgetMeter({
       >
         {cameras.length === 0 ? (
           <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-            no camera roster yet -- the meter draws one pair of slots per camera the
-            stream publishes, and never a placeholder pair.
+            no camera roster yet -- one pair of slots appears per camera once the
+            live ranking is running.
           </span>
         ) : (
           cameras.map((cam) => {
@@ -160,8 +163,11 @@ export function BudgetMeter({
         }}
       >
         <span className="num">
-          realised (uncapped) {rate(realised)} / target {target === null ? ABSENT : rate(target)}{" "}
-          alerts per camera-night
+          {realised === null
+            ? `target ${target === null ? ABSENT : rate(target)} alerts per camera-night`
+            : `offline calibration (uncapped) ${rate(realised)} / target ${
+                target === null ? ABSENT : rate(target)
+              } alerts per camera-night`}
         </span>
         <a href="/results#budget" className={`pill ${driftClass}`}>
           {driftText}

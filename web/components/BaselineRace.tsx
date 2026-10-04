@@ -19,8 +19,10 @@ import type { Benchmark } from "@/lib/types";
 
 const LANE_COLOURS: Record<string, string> = {
   plumerank: "var(--signal)",
-  b1: "var(--ink-2)",
-  b2: "var(--fog)",
+  // Keyed by the system ids bench.py actually writes. Until 2026-10-04 these were `b1`
+  // and `b2`, matched nothing, and both baseline lanes fell through to --ink-3.
+  b1_cnn_grid: "var(--ink-2)",
+  b2_frame_diff: "var(--fog)",
 };
 
 export function BaselineRace({ data }: { data: Benchmark }) {
@@ -34,7 +36,7 @@ export function BaselineRace({ data }: { data: Benchmark }) {
   if (lanes.length === 0) {
     return (
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)" }}>
-        per-system results not published in results/bench_&lt;date&gt;.json
+        per-system results not published yet — it appears here after the held-out run
       </p>
     );
   }
@@ -129,10 +131,11 @@ export function BaselineRace({ data }: { data: Benchmark }) {
         );
       })}
       <p style={{ fontSize: "var(--size-label)", color: "var(--ink-3)", margin: 0 }}>
-        one clock, minutes after ignition. Every lane is calibrated to the same alert
-        budget on the same confusion set, and the learned component is IDENTICAL in
-        PlumeRank and in B1 -- so the gap is the ranking primitive and not a bigger
-        model. A hatched lane detected fewer than half the fires: its median is off the
+        one clock, minutes after ignition. Every lane&apos;s threshold is solved to the same
+        alert budget on the same confusion set, and the learned component is IDENTICAL in
+        PlumeRank and in B1 -- so the gap is not a bigger model. It is everything around
+        the model: the classical statistics, the per-camera baseline (PlumeRank only) and
+        the budgeted ranking. A hatched lane detected fewer than half the fires: its median is off the
         clock, which is a result and not a gap in the file.
         {timed.length ? ` Slowest timed lane: ${minutes(slowest)} min.` : ""}
         {lanes.length < 3 ? ` (only ${lanes.length} of 3 lanes published)` : ""}

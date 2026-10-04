@@ -178,7 +178,10 @@ function readSensitivity(doc: unknown, headlineSystem: string): SensitivityPoint
       p50_minutes: num(r, `${headlineSystem}_p50_minutes`),
       p95_minutes: num(r, `${headlineSystem}_p95_minutes`),
     }))
-    .filter((p): p is SensitivityPoint => p.offset_minutes !== null && p.p50_minutes !== null)
+    // A null p50 is KEPT: at that offset fewer than half the fires were detected, so the
+    // median is off the clock. Dropping the row drew a strip with silently fewer than
+    // eleven points and a band narrower than the truth; the strip draws it as a gap.
+    .filter((p): p is SensitivityPoint => p.offset_minutes !== null)
     .sort((a, b) => a.offset_minutes - b.offset_minutes);
 }
 
@@ -202,7 +205,7 @@ function readAblation(doc: unknown): AblationGrid | null {
   const rows = records.map((rec) =>
     columns.map((c) => {
       const v = isDict(rec) ? rec[c] : undefined;
-      if (v === undefined || v === null || v === "") return "--";
+      if (v === undefined || v === null || v === "") return "\u2014";
       return String(v);
     }),
   );

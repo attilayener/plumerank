@@ -2,7 +2,7 @@
 
 import { apiUrl } from "@/lib/api";
 import { useFlip, usePrefersReducedMotion } from "@/lib/motion";
-import type { StreamState, WatchRow } from "@/lib/types";
+import type { StreamState, WatchMeta, WatchRow } from "@/lib/types";
 
 /**
  * The hero, and the reason the rank digit is the largest element on the screen.
@@ -18,10 +18,23 @@ import type { StreamState, WatchRow } from "@/lib/types";
  * that dropped the row would be showing a different mechanism from the one that runs.
  */
 
-function isFog(row: WatchRow): boolean {
+/** A row is a confusion-set row when the server says so on the row, or when the
+ *  manifest the wall was built from (meta.sequences[].arm) says its window is a CONFUSE
+ *  night. Until 2026-10-04 only the row fields were read, the API never sends them, and
+ *  the --fog styling never fired. The manifest arm is a label, not a statistic -- the
+ *  frontend still never derives a class from S1-S4. */
+function isFog(row: WatchRow, confusionCameras: ReadonlySet<string>): boolean {
   if (row.fog === true) return true;
   const cls = row.confusion_class;
-  return typeof cls === "string" && cls !== "" && cls !== "fire" && cls !== "smoke";
+  if (typeof cls === "string" && cls !== "" && cls !== "fire" && cls !== "smoke") return true;
+  return confusionCameras.has(row.camera_id);
+}
+
+/** Cameras whose wall window comes from the CONFUSE manifest. */
+export function confusionCamerasOf(meta: WatchMeta | null): ReadonlySet<string> {
+  return new Set(
+    (meta?.sequences ?? []).filter((s) => s.arm === "confuse").map((s) => s.camera_id),
+  );
 }
 
 function rankClass(rank: number, topK: number | null): string {
@@ -36,6 +49,7 @@ export function WatchList({
   perCamera,
   threshold,
   stream,
+  confusionCameras,
   onSelect,
 }: {
   rows: WatchRow[];
@@ -45,6 +59,8 @@ export function WatchList({
    *  publish one, and the list then makes no claim about what is above it. */
   threshold: number | null;
   stream: StreamState;
+  /** From confusionCamerasOf(meta). */
+  confusionCameras: ReadonlySet<string>;
   onSelect: (row: WatchRow) => void;
 }) {
   const reduced = usePrefersReducedMotion();
@@ -78,7 +94,7 @@ export function WatchList({
       >
         <span className="label">watch list</span>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          ranked by hazard - {rows.length} cameras, none removed
+          {rows.length === 0 ? "ranked by hazard, none removed" : `ranked by hazard - ${rows.length} cameras, none removed`}
         </span>
       </div>
 
@@ -86,7 +102,9 @@ export function WatchList({
         <p style={{ color: "var(--ink-2)", padding: "16px 14px", margin: 0 }}>
           {stream === "down"
             ? "the watch list is empty because the stream is not delivering. No rows are drawn from cache, and none are invented."
-            : "waiting for the first tick from /api/watchlist."}
+            : stream === "unavailable"
+              ? "no ranking yet: the live pipeline is unavailable on this box (the reason is below the wall). No rows are invented."
+              : "waiting for the first ranking."}
         </p>
       ) : (
         <>
@@ -101,7 +119,7 @@ export function WatchList({
 
           <div ref={container} className="watchlist-scroll">
             {rows.map((row) => {
-              const fog = isFog(row);
+              const fog = isFog(row, confusionCameras);
               const spent = row.budget_spent >= perCamera;
               const thumb = row.evidence_url ?? row.frame_url ?? null;
               return (
@@ -157,7 +175,7 @@ export function WatchList({
                       {row.escalated ? <span className="badge badge--signal">escalated</span> : null}
                       {fog ? (
                         <span className="badge" style={{ color: "var(--fog)" }}>
-                          {row.confusion_class ?? "fog"}
+                          {row.confusion_class ?? "confusion set, no fire"}
                         </span>
                       ) : null}
                     </span>
