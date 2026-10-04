@@ -54,6 +54,19 @@ if [ -n "${PR_ALARM_SNS_ARN:-}" ]; then
   actions=(--alarm-actions "$PR_ALARM_SNS_ARN" --ok-actions "$PR_ALARM_SNS_ARN")
 fi
 
+# The silence alarm also REBOOTS the box. 2026-10-04: an out-of-memory wedge left the box
+# accepting TCP but answering nothing for two hours while EC2's own status checks stayed
+# green, so EC2 auto-recovery would never have fired. The service withholds Heartbeat only
+# when it is truly stuck (api/main.py: a wall that failed MAX_TICK_FAILURES ticks in a row,
+# or a process that is not running); a wall that is unavailable by design keeps beating.
+# CloudWatch runs an action once per transition INTO ALARM, not repeatedly while in it, so
+# a box whose telemetry stays silent after a reboot is rebooted once, not in a loop.
+reboot_actions=(--alarm-actions "arn:aws:automate:${REGION}:ec2:reboot")
+if [ -n "${PR_ALARM_SNS_ARN:-}" ]; then
+  reboot_actions=(--alarm-actions "arn:aws:automate:${REGION}:ec2:reboot" "$PR_ALARM_SNS_ARN"
+                  --ok-actions "$PR_ALARM_SNS_ARN")
+fi
+
 say() { printf '[plumerank-alarms] %s\n' "$*"; }
 
 aws cloudwatch put-metric-alarm --region "$REGION" \
@@ -80,7 +93,7 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
   --namespace "$NAMESPACE" --metric-name Heartbeat --dimensions "$DIMENSIONS" \
   --statistic SampleCount --period 300 --evaluation-periods 3 \
   --threshold 1 --comparison-operator LessThanThreshold \
-  --treat-missing-data breaching ${actions[@]+"${actions[@]}"}
-say "PlumeRank-heartbeat-silence      < 1 sample / 5 min, x3"
+  --treat-missing-data breaching "${reboot_actions[@]}"
+say "PlumeRank-heartbeat-silence      < 1 sample / 5 min, x3  -> reboots the instance"
 
 say "region ${REGION}, instance ${INSTANCE_ID}. Check: aws cloudwatch describe-alarms --region ${REGION} --alarm-name-prefix PlumeRank"

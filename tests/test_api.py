@@ -753,7 +753,8 @@ def test_every_camera_ignites_on_the_same_replay_index() -> None:
     assert shared == 39
     for camera in cameras:
         if camera.sequence.t0_index is None:
-            assert camera.frame_offset == 0
+            # Centre-trimmed, as bench.py's unify_windows cuts the calibration windows.
+            assert camera.frame_offset == (90 - 79) // 2
             continue
         assert camera.sequence.t0_index - camera.frame_offset == shared, camera.camera_id
     # The shortest window AFTER its offset: 80 - 1 for "late-short" is what bounds the night.
@@ -1075,3 +1076,181 @@ def test_the_measured_tick_period_is_published() -> None:
         replay._observe_tick_start(t)
     assert replay.tick_seconds_measured == pytest.approx(2.5)
     assert replay.status()["tick_seconds_measured"] == pytest.approx(2.5)
+
+
+# ---------------------------------------------------------------------------------
+# Round-3 audit: ticks that raise, the failed state, the replay wrap, atomic images
+# ---------------------------------------------------------------------------------
+
+
+class _CountingTelemetry:
+    """Stands in for Telemetry (which has __slots__) and counts heartbeats."""
+
+    def __init__(self, beats: list[int]) -> None:
+        self.beats = beats
+
+    def heartbeat(self) -> bool:
+        self.beats.append(1)
+        return True
+
+
+def _ready_replay(monkeypatch: pytest.MonkeyPatch) -> main.Replay:
+    """A probed, available Replay with one fake viewer and instant backoff."""
+    monkeypatch.setattr(main, "TICK_BACKOFF_BASE_SECONDS", 0.0)
+    replay = main.Replay()
+    replay._probed = True
+    replay._unavailable = None
+    replay._frame_count = 10
+    replay.tick_seconds = 0.0
+    replay._viewers.add(asyncio.Queue())
+    return replay
+
+
+def test_one_failing_tick_is_skipped_and_the_wall_keeps_going(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    replay = _ready_replay(monkeypatch)
+    calls = {"n": 0}
+
+    def tick() -> dict[str, Any]:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("disk full, once")
+        if calls["n"] >= 4:
+            replay._viewers.clear()  # let the loop idle out
+            replay.idle_stop_seconds = 0.0
+        return {"frame_index": calls["n"]}
+
+    monkeypatch.setattr(replay, "_tick", tick)
+    asyncio.run(replay._run())
+    assert replay.failed is None and replay.available
+    assert replay.status()["consecutive_tick_failures"] == 0
+    assert replay._frame_index == 1, "the failing frame is skipped, not retried forever"
+
+
+def test_repeated_tick_failures_enter_a_failed_state_that_stops_the_heartbeat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    replay = _ready_replay(monkeypatch)
+
+    def tick() -> dict[str, Any]:
+        raise ValueError("undecodable frame")
+
+    monkeypatch.setattr(replay, "_tick", tick)
+    beats: list[int] = []
+    replay._telemetry = _CountingTelemetry(beats)  # type: ignore[assignment]
+    asyncio.run(replay._run())
+    assert replay.failed is not None and "undecodable frame" in replay.failed
+    assert replay.status()["state"] == "failed"
+    assert not replay.available
+    assert replay.heartbeat() is False and beats == [], "a failed wall must go silent"
+
+
+def test_a_wall_unavailable_by_design_still_heartbeats(monkeypatch: pytest.MonkeyPatch) -> None:
+    replay = main.Replay()
+    replay._probed = True
+    replay._unavailable = "no calibrated threshold in results/ yet"
+    beats: list[int] = []
+    replay._telemetry = _CountingTelemetry(beats)  # type: ignore[assignment]
+    assert replay.heartbeat() is True and beats == [1]
+
+
+def test_the_next_viewer_re_probes_a_failed_wall(monkeypatch: pytest.MonkeyPatch) -> None:
+    replay = main.Replay()
+    replay._probed = True
+    replay._unavailable = None
+    replay._failed = "5 consecutive ticks failed"
+    probes: list[int] = []
+
+    def probe() -> None:
+        probes.append(1)
+        replay._probed = True
+        replay._unavailable = "re-probed"
+
+    monkeypatch.setattr(replay, "probe", probe)
+
+    async def run() -> None:
+        queue = await replay.attach()
+        replay.detach(queue)
+        await replay.stop()
+
+    asyncio.run(run())
+    assert probes == [1]
+    assert replay.failed is None
+
+
+def test_health_reports_degraded_for_a_failed_wall(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main.REPLAY, "_failed", "5 consecutive ticks failed; last: OSError")
+    monkeypatch.setattr(main.REPLAY, "_probed", True)
+    body = client.get("/health").json()
+    assert body["status"] == "degraded"
+    assert body["replay"]["state"] == "failed"
+    assert "consecutive ticks failed" in body["live_pipeline"]["detail"]
+
+
+def test_every_camera_starts_fresh_at_the_replay_wrap() -> None:
+    """bench.py replays each window once from fresh state; the wall must not carry a warm
+    background model across the jump from the window's last frame back to its first."""
+    replay = main.Replay()
+    cams = [
+        main._Camera(main.Sequence(sequence_id=f"s{i}", camera_id=f"c{i}", arm="dev",
+                                   frame_paths=[], t0_index=None))
+        for i in range(3)
+    ]
+    for cam in cams:
+        cam.prev_grey = np.zeros((4, 4), np.uint8)
+        cam.prev_work = np.zeros((4, 4, 3), np.uint8)
+    replay._cameras = cams
+    before = [id(c.tracker) for c in cams]
+    replay._reset_camera_night()
+    assert all(c.prev_grey is None and c.prev_work is None for c in cams)
+    assert all(id(c.tracker) != b for c, b in zip(cams, before))
+
+
+def test_images_are_written_atomically(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Caddy may be serving the previous file at the same path; no partial file may remain."""
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path)
+    entry, frames, picked = _one_row()
+    replay = main.Replay()
+    replay._cameras = [main._Camera(main.Sequence(sequence_id="s", camera_id=entry.camera_id,
+                                                  arm="dev", frame_paths=[], t0_index=None))]
+    replay._write_evidence([entry], frames, picked, 3)
+    replay._write_thumbnails([entry], frames)
+    assert not list(tmp_path.rglob("*.partial.jpg"))
+    assert (tmp_path / replay.replay_id / "3" / f"{entry.camera_id}.jpg").is_file()
+    assert (tmp_path / replay.replay_id / "frames" / f"{entry.camera_id}.jpg").is_file()
+
+
+def test_the_wall_cuts_confuse_windows_exactly_as_the_bench_calibrates_on_them() -> None:
+    """The wall's fire-free rate reproduces the calibration only if it replays the same
+    frames: bench.py centre-trims an 81-frame CONFUSE window to the 79-frame common length."""
+    import importlib.util
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("bench_for_align", root / "scripts" / "bench.py")
+    assert spec is not None and spec.loader is not None
+    bench = importlib.util.module_from_spec(spec)
+    import sys
+
+    sys.modules["bench_for_align"] = bench  # dataclasses resolve their module by name
+    spec.loader.exec_module(bench)
+
+    shapes = [("f1", 39, 80), ("f2", 40, 81), ("f3", 40, 80), ("c1", None, 81), ("c2", None, 81)]
+    seqs = [_window(sid, t0, n) for sid, t0, n in shapes]
+    cameras, _, count = main._align(seqs)
+    windows = [
+        bench.Window(sid, sid, t0, tuple(pathlib.Path(f"{sid}/{i}.jpg") for i in range(n)))
+        for sid, t0, n in shapes
+    ]
+    (unified,) = bench.unify_windows(windows)
+    assert count == len(unified[0])
+    for cam, win in zip(cameras, unified):
+        wall = [
+            int(pathlib.Path(p).stem)
+            for p in cam.sequence.frame_paths[cam.frame_offset : cam.frame_offset + count]
+        ]
+        assert wall == [int(p.stem) for p in win.frame_paths], cam.camera_id

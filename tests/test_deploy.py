@@ -630,3 +630,21 @@ def test_the_service_has_a_memory_ceiling_and_the_box_has_swap() -> None:
     assert "MemoryMax=" in unit and "MemoryHigh=" in unit
     text = _read(BOOTSTRAP)
     assert "mkswap /swapfile" in text and "swapon /swapfile" in text
+
+
+def test_the_silence_alarm_reboots_the_instance() -> None:
+    """2026-10-04: an OOM wedge passed EC2's status checks for two hours. The heartbeat
+    alarm is the only signal that saw it, so it carries the recovery."""
+    text = _read(DEPLOY / "alarms.sh")
+    assert "arn:aws:automate:${REGION}:ec2:reboot" in text
+    silence = text[text.index("PlumeRank-heartbeat-silence"):]
+    assert "reboot_actions" in silence.split("say ")[0]
+
+
+def test_the_unit_never_swaps_and_swappiness_survives_a_reboot() -> None:
+    unit = _read(DEPLOY / "plumerank.service")
+    assert "MemorySwapMax=0" in unit
+    high = int(unit.split("MemoryHigh=")[1].split("M")[0])
+    cap = int(unit.split("MemoryMax=")[1].split("M")[0])
+    assert 1300 <= high < cap <= 1500
+    assert "/etc/sysctl.d/99-plumerank.conf" in _read(BOOTSTRAP)

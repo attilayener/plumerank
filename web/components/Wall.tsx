@@ -140,7 +140,7 @@ export function Wall({
             return (
               <div key={cam} className={`tile${dim ? " tile--dim" : ""}`} title={cam}>
                 {src ? (
-                  <img src={apiUrl(src)} alt="" />
+                  <img src={apiUrl(src)} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <span className="tile-empty">no frame published</span>
                 )}

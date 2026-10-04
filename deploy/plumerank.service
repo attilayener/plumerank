@@ -91,8 +91,11 @@ CacheDirectory=plumerank
 # unresponsive (TCP open, no HTTP, no SSH) until a reboot. 62 warm background models sit
 # near 0.8 GB. MemoryHigh throttles and reclaims first; MemoryMax lets the kernel kill
 # THIS unit, which Restart= brings back in seconds, instead of wedging Caddy and sshd too.
-MemoryHigh=1200M
+MemoryHigh=1350M
 MemoryMax=1450M
+# No swap for THIS unit: swapping a 1.3 GB working set to EBS turns an out-of-memory kill
+# (a restart in seconds) into a wall that crawls. The swapfile exists for everything else.
+MemorySwapMax=0
 
 [Install]
 WantedBy=multi-user.target

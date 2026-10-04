@@ -196,6 +196,14 @@ MAX_VIEWERS_PER_CLIENT: int = int(os.environ.get("PLUMERANK_MAX_VIEWERS_PER_CLIE
 #: the two sent four comment frames a second and kept phone radios awake.
 KEEPALIVE_SECONDS: float = 15.0
 
+#: A tick that raises is skipped, not fatal: the loop retries with exponential backoff
+#: (base x 2^(n-1), capped), and only after this many consecutive failures does the wall
+#: enter its failed state -- in which the heartbeat stops, so the silence alarm (and its
+#: reboot action, deploy/alarms.sh) can recover a box that cannot recover itself.
+MAX_TICK_FAILURES: int = 5
+TICK_BACKOFF_BASE_SECONDS: float = 1.0
+TICK_BACKOFF_CAP_SECONDS: float = 30.0
+
 #: Open walls per client address (see client_address). Module state, like REPLAY.
 _CLIENT_VIEWERS: collections.Counter[str] = collections.Counter()
 
@@ -847,10 +855,19 @@ def _align(sequences: list[Sequence]) -> tuple[list[_Camera], int | None, int]:
             key = f"{key}~{seen[sequence.camera_id]}"
         cameras.append(_Camera(sequence, frame_offset=offset, key=key))
 
-    # The shortest window after its own offset, not FRAMES_PER_WINDOW. The published rate
-    # stays in the canonical unit anyway -- ``alerts_per_camera_night`` takes the window
-    # length and rescales, which is exactly why it takes that argument.
+    # The common length, computed exactly as bench.py's unify_windows computes it: the
+    # shortest fire window after its own t0 anchor, and no longer than the shortest window
+    # of any kind. Not FRAMES_PER_WINDOW -- the published rate stays in the canonical unit
+    # anyway, because ``alerts_per_camera_night`` takes the window length and rescales.
     frame_count = min(len(c.sequence.frame_paths) - c.frame_offset for c in cameras)
+    frame_count = min(frame_count, min(len(c.sequence.frame_paths) for c in cameras))
+    # Windows with no ignition (CONFUSE) are CENTRE-trimmed to that length, as unify_windows
+    # does: the threshold is calibrated on frames 1..79 of an 81-frame CONFUSE window, and
+    # replaying frames 0..78 instead warmed every background model on a different minute
+    # and moved the wall's fire-free alert rate off the calibration (1.68 vs 1.99).
+    for camera in cameras:
+        if camera.sequence.t0_index is None or shared is None:
+            camera.frame_offset = (len(camera.sequence.frame_paths) - frame_count) // 2
     return cameras, shared, frame_count
 
 
@@ -887,6 +904,10 @@ class Replay:
         self._frame_count: int = 0
         self._t0_index: int | None = None
         self._unavailable: str | None = "not probed yet"
+        #: Set when MAX_TICK_FAILURES consecutive ticks raised. Unlike ``_unavailable`` it
+        #: does not latch: the next viewer to attach clears it and re-probes the box.
+        self._failed: str | None = None
+        self._tick_failures: int = 0
         self._probed: bool = False
         self._probe_task: asyncio.Task[None] | None = None
 
@@ -1027,13 +1048,20 @@ class Replay:
 
     @property
     def available(self) -> bool:
-        return self._unavailable is None
+        return self._unavailable is None and self._failed is None
+
+    @property
+    def failed(self) -> str | None:
+        """Why the replay loop gave up after repeated tick failures, or None."""
+        return self._failed
 
     def status(self) -> dict[str, Any]:
         """What ``/health`` and the ``meta`` event both report, written once."""
         return {
             "state": (
-                "unavailable"
+                "failed"
+                if self._failed is not None
+                else "unavailable"
                 if self._probed and not self.available
                 else "running"
                 if self._task is not None and not self._task.done()
@@ -1048,13 +1076,19 @@ class Replay:
             "tick_seconds": self.tick_seconds,
             "tick_seconds_measured": self.tick_seconds_measured,
             "idle_stop_seconds": self.idle_stop_seconds,
+            "consecutive_tick_failures": self._tick_failures,
+            "failure": self._failed,
         }
 
     def live_pipeline(self) -> dict[str, Any]:
         """The degraded-state flag, in the words the web's degraded state is designed around."""
         return {
             "available": self.available,
-            "detail": None if self.available else f"live pipeline unavailable -- {self._unavailable}",
+            "detail": (
+                None
+                if self.available
+                else f"live pipeline unavailable -- {self._failed or self._unavailable}"
+            ),
             "cameras": len(self._cameras),
             "threshold": self._threshold,
             "threshold_source": self._threshold_source,
@@ -1067,6 +1101,13 @@ class Replay:
 
     async def attach(self) -> asyncio.Queue[str]:
         """Register one viewer and start the loop if it is the first. Returns its queue."""
+        if self._failed is not None and (self._task is None or self._task.done()):
+            # A failed wall is retried by the next viewer, from a fresh probe: whatever made
+            # five ticks in a row raise (a full disk, a damaged frame) may be gone by now.
+            LOG.warning("re-probing after replay failure: %s", self._failed)
+            self._failed = None
+            self._tick_failures = 0
+            self._probed = False
         await self.ensure_probed()
         queue: asyncio.Queue[str] = asyncio.Queue(maxsize=VIEWER_QUEUE_DEPTH)
         self._viewers.add(queue)
@@ -1170,7 +1211,14 @@ class Replay:
 
                 started = time.monotonic()
                 self._observe_tick_start(started)
-                payload = await asyncio.to_thread(self._tick)
+                try:
+                    payload = await asyncio.to_thread(self._tick)
+                except Exception as exc:
+                    if self._tick_failed(exc):
+                        return
+                    await asyncio.sleep(self._backoff_seconds())
+                    continue
+                self._tick_failures = 0
                 self._publish(payload)
                 # The remainder of the tick, not a flat sleep: at 40 cameras the pipeline
                 # itself takes a large slice of the second, and sleeping a whole one on top
@@ -1180,9 +1228,36 @@ class Replay:
             raise
         except Exception as exc:  # a wall that stops must say why, not just stop
             LOG.exception("replay loop failed")
-            self._unavailable = f"replay loop failed: {type(exc).__name__}: {exc}"
+            self._failed = f"replay loop failed: {type(exc).__name__}: {exc}"
         finally:
             self._task = None
+
+    def _tick_failed(self, exc: Exception) -> bool:
+        """Record one failed tick; True when the wall should give up (enter failed state).
+
+        The frame index is advanced past the failing frame, so one undecodable JPEG costs one
+        tick rather than stalling the wall on it forever.
+        """
+        self._tick_failures += 1
+        LOG.exception(
+            "tick failed (%d consecutive, limit %d)", self._tick_failures, MAX_TICK_FAILURES,
+            exc_info=exc,
+        )
+        if self._frame_count > 0:
+            self._frame_index = (self._frame_index + 1) % self._frame_count
+        if self._tick_failures >= MAX_TICK_FAILURES:
+            self._failed = (
+                f"{self._tick_failures} consecutive ticks failed; last: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            return True
+        return False
+
+    def _backoff_seconds(self) -> float:
+        return min(
+            TICK_BACKOFF_CAP_SECONDS,
+            TICK_BACKOFF_BASE_SECONDS * 2 ** max(0, self._tick_failures - 1),
+        )
 
     def _observe_tick_start(self, started: float) -> None:
         """Fold one tick-to-tick interval into the published measured period (EWMA).
@@ -1329,9 +1404,22 @@ class Replay:
         rank a dispatcher would read, and two ranking rules that are meant to agree and are
         written twice do not stay agreed.
         """
-        ordered = sorted(classical, key=lambda s: (-s.hazard, s.camera_id))
+        # Ranked WITHIN each arm, not across the whole wall. bench.py replays the CONFUSE
+        # windows alone (the calibration) and the DEV windows alone, each with its own
+        # top-2 escalation; ranking across all 62 let fire footage take the escalation slots
+        # from the fire-free cameras, so their alert rate sat at 1.68 against the 1.99 the
+        # threshold was calibrated to, and the drift-low alarm fired every camera-night.
+        # Per arm, each half of the wall is the bench replay it is calibrated against.
+        arm_of = {c.camera_id: c.sequence.arm for c in self._cameras}
+        groups: dict[str, list[CameraScore]] = {}
+        for score in classical:
+            groups.setdefault(arm_of.get(score.camera_id, ""), []).append(score)
+        ranked: list[tuple[int, CameraScore]] = []
+        for group in groups.values():
+            ordered = sorted(group, key=lambda s: (-s.hazard, s.camera_id))
+            ranked.extend(enumerate(ordered, start=1))
         out: list[CameraScore] = []
-        for rank, score in enumerate(ordered, start=1):
+        for rank, score in ranked:
             if score.component is None or not should_escalate(rank, score.hazard):
                 out.append(score)
                 continue
@@ -1378,13 +1466,12 @@ class Replay:
             component, track, stats = best
             directory = EVIDENCE_DIR / self.replay_id / str(index)
             directory.mkdir(parents=True, exist_ok=True)
-            draw_evidence(
-                frames[entry.camera_id],
-                component,
-                track,
-                stats,
-                directory / f"{entry.camera_id}.jpg",
-            )
+            final = directory / f"{entry.camera_id}.jpg"
+            # Drawn to a temporary name and renamed into place: Caddy may be serving the
+            # previous cycle's file at this path, and a reader must never get half a JPEG.
+            partial = directory / f".{entry.camera_id}.partial.jpg"
+            draw_evidence(frames[entry.camera_id], component, track, stats, partial)
+            os.replace(partial, final)
             url = (
                 f"/evidence/{self.replay_id}/{index}/{entry.camera_id}.jpg"
                 f"?t={self._evidence_seq}"
@@ -1417,15 +1504,31 @@ class Replay:
             directory.mkdir(parents=True, exist_ok=True)
             height = round(frame.shape[0] * THUMB_WIDTH / frame.shape[1])
             thumb = cv2.resize(frame, (THUMB_WIDTH, height), interpolation=cv2.INTER_AREA)
-            if cv2.imwrite(
-                str(directory / f"{key}.jpg"), thumb, [cv2.IMWRITE_JPEG_QUALITY, THUMB_QUALITY]
-            ):
+            partial = directory / f".{key}.partial.jpg"
+            if cv2.imwrite(str(partial), thumb, [cv2.IMWRITE_JPEG_QUALITY, THUMB_QUALITY]):
+                # Atomic swap, as for evidence crops: never serve a half-written thumbnail.
+                os.replace(partial, directory / f"{key}.jpg")
                 self._frame_urls[key] = (
                     f"/evidence/{self.replay_id}/frames/{key}.jpg?t={self._evidence_seq}"
                 )
 
     def _reset_camera_night(self) -> None:
-        """A new night gets a new budget. The 80 slots are per camera-night, not per process."""
+        """A new camera-night: new budget, new baseline, and fresh per-camera pipeline state.
+
+        Every camera is reset as well -- background model, tracker, previous frame -- because
+        the replay wraps from the window's last frame to its first, a 78-minute jump in the
+        footage. Carrying a warm model across it fed the next night a background learned on
+        the wrong minutes and gave the tracker negative frame spans; ``bench.py`` replays each
+        window exactly once from fresh state, and the wall now does the same each night.
+
+        With this, per-arm escalation (_escalate) and the centre-trimmed CONFUSE windows
+        (_align), each camera-night of the wall's fire-free half replays exactly what
+        ``bench.py`` calibrated on: its ``RealisedAlertRate`` reproduces the calibration rate
+        (1.9885 on the committed DEV run, every night, measured locally on 2026-10-04), so the
+        drift alarm fires only when something actually moves.
+        """
+        for camera in self._cameras:
+            camera.reset()
         self._alerts_uncapped = 0
         self._alerts_confuse = 0
         self._invocations_at_night_start = (
@@ -1501,7 +1604,15 @@ class Replay:
         return self._last_payload
 
     def heartbeat(self) -> bool:
-        """One proof-of-life datapoint. Blocking; call in a thread."""
+        """One proof-of-life datapoint. Blocking; call in a thread.
+
+        Withheld while the wall is in its failed state, so the silence alarm (and its reboot
+        action) fires on a box whose replay loop gave up. A wall that is unavailable BY
+        DESIGN -- no calibrated threshold yet -- still heartbeats: that is a healthy box,
+        and a reboot would change nothing, so it must not loop.
+        """
+        if self._failed is not None:
+            return False
         return self._telemetry.heartbeat()
 
     def meta(self) -> dict[str, Any]:
@@ -1767,7 +1878,9 @@ async def health(request: Request) -> dict[str, Any]:
     await REPLAY.ensure_probed()
     started = float(getattr(request.app.state, "started_at", time.time()))
     return {
-        "status": "ok",
+        # "degraded" only for a wall that failed while running; unavailable-by-design (no
+        # calibrated threshold yet) is a healthy box and stays "ok".
+        "status": "degraded" if REPLAY.failed is not None else "ok",
         "started_at": getattr(request.app.state, "started_iso", None),
         "uptime_seconds": round(time.time() - started, 3),
         "replay": REPLAY.status(),

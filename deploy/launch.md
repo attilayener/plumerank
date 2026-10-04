@@ -435,7 +435,14 @@ Three alarms, all on the box's own `InstanceId` dimension (written into the env 
 `bootstrap.sh` from IMDS, tagged on every datapoint by `telemetry.py`): alert-rate drift
 above 2.30 and below 1.70 alerts per camera-window (the 2.0 budget +/-
 `BUDGET_DRIFT_TOLERANCE`, hourly mean, idle hours not breaching), and heartbeat silence (no
-datapoint in 15 minutes, missing data breaching). `RealisedAlertRate` is computed over the
+datapoint in 15 minutes, missing data breaching). The silence alarm's action **reboots the
+instance** (`arn:aws:automate:<region>:ec2:reboot`), once per transition into ALARM; the
+service stops heartbeating only when its replay loop has failed five ticks in a row, and keeps
+heartbeating when the wall is unavailable by design. Each camera-night the wall's fire-free
+half replays exactly what the bench calibrated on (fresh pipeline state, the same centre-trimmed
+frames, escalation ranked within each set), so `RealisedAlertRate` reproduces the calibration
+rate -- 1.9885 on the committed DEV run -- and the drift alarms fire only on real drift. It is
+computed over the
 wall's fire-free CONFUSE windows only -- the windows the threshold is calibrated on; the
 DEV fire windows on the same wall alert after ignition by design and are excluded. After a
 redeploy that adds the dimension, re-run `alarms.sh`: the old dimensionless alarms watch a
@@ -461,6 +468,13 @@ those cents. Unlimited mode does not throttle; it bills only for surplus left un
 
 The budget, therefore, is a rule about hours rather than a mode setting:
 
+- **The held-out run (`make bench`) runs on the operator's machine, or on the box only with
+  the service stopped -- never beside the live wall.** The wall alone holds ~0.8-1.3 GB of the
+  box's 2 GiB (62 warm background models plus the frame cache), the bench needs its own
+  replay of 54 HOLD windows plus CONFUSE, and an out-of-memory kill after `log_hold_access`
+  spends the one logged HOLD read on a run that never writes `bench_<date>.json`. The DEV
+  runs to date were all made off the box (`run.instance: local (not EC2)`).
+  On the box: `sudo systemctl stop plumerank`, run, then `sudo systemctl start plumerank`.
 - **At most 4 hours of full-tilt 2-vCPU batch work per rolling 24 hours** -- 480 of the 576
   credits the instance earns in a day. The full HOLD bench is ~60 minutes (120 credits).
 - **The ablation grid never runs on the box.** It is a separate DEV invocation,

@@ -4,6 +4,9 @@ import { apiUrl } from "@/lib/api";
 import { useFlip, usePrefersReducedMotion } from "@/lib/motion";
 import type { StreamState, WatchMeta, WatchRow } from "@/lib/types";
 
+/** Rows that load the per-tick evidence crop; the rest show the camera's thumbnail. */
+const EVIDENCE_ROWS = 8;
+
 /**
  * The hero, and the reason the rank digit is the largest element on the screen.
  *
@@ -134,7 +137,11 @@ export function WatchList({
             {rows.map((row) => {
               const fog = isFog(row, confusionCameras);
               const spent = row.budget_spent >= perCamera;
-              const thumb = row.evidence_url ?? row.frame_url ?? null;
+              // Evidence crops change URL every tick, so loading one per row made each viewer
+              // fetch ~37 images a second. Only the rows a dispatcher reads first get the crop;
+              // the rest show the thumbnail, whose URL changes only when it is rewritten.
+              const thumb =
+                (row.rank <= EVIDENCE_ROWS ? row.evidence_url : null) ?? row.frame_url ?? null;
               return (
                 <div
                   key={row.camera_id}
@@ -158,7 +165,13 @@ export function WatchList({
                     aria-label={`open the evidence crop for ${row.camera_id}`}
                   >
                     {thumb ? (
-                      <img className="evidence-thumb" src={apiUrl(thumb)} alt="" />
+                      <img
+                        className="evidence-thumb"
+                        src={apiUrl(thumb)}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <span
                         className="evidence-thumb"

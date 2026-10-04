@@ -208,6 +208,7 @@ if ! swapon --show=NAME --noheadings | grep -qx /swapfile; then
   swapon /swapfile
   grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
+printf 'vm.swappiness = 10\n' > /etc/sysctl.d/99-plumerank.conf   # survives a reboot
 sysctl -q -w vm.swappiness=10
 
 step "Node toolchain (build-time only)"
