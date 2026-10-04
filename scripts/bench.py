@@ -1248,6 +1248,30 @@ def ttds_from_trace(
     return ttds, dropped
 
 
+def per_sequence_rows(
+    matrix: ScoreMatrix, traces: dict[str, AlertTrace], systems: Sequence[str]
+) -> list[dict[str, Any]]:
+    """One row per fire window: every system's time-to-detection, or ``None`` for a miss.
+
+    The aggregate hides which sequences are missed and by whom; the failure cases are the
+    rows a reader needs to check the aggregate against, and this is the same trace the
+    headline is computed from (offset 0), so the two cannot disagree.
+    """
+    rows: list[dict[str, Any]] = []
+    for i, window in enumerate(matrix.windows):
+        if window.t0_index is None:
+            continue
+        row: dict[str, Any] = {"sequence_id": window.sequence_id, "camera_id": window.camera_id}
+        for system in systems:
+            trace = traces[system]
+            ttd = time_to_detection(
+                trace.in_top_k[i], trace.alerted[i], window.t0_index, MINUTES_PER_FRAME
+            )
+            row[f"{system}_ttd_minutes"] = _finite(ttd)
+        rows.append(row)
+    return rows
+
+
 def per_camera_night(count: int, n_windows: int, frames_per_window: int) -> float:
     """Any per-window count expressed per camera-night, on metrics.py's own denominator.
 
@@ -2088,6 +2112,7 @@ def run_arm(
         "operating_curve": curve,
         "ablation": ablation,
         "ablation_source": ablation_source,
+        "per_sequence": per_sequence_rows(matrix, traces, (*SYSTEMS, *REBASED)),
         "exclusions": {
             "source": exclusions_source,
             "count": len(arm_exclusions),
