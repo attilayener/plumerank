@@ -86,10 +86,10 @@ summarised in [`REPORT.md`](REPORT.md) §6.
    statistics are weaker than the design assumed.** Measured on 2026-09-06 under the
    *pre-baseline* pipeline (threshold 0.722, not re-measured under the shipped one), low cloud
    cost 4.25 and cloud shadow 3.86 alerts/camera-night against fog's 1.15
-   (`results/class_split_2026-09-06.json`) — and the fog windows were chosen by a rule tuned on a fog
-   sample in which, of 54 frames inspected, roughly 27 show no marine layer at all
-   (`results/fog_class_review.md`), so that class is suspect.
-   A relabelled fog census is in progress. Per statistic, on DEV frames with a component,
+   (`results/class_split_2026-09-06.json`) — and a blind census shows the rule that chose the fog windows picks a
+   marine layer no more often than chance (29% vs a 29% base rate on unscreened dawn frames;
+   `results/fog_census_2026-10-04.md`), so the "fog" class is mostly overcast. The threshold is
+   solved on all confusion windows together, so this affects per-class claims only. Per statistic, on DEV frames with a component,
    pre- vs post-ignition: S3 (diffuse boundary) scores AUC 0.44 — anti-predictive — and S1 0.528
    and S2 0.50 are near chance (`results/statistics_confound_2026-09-06.md`). S3 was never tested
    against fog directly. What carries the ranking is scoring each camera against its own
