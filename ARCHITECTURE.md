@@ -12,7 +12,7 @@ flowchart TB
 
     S3B["S3 -- one bucket, one prefix<br/>corpus/"]
 
-    subgraph CV["OpenCV 5 classical path -- plumerank/ -- ~98% of frames stop here"]
+    subgraph CV["OpenCV 5 classical path -- plumerank/ -- ~98% of frames stop here (DEV: 2.23% escalated)"]
         STAB["stabilise.py<br/>phaseCorrelate + createHanningWindow<br/>+ phaseCorrelateIterative (new in 5.x)<br/>estimateAffine2D(USAC_MAGSAC)"]
         SEG["segment.py<br/>createBackgroundSubtractorMOG2<br/>morphologyEx . createCLAHE<br/>connectedComponentsWithStats"]
         STAT["statistic.py -- the custom primitive<br/>S1 base anchoring . S2 growth anisotropy<br/>S3 diffuse-boundary (Laplacian vs Sobel)<br/>S4 DISOpticalFlow drift, in-box"]
@@ -82,7 +82,7 @@ the ranked list with one evidence crop per entry (drawn server-side with `cv2.li
 **There is no pre-rendered ranking anywhere on the judged path.** The background model warms
 from the pre-ignition frames FIgLib supplies, on screen -- exactly what a real camera start
 looks like. `GET /api/benchmark` 404s rather than inventing a number when no HOLD run exists
-yet (`plumerank/rank.py`'s `_check_calibration`), and the live Wall shows that honestly instead
+yet (`scripts/bench.py`'s `_check_calibration`), and the live Wall shows that honestly instead
 of a fabricated ranking.
 
 ## API endpoints -- four, all GET

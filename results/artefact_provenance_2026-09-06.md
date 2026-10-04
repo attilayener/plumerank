@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-06 · **Status: settled by re-running, not by argument.** The shipped
 configuration detects **9 of 29 (31.0%)** on DEV, not the 12 of 29 (41.4%) that four documents
-and `project.json` quote. Nothing here changes a constant or a detector; it changes what may
+and the project record quote. Nothing here changes a constant or a detector; it changes what may
 be quoted.
 
 ---
@@ -56,7 +56,7 @@ All four carry a correction as of this change:
   post-ignition frames, 8 are detected and **17 never alert**, not thirteen. The presence
   arithmetic itself is unaffected.
 - `results/s4_ablation_2026-09-06.md` §1 — see §5, which is its own problem.
-- `project.json` `predictions_realised` — corrected in the same change as this document.
+- the project record — corrected in the same change as this document.
 
 ## 4. What is NOT wrong, and it nearly went into this document as though it were
 

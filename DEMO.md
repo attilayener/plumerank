@@ -7,7 +7,8 @@ This is the full walkthrough. For the 30-second version, see [`JUDGE.md`](JUDGE.
 - Wall: `http://44.242.91.201`
 - `GET /build-info` — real `cv2.getBuildInformation()`, instance id, AMI id, commit sha
 - `GET /health`
-- `/results` — operating curve, baseline race, sensitivity strip, ablation grid
+- `/results` — `/build-info` in-page now; operating curve, baseline race, sensitivity strip and
+  ablation grid once the held-out run is committed
 - `GET /api/watchlist` — the SSE stream the Wall renders
 - `GET /api/benchmark` — serves the committed `results/bench_<date>.json` verbatim; **404s
   honestly** until that file exists (the HOLD run — see "What is not measured yet" below)
@@ -23,7 +24,7 @@ make verify    # clean-venv sanity check (does NOT reproduce the published headl
 **`make verify`, executed end-to-end for this README, no shortcuts:**
 
 ```
-real: 1:53.67 (includes a from-scratch .venv rebuild + pip install from requirements.lock)
+real: 1:53.67 (includes a from-scratch .venv rebuild + pip install from requirements-dev.lock)
 
 Block 1 -- REPRODUCED HERE (the real OpenCV 5 pipeline, run live against real pixels)
   corpus         : data/micro/ (10 windows x 31 frames)
@@ -36,17 +37,17 @@ Block 1 -- REPRODUCED HERE (the real OpenCV 5 pipeline, run live against real pi
 
 Block 2 -- PUBLISHED, NOT RECOMPUTED HERE
   status: no committed HOLD run in results/ -- nothing is published yet, and this
-          command does not produce it. Reproduce with `make fetch && make bench` (~95 min).
+          command does not produce it. Reproduce with `make fetch && make bench` (~135 min).
 ```
 
-`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **634 passed, 2
+`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **664 passed, 2
 skipped, 97% coverage on `plumerank/`, ~95s, no network, no credentials.**
 
 ### The pair that reproduces the published headline, once it exists
 
 ```bash
 make fetch   # ~35 min: the corpus, sha256-verified, resumable
-make bench   # ~60 min: scripts/bench.py --arm hold --budget 2.0 --sensitivity --seed 20261026
+make bench   # ~100 min: scripts/bench.py --arm hold --budget 2.0 --sensitivity --ablation --seed 20261026
 ```
 
 Nobody needs to run this to evaluate the submission — `results/` already carries every
@@ -56,7 +57,7 @@ is checkable, not just assertable.
 ## What is not measured yet, and why that is honest rather than broken
 
 The HOLD arm — the only run whose number this project is willing to call a headline — has not
-executed. `plumerank/rank.py`'s calibration gate (`_check_calibration`) refuses to publish an
+executed. `scripts/bench.py`'s calibration gate (`_check_calibration`) refuses to publish an
 operating point it cannot support: *"Publishing this as a calibrated operating point would be a
 fabrication."* Concretely, right now:
 
@@ -66,8 +67,9 @@ fabrication."* Concretely, right now:
 - `GET /build-info` and `GET /health` are unaffected — they do not depend on calibration.
 
 The **DEV** arm exists (the data the fusion weights were fit on — diagnostic only, never the
-claim): 17/29 detected, p50 32.0 min, 1.99 alerts/camera-night, baselines B1 1/29 and B2 3/29
-(`results/arm_dev_2026-09-16.json`).
+claim): 17/29 detected, p50 32.0 min, 1.99 alerts/camera-night, baselines B1 6/29 and B2 3/29 as deployed,
+14/29 and 10/29 through PlumeRank's own per-camera baseline
+(`results/arm_dev_2026-10-04.json`).
 
 ## What a real-run receipt looks like for this project
 
@@ -75,7 +77,7 @@ There is no per-call provider bill here (no hosted LLM API, no metered generatio
 "receipt" is the pipeline actually executing against real pixels and being checked against a
 committed expectation, which is exactly what the block above shows. The AWS side has its own
 receipt: one `t4g.small` (Graviton) instance, one S3 bucket (corpus: 5,082 frames, 2.38 GB),
-CloudWatch metrics plus a drift alarm on the alert budget — all funded by a $150 AWS compute
+CloudWatch metrics plus drift (±15%) and silence alarms on the alert budget — all funded by a $150 AWS compute
 grant from this competition, not a personal card.
 
 ## Honest limitations

@@ -1,6 +1,6 @@
 {
   "generated": "2026-09-04",
-  "pass": "Manual. One human looked at the first frame of every window in data/manifest_dev.json and data/manifest_hold.json -- 90 frames, one contact sheet -- and wrote down what was wrong with the ones below. There is no automatic stage: the earlier design used the escalation detector, which does not exist yet, and an exclusion list produced by a model that has not been trained is a circular dependency (complexity.md D6).",
+  "pass": "Manual. One human looked at the first frame of every window in data/manifest_dev.json and data/manifest_hold.json -- 90 frames, one contact sheet -- and wrote down what was wrong with the ones below. There is no automatic stage: the earlier design used the escalation detector, which does not exist yet, and an exclusion list produced by a model that has not been trained is a circular dependency (the scope ledger D6).",
   "contact_sheet": "data/contact_sheet.jpg",
   "inspected": {
     "windows": 90,

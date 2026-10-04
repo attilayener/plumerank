@@ -4,7 +4,7 @@
 
 WHAT THIS CLOSES
 ----------------
-``build-plan.md`` D11 says ``rank.py`` fuses S1-S4 with "a weighted logistic, weights fit on
+the build plan D11 says ``rank.py`` fuses S1-S4 with "a weighted logistic, weights fit on
 DEV". They were never fit. ``constants.py`` carries FUSION_BIAS/W_S1..W_S4/W_ESCALATION as
 values written before any data was seen, and every number the project has published so far --
 including the CONFUSE per-class split that came within a hair of aborting the project on

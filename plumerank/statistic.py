@@ -54,7 +54,7 @@ edge, flat interior; this is a shadow"), and a caller cannot tell a confident 0.
 missing measurement. Downstream code must treat a non-finite statistic as an unrankable
 component rather than fuse it.
 
-OpenCV surfaces used here (``opencv5-defense.md`` sections 1 and 2):
+OpenCV surfaces used here (the OpenCV 5 design notes sections 1 and 2):
 ``cv2.Laplacian`` and ``cv2.Sobel`` (S3, imgproc) and ``cv2.DISOpticalFlow_create`` with
 ``cv2.DISOPTICAL_FLOW_PRESET_FAST`` (S4, video).
 """
@@ -351,7 +351,7 @@ def s3_diffuse_boundary(grey: np.ndarray, component: Component) -> tuple[float, 
 #: components per frame at a working resolution of 480x270; if it ever grows unbounded,
 #: that is a symptom worth seeing rather than a leak worth hiding.
 #:
-#: Filed upstream (build-plan.md D52 / LESSONS R12) with this minimal repro:
+#: Filed upstream (the build plan D52) with this minimal repro:
 #:     a = np.random.randint(0, 255, (30, 195), np.uint8); b = np.roll(a, -1, 0)
 #:     cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST).calc(a, b, None)
 #:     -> field of nan, no exception raised

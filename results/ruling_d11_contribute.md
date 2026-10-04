@@ -23,7 +23,7 @@ On the 2026-09-05 unfitted measurement the two readings gave:
 | reading | value | verdict under §4 |
 |---|---:|---|
 | fog's **share of the arm's** 2.00 budget | 0.6061 | *between* → proceed, name it a limitation |
-| fog's **own rate**, on fog windows alone | 1.5385 | **above 1.5** → abort, descope to FlashBudget |
+| fog's **own rate**, on fog windows alone | 1.5385 | **above 1.5** → abort, descope to the fallback project |
 
 ## 2. The ruling: fog's OWN RATE binds
 
@@ -56,7 +56,7 @@ detector rather than a property of the roster.**
 
 It does **not** retroactively fire the abort on 1.5385. §7.3 recorded two unmet preconditions,
 and the second is disqualifying on its own: **the fusion weights are not fitted.** `constants.py`
-carries a-priori values written before any data was seen, while `build-plan.md` D11 specifies "a
+carries a-priori values written before any data was seen, while the build plan D11 specifies "a
 weighted logistic, weights fit on DEV". A criterion evaluated on an instrument the spec says is
 not yet built measures the instrument, not the primitive.
 
@@ -78,9 +78,9 @@ Two constraints on the > 1.5 branch, both fixed now:
 
 - **No further variant search may be used to overturn it.** The weights are fit once, by a
   procedure written down before the fit, on DEV only. If the result is > 1.5, that is the result.
-- **The abort itself is a human gate.** No agent switches this project to FlashBudget. The
-  measurement is executed and reported; the decision to abandon 51 days of runway belongs to the
-  human, as `~/Hackathon/CLAUDE.md` requires of every decision on that line.
+- **The abort itself is a human gate.** No automated step switches this project to the fallback project. The
+  measurement is executed and reported; the decision to abandon 51 days of runway belongs to a
+  person.
 
 ## 5. The finding §4 never anticipated
 

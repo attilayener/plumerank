@@ -145,7 +145,7 @@
     "sequence_ids": [
       "20250121_LiliacFire_rm-s-mobo-c"
     ],
-    "source": "/Users/edycu/Hackathon/devpost/devpost-opencv26/plume/build/data/excluded.json"
+    "source": "data/excluded.json"
   },
   "frames_per_window": 79,
   "headline": {

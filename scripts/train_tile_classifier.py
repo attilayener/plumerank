@@ -3,7 +3,7 @@
 This script is off the judge path. It runs once, on a laptop, on CPU, in hours; its only
 output that the endpoint ever sees is ``models/tile_classifier.onnx``. The server has no
 torch in its dependency tree at all -- OpenCV's ``dnn`` is inference-only, which is an
-honest limitation and is written down in opencv5-defense.md section 8.3 rather than being
+honest limitation and is written down in the OpenCV 5 design notes section 8.3 rather than being
 quietly absent from the "Built With" list.
 
 Four decisions are worth more than the code
@@ -178,7 +178,7 @@ def tile_label(
         # and a 96x96 tile can be either side of each other in size and only one of the two
         # readings is meaningful in each regime.
         #
-        # architecture.md section 5 says "positive tile = >=30% overlap with a smoke box".
+        # the architecture notes section 5 says "positive tile = >=30% overlap with a smoke box".
         # Read tile-relative only, it means the box must fill 2,765 px of the tile.
         # Measured over Pyro-SDIS at this working resolution the median box is 15.6 x 11.3
         # px -- about 2% of a tile -- and only 2.4% of boxes could EVER reach 30% of one.

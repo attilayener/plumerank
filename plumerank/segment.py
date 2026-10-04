@@ -85,7 +85,7 @@ class Segmenter:
     """Stateful per-camera foreground segmenter. One instance per camera, for the night.
 
     The state is the background model, which is the whole point: forty cameras means forty
-    of these, and ``spec.md`` section 11 budgets them at roughly 11 MB each at 480x270.
+    of these, and the spec section 11 budgets them at roughly 11 MB each at 480x270.
 
     Args:
         method: ``"mog2"`` | ``"lsbp"`` | ``"gsoc"``. Anything else raises immediately --

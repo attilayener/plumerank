@@ -914,7 +914,7 @@ def _write_provenance(
             "to be -- the held-out headline.** The headline is measured on "
             f"{_hold_phrase(_counts)}, against the {_counts['confuse']}-window CONFUSE "
             "adversary set, by "
-            "`make fetch && make bench` (about 95 minutes). `make verify` prints that "
+            "`make fetch && make bench` (about 135 minutes). `make verify` prints that "
             "number in a block labelled PUBLISHED, NOT RECOMPUTED HERE, quoted verbatim "
             "from results/.",
             "",

@@ -90,19 +90,21 @@ buys at, not at each system's most flattering one.
 | Detected | 17 / 29 |
 | Median time-to-detection | 32.0 min |
 | Realised alert rate | 1.99 alerts/camera-night (target 2.0) |
-| Escalation fraction | 2.23% of frames |
-| Baseline B1 (same ONNX, every frame) | 1 / 29 detected — no median |
+| Escalation fraction | 2.23% of frames — over the 2% design cap (`within_max: false` in the run file) |
+| Baseline B1 (same ONNX, every frame) | 6 / 29 detected — no median |
 | Baseline B2 (frame differencing) | 3 / 29 detected — no median |
+| B1 through the same per-camera baseline as PlumeRank | 14 / 29 detected — no median |
+| B2 through the same per-camera baseline as PlumeRank | 10 / 29 detected — no median |
 
-Source: `results/arm_dev_2026-09-16.json`. DEV is the arm the fusion weights were fit on — a
+Source: `results/arm_dev_2026-10-04.json`. DEV is the arm the fusion weights were fit on — a
 number from it is diagnostic, never a claim of generalisation.
 
 **What is not measured yet, and why that is a decision, not an outage.** The held-out (HOLD)
 evaluation — the only run whose number this project is willing to call a headline — has not
-executed. `plumerank/rank.py`'s `_check_calibration` refuses to publish an operating point it
+executed. `scripts/bench.py`'s `_check_calibration` refuses to publish an operating point it
 cannot support, so `GET /api/benchmark` returns `404` with an explicit message, and the live
 Wall reports `live_pipeline.available: false` with the same reason, rather than inventing a
-ranking. Reproduce path once it exists: `make fetch && make bench` (≈95 minutes;
+ranking. Reproduce path once it exists: `make fetch && make bench` (≈135 minutes;
 `make verify`, ≤3 minutes, is a sanity check against the micro-corpus only and does not
 reproduce this number — see `DEMO.md`).
 
@@ -111,7 +113,7 @@ designed to be re-scored at every offset from −5 to +5 minutes from the same c
 matrix in the same run, so the sensitivity curve cannot drift from the headline it describes
 (`scripts/bench.py --sensitivity`).
 
-**Testing, as a form of evaluation in its own right.** 634 tests passed, 2 skipped, 97%
+**Testing, as a form of evaluation in its own right.** 664 tests passed, 2 skipped, 97%
 coverage on `plumerank/`; 1,500 hypothesis-generated cases (`tests/test_invariants.py`)
 verifying the fused hazard never leaves `[0, 1]` and the alert budget can never be overspent
 under any input or call sequence; `scripts/check_claims.py` mechanically checks every route,

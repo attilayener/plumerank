@@ -41,7 +41,7 @@
   "documents_checked": [],
   "generated": "2026-09-06T02:07:19+07:00",
   "ok": true,
-  "root": "/Users/edycu/Hackathon/devpost/devpost-opencv26/plume/build",
+  "root": ".",
   "surfaces": {
     "by_module": {
       "bgsegm": [

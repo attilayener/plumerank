@@ -1,6 +1,6 @@
 <div align="center">
   <h1>PlumeRank 🔥📷</h1>
-  <p><em>Forty wildfire cameras. One dispatcher. Which one does she open next?</em></p>
+  <p><em>A wall of wildfire cameras. One dispatcher. Which one gets opened next?</em></p>
 
   <br/>
 
@@ -47,7 +47,7 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 > (HOLD) evaluation — the only run whose number is allowed to be called the headline — has not
 > run yet. What exists today is the **DEV** arm (the data the fusion weights were fit on, never
 > the number a judge should be shown as proof): **17 of 29 sequences detected, median
-> time-to-detection 32.0 minutes, at 1.99 alerts/camera-night** (`results/arm_dev_2026-09-16.json`).
+> time-to-detection 32.0 minutes, at 1.99 alerts/camera-night** (`results/arm_dev_2026-10-04.json`).
 > That number is for orientation only. Until the HOLD run exists, `/api/benchmark` on the live
 > box correctly 404s and the live wall correctly shows itself as degraded rather than inventing
 > a ranking — see [`JUDGE.md`](JUDGE.md) and `api/main.py`'s `_calibrated_threshold`.
@@ -57,20 +57,32 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 | Detected | 17 / 29 |
 | Median time-to-detection | 32.0 min |
 | Realised alert rate | 1.99 alerts/camera-night (target 2.0) |
-| Escalation fraction (frames touched by the ONNX classifier) | 2.23% |
-| Baseline B1 (same CNN, every frame) | 1 / 29 detected — no median |
+| Escalation fraction (frames touched by the ONNX classifier) | 2.23% — over the 2% design cap the run itself records (`within_max: false`) |
+| Baseline B1 (same CNN, every frame) | 6 / 29 detected — no median |
 | Baseline B2 (frame differencing) | 3 / 29 detected — no median |
+| B1 through PlumeRank's own per-camera baseline (like-for-like) | 14 / 29 detected — no median |
+| B2 through PlumeRank's own per-camera baseline (like-for-like) | 10 / 29 detected — no median |
 
 ## Honest limitations
 
 1. **Daylight only.** HPWREN FIgLib (the ground-truth dataset) is daylight-only and no IR
    camera exists in this build. A night-shift dispatcher works hours this system cannot cover.
-2. **Cloud is the adversary — not the fog this project was designed against.** At the fitted
-   threshold, low cloud costs 4.25 and cloud shadow 3.86 alerts/camera-night against fog's 1.15
-   (`results/class_split_2026-09-06.json`). The diffuse-boundary statistic (S3) does **not**
-   separate smoke from fog on its own — AUC 0.44 on frames with a component
-   (`results/statistics_confound_2026-09-06.md`). What carries the ranking is scoring each
-   camera against its own trailing 15 minutes, not any single statistic.
+2. **Cloud is the adversary — not the fog this project was designed against — and the
+   statistics are weaker than the design assumed.** Measured on 2026-09-06 under the
+   *pre-baseline* pipeline (threshold 0.722, not re-measured under the shipped one), low cloud
+   cost 4.25 and cloud shadow 3.86 alerts/camera-night against fog's 1.15
+   (`results/class_split_2026-09-06.json`) — and that fog figure is on a contaminated class: of
+   54 frames inspected, roughly 27 show no marine layer at all (`results/fog_class_review.md`).
+   A relabelled fog census is in progress. Per statistic, on DEV frames with a component,
+   pre- vs post-ignition: S3 (diffuse boundary) scores AUC 0.44 — anti-predictive — and S1 0.528
+   and S2 0.50 are near chance (`results/statistics_confound_2026-09-06.md`). S3 was never tested
+   against fog directly. What carries the ranking is scoring each camera against its own
+   trailing 15 minutes, not any single statistic.
+7. **One fusion weight is not identified.** Refitting moves `FUSION_W_ESCALATION` from +0.78 to
+   −0.38 for a 0.0006 change in leave-one-sequence-out AUC; the shipped value is kept because
+   it scores two sequences and six minutes of p50 better on DEV
+   (`results/refit_through_baseline_2026-09-16.md`). DEV is the tuning arm, so that choice is
+   in-sample by construction.
 3. **The novelty is a metric reframe, not a new sensor.** The individual OpenCV operations are
    well-known; what is new is the primitive that composes them and the attention-budget
    objective they are pointed at.
@@ -166,7 +178,7 @@ budget and a silence alarm. No Lambda, no managed vision API, no second instance
 ## Testing
 
 ```
-634 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
+664 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
 ```
 
 | Layer | Tool | Notes |
@@ -187,7 +199,7 @@ make verify             # ≤3 min: rebuilds .venv, runs the offline suite, then
                          # the micro-corpus metrics and checks them against the committed
                          # results/verify_micro.json. Does NOT reproduce the published
                          # headline and never claims to.
-make fetch && make bench  # ~95 min total: the pair that reproduces the held-out headline
+make fetch && make bench  # ~135 min total: the pair that reproduces the held-out headline
                            # once results/bench_<date>.json exists (HOLD run, pending)
 ```
 
@@ -200,7 +212,7 @@ See [`DEMO.md`](DEMO.md) for the full reproduce walkthrough and [`JUDGE.md`](JUD
 
 ### Backend (root)
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.lock
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
 .venv/bin/pip install -e ".[dev]"
 .venv/bin/uvicorn api.main:app --reload   # http://127.0.0.1:8000
 ```
@@ -223,7 +235,7 @@ plumerank/       # the pipeline: stabilise, segment, statistic, escalate, rank, 
 api/             # FastAPI app — /build-info, /health, /api/watchlist, /api/benchmark
 scripts/         # fetch.py, bench.py, check_claims.py, check_submission_readiness.py
 web/             # Next.js frontend — the Wall ("/"), "/results", "/judge"
-tests/           # 634 tests, 97% coverage on plumerank/
+tests/           # 664 tests, 97% coverage on plumerank/
 deploy/          # EC2 bootstrap (Caddy, systemd, OpenCV 5 build pin)
 results/         # committed run artefacts — every published number lives here
 ```

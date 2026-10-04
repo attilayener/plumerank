@@ -9,7 +9,7 @@ step to CI or a script under `scripts/`, not a sixth Makefile target.
 
 ## Getting started — backend (root)
 1. Fork the repo and branch from `main`: `git checkout -b feat/your-feature`
-2. `python3 -m venv .venv && .venv/bin/pip install -r requirements.lock`
+2. `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock`
 3. `.venv/bin/pip install -e ".[dev]"` (ruff, mypy, pytest, pytest-cov, hypothesis, pip-audit)
 4. `make test` — offline suite + coverage, no network, no credentials, ~95s
 

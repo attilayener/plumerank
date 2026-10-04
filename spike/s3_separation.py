@@ -14,7 +14,7 @@ Usage:
     python3 s3_separation.py --all-variants     # v0..v5, for the D3 selection pass
 
 Decision rule (95% bootstrap CI on AUC), fixed before any number exists:
-    CI upper  < 0.70  -> NO-GO          switch to FlashBudget
+    CI upper  < 0.70  -> NO-GO          switch to the fallback project
     CI lower >= 0.70  -> GO             proceed
     straddles   0.70  -> CONDITIONAL GO proceed; D11 becomes a hard abort gate
 """
@@ -162,7 +162,7 @@ def bootstrap_ci(pos, neg, draws=BOOTSTRAP_DRAWS, seed=SEED):
 
 def verdict(lo, hi):
     if hi < CUTLINE:
-        return "NO-GO", "The data rule out even a mediocre discriminator. Switch to FlashBudget."
+        return "NO-GO", "The data rule out even a mediocre discriminator. Switch to the fallback project."
     if lo >= CUTLINE:
         return "GO", "Proceed. The D11 checkpoint is confirmation, not rescue."
     return "CONDITIONAL GO", "Proceed, and the D11 budget checkpoint becomes a hard abort gate."

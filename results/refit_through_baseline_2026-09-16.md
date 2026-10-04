@@ -25,7 +25,7 @@ the alert budget, on the tuning arm, at the same DEV-rate-matched proxy `peak_sh
   baseline already reads a component-less camera as "nothing happening" (a constant hazard,
   z = 0), so an explicit presence column buys +0.025 LOSO on frames and loses three sequences
   on detections. Gate 2: **no presence term.** It also puts S3 at −2.21 in the shipped
-  equation, which the report would then have to explain against `spec.md` §2.
+  equation, which the report would then have to explain against the spec §2.
 - **HOLD is untouched.** D11 says weights are fit on DEV; choosing among three DEV-fitted
   sets by the DEV headline is tuning on the tuning arm, declared here. The held-out number
   is produced once, later, by `make bench`.
@@ -37,4 +37,4 @@ on 2.23% of frames; its fusion weight is not identified by the per-frame fit on 
 flip moves LOSO by 0.0006); it is kept at the value under which the headline is best on the
 tuning arm.* Not: *the learned component helps.*
 
-Decision: **gate 2 no · gate 3 keep shipped weights** (`specs/gates-2026-09-16.md`, kitchen).
+Decision: **gate 2 no · gate 3 keep shipped weights** (the 2026-09-16 gate record).

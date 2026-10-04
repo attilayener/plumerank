@@ -100,7 +100,7 @@
     "measured_on": 33,
     "of_manifest_windows": 33,
     "sequence_ids": [],
-    "source": "/Users/edycu/Hackathon/devpost/devpost-opencv26/plume/build/data/excluded.json"
+    "source": "data/excluded.json"
   },
   "frames_per_window": 81,
   "headline": null,

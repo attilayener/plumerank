@@ -901,7 +901,8 @@ class Report:
     def to_json(self) -> dict:
         return {
             "generated": self.generated,
-            "root": str(self.root),
+            # The checkout, not its absolute path: committed JSON must not carry a home dir.
+            "root": ".",
             "documents_checked": self.docs,
             "checks": [c.to_json() for c in self.checks],
             "surfaces": self.count.to_json(),

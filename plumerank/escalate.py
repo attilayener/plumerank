@@ -36,14 +36,14 @@ net a 200 px crop squeezed into 96 px would present it a different pixels-per-me
 every tile it was trained on. The cost of that choice is a named limitation, not a hidden
 one: a component larger than one tile is scored on the tile at its centroid.
 
-OpenCV 5 surfaces used here (opencv5-defense.md section 5): ``cv2.dnn.readNetFromONNX``
+OpenCV 5 surfaces used here (the OpenCV 5 design notes section 5): ``cv2.dnn.readNetFromONNX``
 with the ``engine`` argument, ``cv2.dnn.ENGINE_NEW``, ``cv2.dnn.blobFromImage``,
 ``cv2.dnn.Net.forward``. ``ENGINE_NEW`` is 5.x-only and CPU-only in 5.0, which is free on
-Graviton and is written down as a cap on the architecture in opencv5-defense.md section 8.2.
+Graviton and is written down as a cap on the architecture in the OpenCV 5 design notes section 8.2.
 ``Net::setPreferableBackend`` is called here too (build-contract.md W4 names it) and is
 **used and not counted** as depth, in the same sense as ``goodFeaturesToTrack`` in the
 stabiliser: it selects a backend, it does not do analysis. It is deliberately NOT one of
-the four counted ``dnn`` surfaces in opencv5-defense.md section 5, and it belongs on that
+the four counted ``dnn`` surfaces in the OpenCV 5 design notes section 5, and it belongs on that
 file's section 6a anti-inflation table alongside the four drawing calls.
 """
 
@@ -160,7 +160,7 @@ class TileClassifier:
             )
         self._engine = int(engine)
         self._net = cv2.dnn.readNetFromONNX(str(self._path), self._engine)
-        # No target is set: ENGINE_NEW is CPU-only in 5.0 (opencv5-defense.md 8.2), so
+        # No target is set: ENGINE_NEW is CPU-only in 5.0 (the OpenCV 5 design notes 8.2), so
         # asking for a non-CPU target here would be a request the engine cannot honour
         # and would only make /build-info's reported backend disagree with reality.
         self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
@@ -237,7 +237,7 @@ class TileClassifier:
         over ~45 tiles would let 44 empty tiles bury the one that matters -- a strawman
         baseline dressed as a fair one. Each tile is its own ``forward`` rather than one
         batched blob so that ``invocations`` counts the work B1 actually does; batching
-        would report 1 where the arithmetic in architecture.md section 6 counts *g*.
+        would report 1 where the arithmetic in the architecture notes section 6 counts *g*.
         """
         _check_frame(frame)
         xs = grid_origins(frame.shape[1])
