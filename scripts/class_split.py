@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""What each confusion class costs of the alert budget -- the D11 measurement.
+"""What each confusion class costs of the alert budget -- the budget-checkpoint measurement.
 
-``results/gonogo_2026-09-01.md`` §4 wrote the D11 abort criterion in terms of what "the fog
+``results/gonogo_2026-09-01.md`` §4 wrote the budget-checkpoint abort criterion in terms of what "the fog
 windows alone contribute" at the threshold the whole CONFUSE arm calibrates to.
 ``results/ruling_d11_contribute.md`` then fixed, before any fitted number existed, that the
 binding quantity is **fog's OWN RATE on fog windows alone**, not its share of the arm's
@@ -108,7 +108,7 @@ def main() -> int:
     for r in rows:
         print(f"{r['class']:<20}{r['windows']:>5}{r['alerts']:>8}"
               f"{r['own_rate']:>11.4f}{r['share_of_arm_budget']:>14.4f}")
-    print(f"\nD11 binding quantity (ruling §2): fog_marine OWN RATE = {binding}")
+    print(f"\nbudget-checkpoint binding quantity (ruling §2): fog_marine OWN RATE = {binding}")
     print(f"cutlines from gonogo §4, fixed 2026-09-01: clear < {CLEAR_BELOW} · "
           f"abort > {ABORT_ABOVE}")
     print(f"VERDICT: {verdict}")

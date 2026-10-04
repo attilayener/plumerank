@@ -10,7 +10,7 @@ everywhere, not just at the points someone thought to write down:
    sort arbitrarily and scramble the watch list -- the exact failure ``rank._unit`` is
    written to prevent (see its docstring). Verified here across the full input space, not
    just the documented extremes.
-2. ``BudgetState`` is the mechanical form of the spec section 9 safeguard 3 -- "the alert
+2. ``BudgetState`` is the mechanical form of responsible-use safeguard 3 -- "the alert
    budget is a published, logged, tunable parameter." If any call sequence could push
    ``total_spent`` past ``capacity``, or one camera's spend past ``per_camera``, the
    published budget would be a claim rather than a guarantee.

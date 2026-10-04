@@ -2,7 +2,7 @@
   "arm": "micro",
   "background": "mog2",
   "budget_alerts_per_camera_night": 2.0,
-  "constants_sha256": "ce9da71c7288fb3ada201a3852011668ce8bb05f3142b60a88abd32a637906f1",
+  "constants_sha256": "02752e86dc651fcfbf65e448cd669220e678c6c82ee6790b9f5821dd9aaea2d4",
   "escalation_fraction": 0.006452,
   "frames_per_window": 31,
   "model_invocations_per_camera_night": {

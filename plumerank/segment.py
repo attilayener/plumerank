@@ -45,7 +45,7 @@ Warm-up is a state, not a silence
 ---------------------------------
 ``apply`` runs and returns components from frame 1. Before ``warm`` the background model
 has seen fewer than ``WARMUP_FRAMES`` frames and its output is not yet meaningful, so the
-UI shows a designed warming state (``ui.md`` section 7) with the components it actually
+UI shows a designed warming state with the components it actually
 got. Returning ``[]`` during warm-up would look like a working detector finding nothing,
 which is the one thing a dispatcher must never be shown.
 """
@@ -85,7 +85,7 @@ class Segmenter:
     """Stateful per-camera foreground segmenter. One instance per camera, for the night.
 
     The state is the background model, which is the whole point: forty cameras means forty
-    of these, and the spec section 11 budgets them at roughly 11 MB each at 480x270.
+    of these, budgeted at roughly 11 MB each at 480x270.
 
     Args:
         method: ``"mog2"`` | ``"lsbp"`` | ``"gsoc"``. Anything else raises immediately --

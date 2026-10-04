@@ -1165,7 +1165,7 @@ def _auc_interval(
     Both classes and not just the positive one: 60 against 60 is small enough that the
     background's own composition is a real source of the uncertainty, and an interval that
     holds the negatives fixed would be narrower than the thing it claims to describe --
-    the same mistake the scope record caught in the Sep 1 gate's first draft.
+    the same mistake caught in the Sep 1 go/no-go's first draft.
     """
     rng = np.random.default_rng(seed)
     pos = np.asarray(positive, dtype=np.float64)

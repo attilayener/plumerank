@@ -40,11 +40,11 @@ OpenCV 5 surfaces used here: ``cv2.dnn.readNetFromONNX``
 with the ``engine`` argument, ``cv2.dnn.ENGINE_NEW``, ``cv2.dnn.blobFromImage``,
 ``cv2.dnn.Net.forward``. ``ENGINE_NEW`` is 5.x-only and CPU-only in 5.0, which is free on
 Graviton and is a documented cap on the architecture.
-``Net::setPreferableBackend`` is called here too (build-contract.md W4 names it) and is
+``Net::setPreferableBackend`` is called here too and is
 **used and not counted** as depth, in the same sense as ``goodFeaturesToTrack`` in the
 stabiliser: it selects a backend, it does not do analysis. It is deliberately NOT one of
 the four counted ``dnn`` surfaces, and it belongs on that
-file's section 6a anti-inflation table alongside the four drawing calls.
+surface count's anti-inflation list alongside the four drawing calls.
 """
 
 from __future__ import annotations

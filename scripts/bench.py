@@ -447,7 +447,9 @@ def manifest_sha256(root: pathlib.Path, arm: str) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def assert_hold_is_the_shipped_run(root: pathlib.Path, args: argparse.Namespace) -> None:
+def assert_hold_is_the_shipped_run(
+    root: pathlib.Path, args: argparse.Namespace, results_file: str
+) -> None:
     """Refuse a HOLD run that is not the one frozen, shipped configuration.
 
     ``bench_<date>.json`` is what the API calibrates the live wall from and what the
@@ -476,18 +478,56 @@ def assert_hold_is_the_shipped_run(root: pathlib.Path, args: argparse.Namespace)
             "refusing --dump-features on HOLD: features_hold.jsonl is what fit_fusion.py "
             "reads, and a fit on HOLD features is a fit on the held-out arm"
         )
-    existing = root / "results" / results_filename("hold", _today())
+    existing = root / "results" / results_file
     if existing.exists():
         raise SystemExit(f"refusing to read HOLD: {existing.name} already exists")
 
 
 def committed_ablation(root: pathlib.Path) -> tuple[list[dict[str, Any]] | None, str | None]:
-    """The newest ``results/ablation_<date>.csv`` verbatim, or ``(None, None)``."""
-    grids = sorted((root / "results").glob("ablation_*.csv"))
-    if not grids:
-        return None, None
-    with grids[-1].open(newline="", encoding="utf-8") as fh:
-        return [dict(r) for r in csv.DictReader(fh)], grids[-1].name
+    """The newest COMPLETE, shipped-provenance ``results/ablation_<date>.csv``, verbatim.
+
+    A grid is quoted only if all twelve cells are present, every row was measured at the
+    frozen budget through the shipped baseline, and the commit every row names is an
+    ancestor of HEAD -- otherwise the HOLD file would publish a table measured on code it
+    does not contain. ``(None, None)`` when no grid qualifies.
+    """
+    want = len(ablation_cells())
+    for grid in sorted((root / "results").glob("ablation_*.csv"), reverse=True):
+        with grid.open(newline="", encoding="utf-8") as fh:
+            rows = [dict(r) for r in csv.DictReader(fh)]
+        commits = {r.get("commit", "") for r in rows}
+        ok = (
+            len({_cell_key(r) for r in rows}) == want
+            and all(r.get("baseline") == "shipped" for r in rows)
+            and all(_same_budget(r.get("budget")) for r in rows)
+            and len(commits) == 1
+            and _is_ancestor(root, next(iter(commits)))
+        )
+        if ok:
+            return rows, grid.name
+    return None, None
+
+
+def _same_budget(value: str | None) -> bool:
+    try:
+        return value is not None and float(value) == K.BUDGET_ALERTS_PER_CAMERA_NIGHT
+    except ValueError:
+        return False
+
+
+def _is_ancestor(root: pathlib.Path, commit: str) -> bool:
+    """True when ``commit`` is HEAD or one of its ancestors."""
+    if not commit or commit == "none":
+        return False
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "merge-base", "--is-ancestor", commit, "HEAD"],
+            capture_output=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return out.returncode == 0
 
 
 def log_hold_access(root: pathlib.Path, commit: str, note: str) -> pathlib.Path:
@@ -1861,6 +1901,8 @@ def run_arm(
             results_date,
             s4=getattr(args, "s4", "on"),
             baseline=getattr(args, "baseline", "shipped"),
+            bg=args.bg,
+            budget=args.budget,
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
@@ -1873,7 +1915,7 @@ def run_arm(
                 "could not name a commit anybody can check out"
             )
         assert_tree_clean(root)
-        assert_hold_is_the_shipped_run(root, args)
+        assert_hold_is_the_shipped_run(root, args, results_file)
     else:
         constants_sha = K.freeze_hash()
     confuse_manifest_sha = manifest_sha256(root, "micro" if args.arm == "micro" else "confuse")
@@ -2164,7 +2206,7 @@ def run_arm(
             "python": sys.version.split()[0],
             "started": started.isoformat(timespec="seconds"),
             "wall_clock_seconds": round(elapsed, 1),
-            "date": _today(),
+            "date": results_date,
         },
     }
 
@@ -2245,7 +2287,15 @@ def _today() -> str:
     return dt.datetime.now(dt.timezone.utc).date().isoformat()
 
 
-def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "shipped") -> str:
+def results_filename(
+    arm: str,
+    date: str,
+    *,
+    s4: str = "on",
+    baseline: str = "shipped",
+    bg: str = "mog2",
+    budget: float = BUDGET_ALERTS_PER_CAMERA_NIGHT,
+) -> str:
     """Where one arm's payload is allowed to land in ``results/``.
 
     Only HOLD may occupy ``bench_<date>.json``. That name is not a convention here, it is
@@ -2261,11 +2311,11 @@ def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "sh
     **The plain name is reserved for the SHIPPED configuration.** An ablation cell files
     under a name that says which cell it is, and the test of "shipped" is whether the run's
     S4 setting agrees with ``constants.S4_ENABLED`` -- not whether a flag was typed. So if
-    S4 is ever deleted by the D10 gate, ``--s4 on`` becomes the ablation and takes the
+    S4 is ever deleted by the S4 ablation gate, ``--s4 on`` becomes the ablation and takes the
     suffix, with no second place to update.
 
     This is a defect fix, and the defect was expensive. Until 2026-09-06 the S4 cell was
-    absent from the name, so ``--s4 off`` wrote the same file a normal run does. The D10
+    absent from the name, so ``--s4 off`` wrote the same file a normal run does. The S4
     ablation on 2026-09-05 left an S4-OFF run under ``arm_dev_<date>.json``, four documents
     and the project record read it as the product, and PlumeRank's DEV detection rate was
     published as 41.4% when the shipped pipeline's is 31.0%. Nobody copied anything wrong;
@@ -2277,23 +2327,35 @@ def results_filename(arm: str, date: str, *, s4: str = "on", baseline: str = "sh
             a ``bench_s4off_<date>.json`` still matches the ``bench_*.json`` glob and sorts
             AFTER the real headline, so it would win the "lexically newest" selection and
             become the published number -- the exact trap the paragraph above describes.
-            The D40 HOLD run is one frozen run of the shipped configuration; an ablation on
+            The held-out run is one frozen run of the shipped configuration; an ablation on
             it is not a thing this plan asks for.
     """
-    shipped = ((s4 == "on") == S4_ENABLED) and baseline == "shipped"
+    shipped = (
+        ((s4 == "on") == S4_ENABLED)
+        and baseline == "shipped"
+        and bg == "mog2"
+        and budget == BUDGET_ALERTS_PER_CAMERA_NIGHT
+    )
     if arm == "micro":
         return "verify_micro.json"
     if arm == "hold":
         if not shipped:
             raise ValueError(
-                f"refusing to write a HOLD run with s4={s4!r}, baseline={baseline!r} while "
-                f"S4_ENABLED={S4_ENABLED}: an ablation cell cannot be given a bench_*.json "
-                "name without out-sorting the real headline"
+                f"refusing to write a HOLD run with s4={s4!r}, baseline={baseline!r}, "
+                f"bg={bg!r}, budget={budget!r} (S4_ENABLED={S4_ENABLED}): only the shipped "
+                "configuration -- mog2 at the frozen budget -- may take a bench_*.json name"
             )
         return f"bench_{date}.json"
+    # Every axis that changes the result changes the name: the plain arm_dev_<date>.json is
+    # what the live wall calibrates from before HOLD exists, so a background or budget
+    # sweep landing there would silently re-point the wall.
     cell = "" if (s4 == "on") == S4_ENABLED else f"_s4{s4}"
     if baseline != "shipped":
         cell += f"_{baseline}"
+    if bg != "mog2":
+        cell += f"_{bg}"
+    if budget != BUDGET_ALERTS_PER_CAMERA_NIGHT:
+        cell += f"_budget{budget:g}"
     return f"arm_{arm}{cell}_{date}.json"
 
 
@@ -2557,7 +2619,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("on", "off"),
         default="on",
         help=(
-            "single-cell S4 ablation, for the D10 gate. 'off' zeroes the S4 input on the "
+            "single-cell S4 ablation, for the S4 ablation gate. 'off' zeroes the S4 input on the "
             "SAME code path the shipped pipeline uses (see _classical_tick), rather than "
             "monkeypatching the frozen constant mid-run."
         ),

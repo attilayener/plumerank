@@ -159,7 +159,7 @@ def test_stabilisation_does_not_destroy_the_frame_it_returns():
 @pytest.mark.skipif(not _sequences(), reason="no data/corpus -- run `make fetch` to enable")
 def test_the_classical_path_stays_inside_its_latency_budget():
     """The 99/1 cost argument rests on this number, so it is measured rather than argued.
-    Budgeted at 30 ms/frame in architecture.md section 6; asserted generously at 60 ms
+    Budgeted at 30 ms/frame; asserted generously at 60 ms
     because CI hardware is not the t4g.small and a flaky budget test gets deleted, which
     would be worse than a loose one. The real figure goes in DEMO.md from bench.py."""
     from plumerank.metrics import Latency

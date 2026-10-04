@@ -214,7 +214,7 @@ def s1_anchoring(track: Track) -> float:
 def s2_anisotropy(track: Track) -> float:
     """d(height)/dt over d(width)/dt, squashed. A plume rises faster than it spreads.
 
-    The rate ratio is formed exactly as ``build-contract.md`` specifies -- least-squares
+    The rate ratio is formed as specified -- least-squares
     slopes over the window, denominator floored at
     ``S2_WIDTH_RATE_FLOOR_PX_PER_FRAME`` so a component that does not widen at all yields
     a large ratio rather than an infinity.
@@ -414,7 +414,7 @@ def s4_drift(
     # boundary is a library detail that can move between OpenCV versions, and a hardcoded
     # "height < 32" guard would go quietly wrong the day it does. 0.0 here means the same
     # thing as the four exits above -- no drift evidence -- and NOT nan, because S4 is
-    # additive evidence under the D10 ablation gate rather than something the ranking
+    # additive evidence under the S4 ablation gate rather than something the ranking
     # depends on the way it depends on S3.
     if not np.isfinite(flow).all():
         return 0.0

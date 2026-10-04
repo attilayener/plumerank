@@ -1,7 +1,7 @@
 """Tests for the fusion, the solved threshold, the budget and the evidence crop.
 
 Two of these are not really unit tests but assertions about the product's promises:
-``test_emit_never_suppresses_a_spent_camera`` is the spec section 9 safeguard 2, and
+``test_emit_never_suppresses_a_spent_camera`` is responsible-use safeguard 2, and
 ``test_solve_threshold_closed_form`` is the only reason to believe the published operating
 point is the one the system actually runs at.
 """
@@ -260,7 +260,7 @@ def test_emit_does_not_spend_budget_below_the_threshold():
 
 
 def test_emit_never_suppresses_a_spent_camera():
-    """the spec section 9 safeguard 2: the system reorders, it never suppresses. A camera
+    """Responsible-use safeguard 2: the system reorders, it never suppresses. A camera
     whose two alerts are gone still occupies its rank, carries its budget_spent count, and
     is merely not alerting -- because a row the operator cannot see is a row she cannot
     overrule."""

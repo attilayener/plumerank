@@ -90,5 +90,5 @@ was written for.
 
 Every artefact needed to redo this is committed and cheap: `spike/urls_fog.txt` is a URL list,
 `scripts/build_confusion_set.py` regenerates the arm from a predicate, and the HPWREN
-medium-term archive is still open. This is a data problem found on **D8 of 58, with 50 days
+medium-term archive is still open. This is a data problem found on **2026-09-06, with 50 days
 left**, and it is recoverable. Found at the held-out run it would not have been.

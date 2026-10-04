@@ -71,7 +71,7 @@ COMMIT = "1" * 40
 #
 # The paths are the ones scripts/bench.py writes. Where the reader wanted a vaguer name
 # than the file publishes -- one "alerts per camera-night" against a document that
-# deliberately publishes two different rates -- the READER moved, because build-contract.md
+# deliberately publishes two different rates -- the READER moved, because the contract
 # requires the published file to say which of the two it means every time it prints one.
 # Where the file had no addressable name at all -- a per-system map called `headline`, a
 # solved threshold with nowhere to live -- BENCH moved, because api/main.py and the
@@ -220,6 +220,8 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Run]:
     # test_bench.py, the rest of the shipped-run guard still runs via its real checks.
     patch.setattr(bench, "repo_root", lambda: root.resolve())
     patch.setattr(bench, "ablation_cells", _two_cell_grid)
+    # The tmp tree is not a git checkout; the stubbed commit stands in for HEAD.
+    patch.setattr(bench, "_is_ancestor", lambda _root, commit: commit == COMMIT)
     buffer = io.StringIO()
     try:
         with contextlib.redirect_stdout(buffer):

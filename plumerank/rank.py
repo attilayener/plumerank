@@ -96,7 +96,7 @@ EVIDENCE_PAD_PX: int = 12
 EVIDENCE_MIN_CROP_W: int = 160
 EVIDENCE_MIN_CROP_H: int = 120
 
-#: ui.md section 2 tokens, converted to BGR: --overlay-anchor #FFD166 (the pinned foot)
+#: The web design tokens, converted to BGR: --overlay-anchor #FFD166 (the pinned foot)
 #: and --overlay-growth #56C2FF (the climbing top).
 COLOUR_ANCHOR_BGR: tuple[int, int, int] = (0x66, 0xD1, 0xFF)
 COLOUR_GROWTH_BGR: tuple[int, int, int] = (0xFF, 0xC2, 0x56)
@@ -463,7 +463,7 @@ def emit(
 
     A camera whose budget is gone **still appears**, with ``alerted=False`` and its
     ``budget_spent`` count, and the list is never truncated to the top-k. This is
-    the spec section 9 safeguard 2 expressed as code rather than as a paragraph: the
+    Responsible-use safeguard 2 expressed as code rather than as a paragraph: the
     system reorders, it never suppresses. ``TOP_K`` is a *metrics* concept -- what counts as
     a detection -- and applying it here would delete the evidence a human needs to overrule.
 

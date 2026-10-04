@@ -743,7 +743,9 @@ def test_the_operating_curve_covers_the_requested_budget(tree: pathlib.Path) -> 
     # and B2's synthetic scores tie at the top, so any budget a whole step above 0.0 is
     # (correctly) refused as undershoot by _check_calibration.
     assert _run(tree, "--arm", "dev", "--budget", "2.4") == 0
-    budgets = [r["budget_alerts_per_camera_night"] for r in _bench_json(tree)["operating_curve"]]
+    name = bench.results_filename("dev", bench._today(), budget=2.4)
+    payload = json.loads((tree / "results" / name).read_text())
+    budgets = [r["budget_alerts_per_camera_night"] for r in payload["operating_curve"]]
     assert 2.4 in budgets, "the published operating point must be a point on the curve"
     assert budgets == sorted(set(budgets))
 
@@ -752,7 +754,8 @@ def test_every_background_model_runs(tree: pathlib.Path) -> None:
     """LSBP and GSOC are measured alternatives, not decoration -- so they must run here."""
     for bg in bench.BACKGROUNDS:
         assert _run(tree, "--arm", "dev", "--bg", bg) == 0
-        assert _bench_json(tree)["background"] == bg
+        name = bench.results_filename("dev", bench._today(), bg=bg)
+        assert json.loads((tree / "results" / name).read_text())["background"] == bg
 
 
 def test_a_missing_arm_fails_loudly(tree: pathlib.Path) -> None:
@@ -1059,7 +1062,7 @@ def test_the_excluded_count_beside_an_arm_is_that_arms_own_exclusions(
 
     Printing the whole file's length beside one arm's denominator hands a reader an
     addition that does not come out -- "48 sequences, 20 excluded" over a manifest of 60 --
-    and the count is one of the three numbers the scope record says may move and
+    and the count is one of the three numbers allowed to move and
     must therefore be machine-derived every time it is printed.
     """
     (tree / "data" / "excluded.json").write_text(
@@ -1202,8 +1205,8 @@ def test_replay_refuses_mixed_window_lengths() -> None:
 @pytest.mark.parametrize(
     "argv, match",
     [
-        (["--bg", "gsoc"], "the wall runs mog2"),
-        (["--budget", "1.0"], "frozen operating point"),
+        (["--bg", "gsoc"], "only the shipped"),
+        (["--budget", "1.0"], "only the shipped"),
         (["--ablation"], "refusing --ablation on HOLD"),
         (["--dump-features"], "refusing --dump-features on HOLD"),
     ],
@@ -1223,3 +1226,59 @@ def test_hold_refuses_a_foreign_root(tree: pathlib.Path, monkeypatch: pytest.Mon
     _freeze(tree)
     with pytest.raises(SystemExit, match="is not the checkout this script runs"):
         _run(tree, "--arm", "hold")
+
+
+def test_non_shipped_backgrounds_and_budgets_never_take_the_plain_dev_name() -> None:
+    """The plain arm_dev_<date>.json is what the wall calibrates from before HOLD."""
+    d = "2026-10-04"
+    assert bench.results_filename("dev", d) == f"arm_dev_{d}.json"
+    assert bench.results_filename("dev", d, bg="lsbp") == f"arm_dev_lsbp_{d}.json"
+    assert bench.results_filename("dev", d, budget=1.5) == f"arm_dev_budget1.5_{d}.json"
+    with pytest.raises(ValueError):
+        bench.results_filename("hold", d, bg="gsoc")
+
+
+def test_committed_ablation_quotes_only_a_complete_shipped_grid(
+    tree: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(bench, "_is_ancestor", lambda root, commit: commit == "abc")
+    results = tree / "results"
+
+    def grid(name: str, n: int, **over: str) -> None:
+        for bg, s4, esc in bench.ablation_cells()[:n]:
+            bench._append_csv_row(
+                results / name,
+                bench.ABLATION_COLUMNS,
+                {c: "" for c in bench.ABLATION_COLUMNS}
+                | {"bg": bg, "s4": str(s4), "escalation": str(esc)}
+                | {"baseline": "shipped", "budget": "2.0", "seed": "1", "commit": "abc"}
+                | over,
+            )
+
+    grid("ablation_2026-10-01.csv", 12)
+    grid("ablation_2026-10-02.csv", 11)                       # partial
+    grid("ablation_2026-10-03.csv", 12, budget="3.0")         # wrong budget
+    grid("ablation_2026-10-04.csv", 12, commit="zzz")         # not an ancestor
+    rows, source = bench.committed_ablation(tree)
+    assert source == "ablation_2026-10-01.csv"
+    assert rows is not None and len(rows) == 12
+
+
+def test_per_sequence_rows_agree_with_the_headline(tree: pathlib.Path) -> None:
+    assert _run(tree, "--arm", "dev") == 0
+    payload = _bench_json(tree)
+    rows = payload["per_sequence"]
+    head = next(b for b in payload["baselines"] if b["system"] == "plumerank")["ttd"]
+    assert len(rows) == head["n"]
+    assert sum(r["plumerank_ttd_minutes"] is not None for r in rows) == head["n_detected"]
+
+
+def test_the_committed_micro_expectation_matches_the_running_constants() -> None:
+    """make verify byte-compares this hash; a comment edit to constants.py breaks it."""
+    from plumerank import constants as K
+
+    blob = json.loads((ROOT / "results" / "verify_micro.json").read_text())
+    assert blob["constants_sha256"] == K.freeze_hash(), (
+        "plumerank/constants.py changed since results/verify_micro.json was written -- "
+        "re-run scripts/bench.py --arm micro --write-expected (and the DEV bench)"
+    )

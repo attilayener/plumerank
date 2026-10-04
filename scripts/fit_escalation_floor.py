@@ -13,7 +13,7 @@ Fitting the fusion weights on 2026-09-06 moved the bias to -0.6961. That put a q
 against a 2% design maximum and fired on pre-ignition frames. Re-deriving the floor as a fixed
 logit margin above the bias fixed that and overshot: escalation fell to **0.00%** and the ONNX
 path never executed at all, which is worse. A ``dnn`` integration that never runs is the
-decorative-SDK failure the project's own lessons file puts first.
+decorative-SDK failure.
 
 Neither an absolute constant nor an inherited margin survives a refit of the fusion. So the
 floor is solved, on CONFUSE, against a design target — **which is exactly what

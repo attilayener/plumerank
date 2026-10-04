@@ -7,7 +7,7 @@ The one sentence this package implements:
     harness measures how many minutes after ignition the true camera first enters
     the top-k.
 
-Module map (seven, and no eighth -- architecture.md section 7):
+Module map (seven, and no eighth):
 
     constants.py   every fitted number in the project, frozen and hashable
     types.py       the dataclasses the stages hand each other
