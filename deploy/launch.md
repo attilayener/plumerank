@@ -243,7 +243,9 @@ aws ec2 revoke-security-group-ingress --region "$AWS_REGION" --group-id "$PR_SG"
 ```
 
 Almost nothing needs that, because a deploy is `bootstrap.sh` again and the logs are in
-CloudWatch and `/var/log/plumerank-bootstrap.log`.
+journald (`journalctl -u plumerank -u caddy`) and `/var/log/plumerank-bootstrap.log`.
+There is no CloudWatch Logs agent and no log group: CloudWatch carries the three
+*metrics* and the alarms in section 7a, not the logs.
 
 ---
 
@@ -412,6 +414,30 @@ Three things have to agree, and all three are in that second response:
    machine have drifted and one of them is wrong.
 3. The `commit` field equals `git rev-parse HEAD` in the clone you deployed from. A live
    test asserts exactly this over HTTPS.
+
+---
+
+## 7a. Alarms -- from the laptop, after the first deploy
+
+The box publishes `RealisedAlertRate`, `EscalationFraction` and `Heartbeat` into the
+`PlumeRank` namespace (`plumerank/telemetry.py`), in the region `bootstrap.sh` reads from
+IMDS and writes into `/etc/plumerank.env` as `AWS_REGION`. The alarms that watch them are
+created from the operator side, because `cloudwatch:PutMetricAlarm` is not -- and should
+not be -- in the instance profile:
+
+```bash
+bash deploy/alarms.sh                                   # uses $AWS_REGION from section 0
+# optional: PR_ALARM_SNS_ARN=arn:aws:sns:us-west-2:<ACCOUNT_ID>:plumerank bash deploy/alarms.sh
+aws cloudwatch list-metrics --region "$AWS_REGION" --namespace PlumeRank
+aws cloudwatch describe-alarms --region "$AWS_REGION" --alarm-name-prefix PlumeRank \
+  --query 'MetricAlarms[].[AlarmName,StateValue]' --output table
+```
+
+Three alarms: alert-rate drift above 2.30 and below 1.70 alerts per camera-night (the
+2.0 budget +/- `BUDGET_DRIFT_TOLERANCE`, hourly mean, idle hours not breaching), and
+heartbeat silence (no datapoint in 15 minutes, missing data breaching). `list-metrics`
+coming back empty a few minutes after a deploy means telemetry is not landing -- check
+`journalctl -u plumerank | grep 'telemetry paused'`, which names the region and the error.
 
 ---
 

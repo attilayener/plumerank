@@ -31,7 +31,14 @@ ExecStart=/opt/plumerank/.venv/bin/uvicorn api.main:app \
     --port 8000 \
     --workers 1 \
     --timeout-keep-alive 75 \
+    --limit-concurrency 96 \
     --log-level info
+
+# --limit-concurrency answers 503 past 96 open connections instead of letting the 97th
+# exhaust the box. Every live wall is one held SSE connection, and api/main.py caps those
+# separately (MAX_VIEWERS) below this number so /health and /build-info always have room.
+# LimitNOFILE leaves headroom over it for sockets, JPEG reads and the ONNX model file.
+LimitNOFILE=8192
 
 Restart=always
 # Long enough that a crash loop from a bad deploy does not spin the CPU credits away on

@@ -145,13 +145,21 @@ def build_tree(
 
 
 def build_info_payload(commit: str = SHA, version: str = "5.0.0.93") -> bytes:
+    """The shape api/main.py:build_info actually serves -- version nested under opencv."""
     return json.dumps(
         {
-            "opencv_version": version,
-            "build_information": "General configuration for OpenCV " + version,
+            "service": "plumerank",
+            "opencv": {
+                "version": version,
+                "modules": {"dnn": {"ok": True, "symbols": {}}},
+                "build_information": "General configuration for OpenCV " + version,
+            },
+            "dnn": {"engine_requested": "ENGINE_NEW", "loaded": True},
+            "constants": {"sha256": "x", "committed_sha256": None, "matches": None},
             "commit": commit,
             "instance_id": "i-0abc",
             "ami_id": "ami-0def",
+            "onnx_sha256": None,
         }
     ).encode()
 
@@ -614,3 +622,67 @@ def test_a_sentence_naming_both_commands_is_the_careful_one_and_passes(
     )
     root, submission = build_tree(tmp_path, readme=readme)
     assert readiness.check_reproduce_both(root, submission).status == readiness.PASS
+
+
+# ---------------------------------------------------------------------------------
+# Audit 2026-10-04 #14 and the two false positives
+# ---------------------------------------------------------------------------------
+
+
+def test_the_fixture_has_the_shape_the_real_server_serves() -> None:
+    """The fixture drifted from the server once (flat vs nested) and hid a real failure.
+
+    Compared key-for-key against the live app's own /build-info, so the next drift fails
+    here instead of against the deployed box.
+    """
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    with TestClient(app) as client:
+        real = client.get("/build-info").json()
+    fixture = json.loads(build_info_payload())
+    assert set(fixture) == set(real)
+    assert set(fixture["opencv"]) == set(real["opencv"])
+    assert isinstance(real["opencv"]["version"], str)
+
+
+def test_a_flat_build_info_shape_is_not_accepted(tmp_path: pathlib.Path) -> None:
+    root, _ = build_tree(tmp_path)
+    flat = json.dumps(
+        {"opencv_version": "5.0.0", "build_information": "OpenCV", "commit": SHA}
+    ).encode()
+    mapping = live_mapping(root, **{f"{LIVE}/build-info": (200, flat)})
+    check = readiness.check_build_info(root, full_config(), fetcher(mapping))
+    assert check.status == readiness.FAIL
+    assert any("opencv.version" in e for e in check.evidence), check.evidence
+
+
+def test_the_grant_amount_is_not_a_superseded_cost(tmp_path: pathlib.Path) -> None:
+    grant = "$" + "150"
+    root, submission = build_tree(
+        tmp_path, extra={"DEMO.md": f"Funded by a {grant} AWS compute grant.\n"}
+    )
+    assert readiness.check_no_stale_cost(root, submission).status == readiness.PASS
+
+
+def test_the_static_export_is_not_scanned_for_costs(tmp_path: pathlib.Path) -> None:
+    ref = "$" + "15"
+    root, submission = build_tree(
+        tmp_path, extra={"web/out/judge.txt": f'c:["{ref}","$L12",null]\n'}
+    )
+    assert readiness.check_no_stale_cost(root, submission).status == readiness.PASS
+
+
+def test_a_trailing_comment_is_not_a_mocking_flag(tmp_path: pathlib.Path) -> None:
+    word = "off" + "line"
+    readme = _README + f"\n```bash\nmake test   # {word} suite, no network, no credentials\n```\n"
+    root, submission = build_tree(tmp_path, readme=readme)
+    assert readiness.check_reproduce_honest(root, submission).status == readiness.PASS
+
+
+def test_a_mocking_flag_before_a_comment_is_still_caught(tmp_path: pathlib.Path) -> None:
+    flag = "--" + "off" + "line"
+    readme = _README + f"\n```bash\nmake test {flag}   # quick\n```\n"
+    root, submission = build_tree(tmp_path, readme=readme)
+    assert readiness.check_reproduce_honest(root, submission).status == readiness.FAIL

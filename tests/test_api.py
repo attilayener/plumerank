@@ -313,6 +313,11 @@ def test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health(
     ``meta`` published a calibrated operating point beside them.
     """
     monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    # The probe checks the corpus before the threshold, and data/corpus is gitignored, so on
+    # a clean clone it would stop at "run `make fetch`" and never reach the branch under test.
+    # One stand-in sequence gets it past that check; the probe returns on the threshold
+    # before it ever touches a sequence.
+    monkeypatch.setattr(main, "_wall_sequences", lambda: ([object()], None))
     (tmp_path / "bench_2026-10-08.json").write_text(body, encoding="utf-8")
 
     assert main._calibrated_threshold()[0] is None, why
@@ -761,3 +766,49 @@ def test_a_roster_that_never_ignites_publishes_no_ignition_clock() -> None:
     assert shared is None
     assert [c.frame_offset for c in cameras] == [0, 0]
     assert frame_count == 80
+
+
+# ---------------------------------------------------------------------------------
+# Hardening -- audit 2026-10-04 P2
+# ---------------------------------------------------------------------------------
+
+
+def test_health_answers_head(client: TestClient) -> None:
+    """Uptime monitors and `curl -I` send HEAD; a 405 there reads as an outage."""
+    response = client.head("/health")
+    assert response.status_code == 200
+
+
+def test_the_wall_refuses_a_viewer_past_the_cap(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_VIEWERS", 0)
+    response = client.get("/api/watchlist")
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "30"
+    assert main.REPLAY.viewer_count == 0, "a refused viewer must never be attached"
+
+
+def test_build_info_is_computed_once_per_model_and_freeze(
+    client: TestClient, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = tmp_path / "m.onnx"
+    model.write_bytes(b"not a model")
+    monkeypatch.setattr(main, "ONNX_PATH", model)
+    monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    calls: list[int] = []
+    real = main._dnn_engine
+
+    def counting() -> dict[str, Any]:
+        calls.append(1)
+        return real()
+
+    monkeypatch.setattr(main, "_dnn_engine", counting)
+    first = client.get("/build-info").json()
+    second = client.get("/build-info").json()
+    assert first == second and len(calls) == 1
+    # A new freeze on disk is a different body: the cache must notice.
+    (tmp_path / "constants.sha256").write_text("deadbeef\n", encoding="ascii")
+    third = client.get("/build-info").json()
+    assert len(calls) == 2
+    assert third["constants"]["committed_sha256"] == "deadbeef"

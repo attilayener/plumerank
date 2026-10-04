@@ -65,7 +65,11 @@ MOCK_TOKENS = ("M" + "OCK", "OFF" + "LINE", "--dry" + "-run")
 #: writing down how their own secret scan works. A real leaked id is always prefix + 16.
 AWS_KEY_RE = re.compile(AWS_KEY_PREFIX + r"[0-9A-Z]{16}")
 PLACEHOLDER_RE = re.compile(re.escape(PLACEHOLDER_TOKEN))
-STALE_COST_RE = re.compile("|".join(re.escape(cost) for cost in STALE_COSTS))
+#: Digit-bounded on the right: "$15" must not match "$150", which is the AWS compute grant
+#: and a current figure, not a superseded cost.
+STALE_COST_RE = re.compile(
+    "|".join(re.escape(cost) + r"(?![0-9])" for cost in STALE_COSTS)
+)
 
 #: Case-INSENSITIVE and word-bounded, because a real mocking switch is spelled the way a
 #: shell flag is spelled. An uppercase substring test passes `--mock` and `--offline`
@@ -81,7 +85,7 @@ MOCK_COMMAND_RE = re.compile(
 SPECIAL_AWARDS: tuple[str, ...] = ("Best Use of COOL", "Agentic Vision with OpenCV 5")
 
 #: The two labels the reproduce block must carry. They are the whole point of the block:
-#: one command reproduces the micro numbers here and now, the other is the 95-minute pair
+#: one command reproduces the micro numbers here and now, the other is the 135-minute pair
 #: that produced the published headline, and conflating them is the single most attackable
 #: claim this project could make.
 REPRODUCE_LABELS: tuple[str, ...] = ("REPRODUCED HERE", "PUBLISHED, NOT RECOMPUTED HERE")
@@ -170,7 +174,7 @@ def http_get(url: str, timeout: float = 15.0) -> tuple[int, bytes]:
 # ---------------------------------------------------------------------------------
 
 
-def iter_text_files(*roots: pathlib.Path) -> list[pathlib.Path]:
+def iter_text_files(*roots: pathlib.Path | None) -> list[pathlib.Path]:
     files: list[pathlib.Path] = []
     seen: set[pathlib.Path] = set()
     for root in roots:
@@ -203,7 +207,7 @@ def read_text(path: pathlib.Path) -> str:
         return handle.read(MAX_SCAN_BYTES)
 
 
-def grep_tree(roots: list[pathlib.Path], pattern: re.Pattern[str]) -> list[str]:
+def grep_tree(roots: list[pathlib.Path | None], pattern: re.Pattern[str]) -> list[str]:
     """Every ``path:line: text`` hit, so a failure is actionable without a second grep."""
     hits: list[str] = []
     for path in iter_text_files(*roots):
@@ -216,6 +220,7 @@ def grep_tree(roots: list[pathlib.Path], pattern: re.Pattern[str]) -> list[str]:
     return hits
 
 
+_SHELL_COMMENT_RE = re.compile(r"(^|\s)#.*$")
 _FENCE_RE = re.compile(r"```[a-zA-Z0-9_+-]*\n(.*?)```", re.DOTALL)
 
 
@@ -329,12 +334,14 @@ def check_build_info(root: pathlib.Path, config: Config, fetch: Fetch) -> Check:
     except json.JSONDecodeError as exc:
         return Check("build-info", FAIL, f"{url} is not JSON: {exc}")
 
-    # The version is looked for by VALUE, not by key: the key name for it is not fixed by
-    # the contract (instance_id, ami_id and commit are), so keying on a guess would fail
-    # for a reason that has nothing to do with what is deployed.
-    strings = [v for v in payload.values() if isinstance(v, str)]
-    if not any(v.startswith("5.") for v in strings):
-        misses.append("no top-level value starting '5.' -- the deployed OpenCV is not 5.x")
+    # The shape api/main.py actually serves: {"opencv": {"version": "5.x", ...}, ...}.
+    # This read a flat top-level value until 2026-10-04 -- the same nested-vs-flat bug
+    # c3a38bb fixed in the web tier -- so it failed against the real box while its own
+    # fixture, written in a shape the server never sends, kept passing.
+    opencv = payload.get("opencv")
+    version = opencv.get("version") if isinstance(opencv, dict) else None
+    if not isinstance(version, str) or not version.startswith("5."):
+        misses.append(f"opencv.version is {version!r} -- the deployed OpenCV is not 5.x")
     commit = payload.get("commit")
     if commit != sha:
         misses.append(f"commit is {commit!r}, local HEAD is {sha!r}")
@@ -391,7 +398,13 @@ def check_reproduce_honest(root: pathlib.Path, submission: pathlib.Path | None) 
     lines = command_lines(root, submission)
     if not lines:
         return Check("reproduce-honest", FAIL, "no runnable command found in the Makefile or the docs")
-    hits = [f"{where}: {line}" for where, line in lines if MOCK_COMMAND_RE.search(line)]
+    # The trailing shell comment is prose about the command, not part of it: "# offline
+    # suite, no network, no credentials" describes `make test`, it does not switch a mock on.
+    hits = [
+        f"{where}: {line}"
+        for where, line in lines
+        if MOCK_COMMAND_RE.search(_SHELL_COMMENT_RE.sub("", line))
+    ]
     if hits:
         return Check("reproduce-honest", FAIL, f"{len(hits)} command(s) carry a mocking token", hits)
     return Check("reproduce-honest", PASS, f"{len(lines)} command line(s), none of them mocked")
@@ -458,7 +471,14 @@ def check_no_aws_key(root: pathlib.Path, submission: pathlib.Path | None) -> Che
 
 
 def check_no_stale_cost(root: pathlib.Path, submission: pathlib.Path | None) -> Check:
-    hits = grep_tree([root, submission], STALE_COST_RE)
+    # web/out is the gitignored Next.js export: its RSC payload is full of "$15"-shaped
+    # row references that are not money, and a stale figure in it can only have come from
+    # a source file this scan already reads.
+    export = root / "web" / "out"
+    hits = [
+        hit for hit in grep_tree([root, submission], STALE_COST_RE)
+        if not pathlib.Path(hit.split(":", 1)[0]).is_relative_to(export)
+    ]
     if hits:
         return Check(
             "no-stale-cost",
@@ -513,7 +533,7 @@ def check_special_awards(submission: pathlib.Path | None, config: Config) -> Che
 
 #: The one sentence this project must never contain. ``make verify`` runs the ~400-frame
 #: micro corpus in three minutes; the published number is 60 held-out sequences and takes
-#: ``make fetch && make bench``, ~95 minutes. A judge who runs the three-minute command
+#: ``make fetch && make bench``, ~135 minutes. A judge who runs the three-minute command
 #: expecting the headline gets a different p50 and concludes the headline does not
 #: reproduce -- which turns the strongest asset in the project into its most attackable
 #: claim. Having both labelled commands present is not enough -- a sentence elsewhere can
@@ -531,7 +551,7 @@ CONFLATION_DENIALS: tuple[str, ...] = (
     "not ", "n't", "never", "no ", "without", "rather than", "instead of",
 )
 
-#: A sentence that names the 95-minute pair as well is a sentence DRAWING the distinction,
+#: A sentence that names the 135-minute pair as well is a sentence DRAWING the distinction,
 #: not collapsing it -- "`make verify` recomputes the micro corpus and `make fetch && make
 #: bench` is the one that reproduces the published headline" is the correct sentence, and
 #: a gate that failed on it would be punishing the most careful writing in the document.
@@ -547,7 +567,7 @@ def conflations(text: str) -> list[str]:
     claim split across two lines; then sentence, because the denial has to sit next to the
     claim it denies. "`make verify` recomputes the micro corpus. It does not reproduce the
     headline." must pass, and it does: neither sentence carries subject, object and verb
-    together without a denial. A sentence naming the 95-minute pair as well passes for a
+    together without a denial. A sentence naming the 135-minute pair as well passes for a
     different reason -- it is showing the reader both commands, which is the whole ask.
     """
     hits: list[str] = []
@@ -601,8 +621,9 @@ def check_eligibility_clause(submission: pathlib.Path | None) -> Check:
             low = block.lower()
             # All three in one block, not merely all three in the file: an eligibility
             # quote in one paragraph and a date in another is not a dated quote.
-            if "eligib" in low and ("retrieved" in low or "retrieval" in low) and _ISO_DATE_RE.search(block):
-                date = _ISO_DATE_RE.search(block).group(0)
+            dated = _ISO_DATE_RE.search(block)
+            if "eligib" in low and ("retrieved" in low or "retrieval" in low) and dated:
+                date = dated.group(0)
                 return Check("eligibility-clause", PASS, f"{path.name}: eligibility clause retrieved {date}")
     return Check(
         "eligibility-clause",

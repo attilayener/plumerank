@@ -20,17 +20,27 @@ bool and swallows everything below it. ``False`` is the documented flagged value
 caller can log it, and the silence alarm catches the case where it stays False forever,
 which is the only place this failure actually matters.
 
-The first failure disables the sink for the process. A replay is thousands of ticks and a
-credential-less box would otherwise pay a network timeout on each one, turning an absent
-dashboard into a stalled wall. A transient AWS error therefore also disables it -- and is
-caught by the same silence alarm, which is exactly the alarm that exists for this.
+A failure pauses the sink for ``RETRY_AFTER_SECONDS`` instead of retrying on every call. A
+replay is thousands of ticks and a credential-less box would otherwise pay a network
+timeout on each one, turning an absent dashboard into a stalled wall. The pause is not
+permanent: a transient AWS error on day 2 of a 14-day judging window used to disable the
+sink for the life of the process, which turned one throttled request into a silence alarm
+nobody could clear without a restart. Each pause logs one WARNING, so a broken sink is
+visible in the journal at the rate it is retried and never once per tick.
+
+The region is explicit. ``boto3.client("cloudwatch")`` with no region raises
+``NoRegionError`` on a box whose environment does not name one -- which is every box
+``deploy/bootstrap.sh`` built before 2026-10-04 -- and that error was logged at INFO, so
+the metrics and both alarms were absent with nothing in the journal saying why.
 """
 
 from __future__ import annotations
 
 import logging
 import math
-from typing import Any
+import os
+import time
+from typing import Any, Callable
 
 from .constants import CLOUDWATCH_NAMESPACE
 
@@ -42,40 +52,87 @@ LOG = logging.getLogger(__name__)
 #: a fourth CloudWatch metric that no dashboard shows and no alarm watches.
 METRICS: tuple[str, ...] = ("RealisedAlertRate", "EscalationFraction", "Heartbeat")
 
+#: The deploy region (deploy/launch.md section 1). Used only when the environment names none:
+#: the metrics and the alarms that watch them must live in the same region, and the alarms
+#: are created there.
+DEFAULT_REGION: str = "us-west-2"
+
+#: How long a failed sink stays paused before the next put tries again. Long against a tick
+#: (1 s) so a credential-less laptop pays one timeout per five minutes, short against the
+#: silence alarm's evaluation window so one transient error never trips it on its own.
+RETRY_AFTER_SECONDS: float = 300.0
+
+
+def region() -> str:
+    """``AWS_REGION``, else ``AWS_DEFAULT_REGION``, else the deploy region."""
+    for name in ("AWS_REGION", "AWS_DEFAULT_REGION"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return DEFAULT_REGION
+
 
 def _cloudwatch_client() -> Any:
     """Built here, in one named function, so tests can replace it without touching AWS."""
     import boto3
 
-    return boto3.client("cloudwatch")
+    return boto3.client("cloudwatch", region_name=region())
 
 
 class Telemetry:
     """A CloudWatch sink that degrades to a no-op instead of failing a run."""
 
-    __slots__ = ("namespace", "_client", "_live")
+    __slots__ = ("namespace", "_client", "_enabled", "_paused_until", "_clock")
 
-    def __init__(self, namespace: str = CLOUDWATCH_NAMESPACE, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        namespace: str = CLOUDWATCH_NAMESPACE,
+        enabled: bool = True,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.namespace = namespace
         self._client: Any = None
-        self._live = bool(enabled)
-        if self._live:
-            try:
-                self._client = _cloudwatch_client()
-            except Exception as exc:  # no boto3, no region, no credentials -- all the same here
-                LOG.info("telemetry disabled: %s", exc)
-                self._live = False
+        self._enabled = bool(enabled)
+        self._paused_until: float | None = None
+        self._clock = clock
+        if self._enabled:
+            self._connect()
+
+    def _connect(self) -> bool:
+        try:
+            self._client = _cloudwatch_client()
+        except Exception as exc:  # no boto3, no region, no credentials -- all the same here
+            self._pause(f"client unavailable: {type(exc).__name__}: {exc}")
+            return False
+        return True
+
+    def _pause(self, why: str) -> None:
+        self._paused_until = self._clock() + RETRY_AFTER_SECONDS
+        LOG.warning(
+            "telemetry paused for %.0f s (region %s, namespace %s): %s",
+            RETRY_AFTER_SECONDS,
+            region(),
+            self.namespace,
+            why,
+        )
 
     @property
     def live(self) -> bool:
-        """False once the sink has given up, which is what a caller reports rather than
-        inferring from a run of False returns."""
-        return self._live
+        """False while the sink is disabled or paused after a failure, which is what a caller
+        reports rather than inferring from a run of False returns."""
+        if not self._enabled:
+            return False
+        return self._paused_until is None or self._clock() >= self._paused_until
 
     def put(self, metric: str, value: float, unit: str = "None") -> bool:
         """Publish one datapoint. True if it reached CloudWatch, False otherwise."""
-        if not self._live:
+        if not self.live:
             return False
+        if self._paused_until is not None:
+            # The pause has expired: one retry, rebuilding the client if it never existed.
+            self._paused_until = None
+            if self._client is None and not self._connect():
+                return False
         if metric not in METRICS:
             LOG.warning("refusing unknown metric %r; the published surface is %s", metric, METRICS)
             return False
@@ -88,8 +145,7 @@ class Telemetry:
                 MetricData=[{"MetricName": metric, "Value": float(value), "Unit": unit}],
             )
         except Exception as exc:
-            LOG.warning("telemetry disabled after %s on %s: %s", type(exc).__name__, metric, exc)
-            self._live = False
+            self._pause(f"{type(exc).__name__} on {metric}: {exc}")
             return False
         return True
 

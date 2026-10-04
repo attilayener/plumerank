@@ -82,6 +82,15 @@ NODE_PKG_CANDIDATES=("nodejs22 nodejs22-npm" "nodejs20 nodejs20-npm" "nodejs npm
 # OOM killer take out sshd on a box with no console.
 NODE_HEAP_MB=1024
 
+# pip itself is pinned like everything else in the venv: an unpinned `--upgrade pip` made
+# the resolver that installs requirements.lock whatever PyPI shipped that morning.
+PIP_VERSION="24.2"
+
+# The region CloudWatch metrics are written to. Read from IMDS at run time (step 6) and
+# written into the env file, because boto3 on a bare AL2023 box has no region configured
+# and raises NoRegionError -- which is why no PlumeRank metric existed before 2026-10-04.
+AWS_REGION_FALLBACK="us-west-2"
+
 START_TS="$(date +%s)"
 DID=()
 
@@ -179,7 +188,7 @@ fi
 if [ ! -d "$APP_DIR/.git" ] && [ "$PLUMERANK_REPO" = "__SET_ME__" ]; then
   die "PLUMERANK_REPO is unset and there is no checkout at $APP_DIR.
        Edit PLUMERANK_REPO_DEFAULT at the top of this file and commit it, or re-run as
-         sudo PLUMERANK_REPO=s3://<bucket>/src/plumerank.bundle bash $0
+         sudo env PLUMERANK_REPO=s3://<bucket>/src/plumerank.bundle bash $0
        (or an https:// clone URL once the repository is public)"
 fi
 
@@ -324,7 +333,7 @@ if [ ! -x "$APP_DIR/.venv/bin/python" ]; then
   python3.11 -m venv "$APP_DIR/.venv"
   say "created ${APP_DIR}/.venv"
 fi
-"$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check --upgrade pip
+"$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check "pip==${PIP_VERSION}"
 # Always run: pip against a fully pinned lockfile is idempotent, and running it every
 # time is what makes "re-run bootstrap" a complete deploy instead of a partial one.
 "$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check -r "$APP_DIR/requirements.lock"
@@ -361,6 +370,16 @@ step "Next.js static export -> ${APP_DIR}/web/out"
 if [ -f "$APP_DIR/web/package.json" ]; then
   export NEXT_TELEMETRY_DISABLED=1   # the endpoint must not leak judge traffic anywhere
   export NODE_OPTIONS="--max-old-space-size=${NODE_HEAP_MB}"
+  # npm runs as the service account, not root: `npm ci` executes every dependency's
+  # install scripts, and root is the one user those scripts must never run as. The web
+  # tree and a dedicated cache are handed to that account first; root keeps the rest.
+  NPM_CACHE="/var/cache/plumerank-npm"
+  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$NPM_CACHE"
+  chown -R "$APP_USER:$APP_USER" "$APP_DIR/web"
+  npm() {
+    runuser -u "$APP_USER" -- env HOME="$NPM_CACHE" npm_config_cache="$NPM_CACHE" \
+      NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="$NODE_OPTIONS" PATH="$PATH" npm "$@"
+  }
   if [ -f "$APP_DIR/web/package-lock.json" ]; then
     npm --prefix "$APP_DIR/web" ci
   else
@@ -372,6 +391,7 @@ if [ -f "$APP_DIR/web/package.json" ]; then
     npm --prefix "$APP_DIR/web" install
   fi
   npm --prefix "$APP_DIR/web" run build
+  unset -f npm
   [ -f "$APP_DIR/web/out/index.html" ] || \
     die "the build produced no web/out/index.html -- next.config needs output: 'export'"
   say "export: $(find "$APP_DIR/web/out" -type f | wc -l) files"
@@ -422,6 +442,17 @@ step "install ${ENV_FILE}, Caddyfile and plumerank.service"
 # global-options block (first launch, 2026-09-17). Note also that this heredoc is
 # UNQUOTED so $(date) expands: nothing that looks like a placeholder, a backtick or a
 # $-expansion may appear in its comment lines, which is why this explanation is here.
+# The region, from IMDSv2. Explicit because boto3 has no default region on this image.
+imds_token="$(curl -fsS --max-time 2 -X PUT http://169.254.169.254/latest/api/token \
+  -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null || true)"
+AWS_REGION_DETECTED=""
+if [ -n "$imds_token" ]; then
+  AWS_REGION_DETECTED="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: ${imds_token}" \
+    http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || true)"
+fi
+PLUMERANK_AWS_REGION="${AWS_REGION_DETECTED:-${AWS_REGION:-$AWS_REGION_FALLBACK}}"
+say "CloudWatch region: ${PLUMERANK_AWS_REGION}"
+
 install -m 0600 -o root -g root /dev/null "$ENV_FILE"
 cat > "$ENV_FILE" <<ENVEOF
 # Written by deploy/bootstrap.sh on $(date -Is). Read by plumerank.service and by
@@ -435,6 +466,9 @@ PLUMERANK_ROOT=${APP_DIR}
 # a branch back onto main.
 PLUMERANK_REPO=${PLUMERANK_REPO}
 PLUMERANK_REF=${PLUMERANK_REF}
+# The region plumerank/telemetry.py writes CloudWatch metrics to, read from IMDS.
+AWS_REGION=${PLUMERANK_AWS_REGION}
+AWS_DEFAULT_REGION=${PLUMERANK_AWS_REGION}
 ENVEOF
 
 install -D -m 0644 "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
@@ -577,7 +611,7 @@ say "  log     ${LOG_FILE}"
 if [ -z "$PLUMERANK_DOMAIN" ]; then
   say ""
   say "  NEXT: point the A record at this instance's Elastic IP, then re-run"
-  say "        sudo PLUMERANK_DOMAIN=<domain> bash ${APP_DIR}/deploy/bootstrap.sh"
+  say "        sudo env PLUMERANK_DOMAIN=<domain> bash ${APP_DIR}/deploy/bootstrap.sh"
   say "        to let Caddy provision the certificate. deploy/launch.md, step 6."
 fi
 say "-----------------------------------------------------------------"

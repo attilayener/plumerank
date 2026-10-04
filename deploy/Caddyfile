@@ -14,6 +14,26 @@
 {$PLUMERANK_DOMAIN::80} {
 	@backend path /api/* /health /build-info
 
+	# Security headers on every response, static and proxied. The CSP fits the Next.js
+	# static export as it is built: the export inlines its bootstrap and RSC payload as
+	# <script> tags, so script-src needs 'unsafe-inline' (hashes would change on every
+	# build); fonts are self-hosted under /_next and /fonts; the wall's EventSource and
+	# /api/benchmark are same-origin, hence connect-src 'self'. frame-ancestors and
+	# X-Frame-Options together refuse framing in old and new browsers alike.
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+	# HSTS only over TLS. While the box serves plain HTTP on :80 (no domain yet) the header
+	# would be ignored by browsers anyway; once a domain is set, Caddy terminates TLS and
+	# this matcher fires. No includeSubDomains/preload: the domain is not ours to pin forever.
+	@tls protocol https
+	header @tls Strict-Transport-Security "max-age=31536000"
+
 	# `route`, not three bare `handle` blocks: handle blocks are sorted by path-matcher
 	# specificity rather than by the order they are written in, and a mis-sorted catch-all
 	# would serve the static export where the API belongs. route evaluates in written order.

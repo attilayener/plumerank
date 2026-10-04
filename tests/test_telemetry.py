@@ -156,3 +156,99 @@ def test_boto3_is_not_imported_at_module_import_time() -> None:
     # The import lives inside _cloudwatch_client so that importing plumerank on a box
     # without boto3 -- or without credentials -- costs nothing and cannot fail.
     assert not hasattr(tel, "boto3")
+
+
+# ---------------------------------------------------------------------------------
+# Region and recovery -- audit 2026-10-04 #9: zero metrics ever landed on the live box
+# ---------------------------------------------------------------------------------
+
+
+def test_the_region_comes_from_the_environment_then_the_deploy_region(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+    assert tel.region() == tel.DEFAULT_REGION == "us-west-2"
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
+    assert tel.region() == "eu-west-1"
+    monkeypatch.setenv("AWS_REGION", "ap-southeast-3")
+    assert tel.region() == "ap-southeast-3"
+
+
+def test_the_client_is_built_with_an_explicit_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    """boto3.client("cloudwatch") with no region raises NoRegionError on a bare box."""
+    boto3 = pytest.importorskip("boto3")
+    seen: dict[str, Any] = {}
+
+    def fake_client(service: str, **kwargs: Any) -> StubCloudWatch:
+        seen["service"] = service
+        seen.update(kwargs)
+        return StubCloudWatch()
+
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+    monkeypatch.setattr(boto3, "client", fake_client)
+    tel._cloudwatch_client()
+    assert seen == {"service": "cloudwatch", "region_name": "us-west-2"}
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_a_failure_pauses_the_sink_and_it_retries_after_the_pause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = StubCloudWatch(raises=RuntimeError("Throttling"))
+    monkeypatch.setattr(tel, "_cloudwatch_client", lambda: client)
+    clock = Clock()
+    t = tel.Telemetry(clock=clock)
+    assert t.put("Heartbeat", 1.0) is False
+    assert t.live is False
+    clock.now += tel.RETRY_AFTER_SECONDS - 1
+    assert t.put("Heartbeat", 1.0) is False
+    assert len(client.calls) == 1, "no retry inside the pause"
+    client._raises = None
+    clock.now += 2
+    assert t.live is True
+    assert t.put("Heartbeat", 1.0) is True
+    assert len(client.calls) == 2
+
+
+def test_a_client_that_could_not_be_built_is_rebuilt_after_the_pause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts: list[int] = []
+    good = StubCloudWatch()
+
+    def factory() -> Any:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("NoRegionError")
+        return good
+
+    monkeypatch.setattr(tel, "_cloudwatch_client", factory)
+    clock = Clock()
+    t = tel.Telemetry(clock=clock)
+    assert t.put("Heartbeat", 1.0) is False
+    clock.now += tel.RETRY_AFTER_SECONDS
+    assert t.put("Heartbeat", 1.0) is True
+    assert len(attempts) == 2 and len(good.calls) == 1
+
+
+def test_a_failure_is_logged_at_warning_once_per_pause(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    client = StubCloudWatch(raises=RuntimeError("NoCredentialsError"))
+    monkeypatch.setattr(tel, "_cloudwatch_client", lambda: client)
+    t = tel.Telemetry(clock=Clock())
+    with caplog.at_level("WARNING", logger=tel.LOG.name):
+        for _ in range(50):
+            t.put("Heartbeat", 1.0)
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "us-west-2" in warnings[0].getMessage() or "region" in warnings[0].getMessage()

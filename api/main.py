@@ -55,6 +55,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import pathlib
 import subprocess
 import time
@@ -140,6 +141,14 @@ IDLE_POLL_SECONDS: float = 0.25
 #: skipping to the current one, and an unbounded queue would let one stalled reader hold
 #: the whole process's memory.
 VIEWER_QUEUE_DEPTH: int = 4
+
+#: Concurrent live walls this process will hold open. Each is one SSE connection held for
+#: as long as the tab is open, and all of them share the one replay, so a cap costs no
+#: judge anything except the 33rd simultaneous one -- who gets a 503 with Retry-After
+#: rather than a box whose sockets ran out. Kept under the systemd unit's
+#: --limit-concurrency (96) so /health and /build-info always have connections to spare.
+#: ``PLUMERANK_MAX_VIEWERS`` overrides it without a redeploy of the code.
+MAX_VIEWERS: int = int(os.environ.get("PLUMERANK_MAX_VIEWERS", "32"))
 
 
 # ---------------------------------------------------------------------------------
@@ -716,9 +725,14 @@ class Replay:
                     f"the threshold at {source} is not a usable number -- the wall will not "
                     "invent one; see the ERROR in the service log for the value it found"
                 )
+            # `make bench` is the held-out (HOLD) run, and it is the only command that
+            # writes results/bench_<date>.json. The threshold inside it is solved on
+            # CONFUSE, but running anything "on the CONFUSE arm" writes a different file
+            # (arm_confuse_<date>.json) that this route never reads.
             return (
-                "no calibrated threshold in results/ -- the wall will not invent one; "
-                "run `make bench` to solve it on the CONFUSE arm"
+                "no calibrated threshold in results/ yet -- the wall will not invent one. "
+                "It needs the threshold solved by the held-out benchmark run "
+                "(`make bench`), which has not been published"
             )
 
         try:
@@ -797,6 +811,14 @@ class Replay:
             self._reset_replay()
             self._task = asyncio.create_task(self._run(), name="plumerank-replay")
         return queue
+
+    @property
+    def viewer_count(self) -> int:
+        return len(self._viewers)
+
+    def at_capacity(self) -> bool:
+        """True when one more viewer would exceed ``MAX_VIEWERS``."""
+        return len(self._viewers) >= MAX_VIEWERS
 
     def detach(self, queue: asyncio.Queue[str]) -> None:
         """Drop one viewer. The loop notices on its next pass and starts its idle timer.
@@ -1237,11 +1259,39 @@ app.add_middleware(
 )
 
 
-@app.get("/build-info")
-async def build_info() -> dict[str, Any]:
-    """Everything a judge needs to check the OpenCV 5 claim without trusting a sentence."""
-    identity = await asyncio.to_thread(_instance_identity)
-    return {
+def _file_key(path: pathlib.Path) -> tuple[str, int, int] | None:
+    """Identity of a file for cache invalidation: path, size, mtime -- or None if absent."""
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (str(path), st.st_size, st.st_mtime_ns)
+
+
+_BUILD_INFO_CACHE: tuple[tuple[Any, ...], dict[str, Any]] | None = None
+
+
+def _build_info_body() -> dict[str, Any]:
+    """The /build-info body, computed once per model file and constants file.
+
+    Uncached, every request loaded the ONNX model through ``readNetFromONNX``, re-hashed it
+    twice and re-ran the module probes -- a few hundred milliseconds of CPU on a burstable
+    box for a route anyone can curl in a loop. Nothing in the body can change under a
+    running process except by those two files changing, so their size and mtime are the
+    cache key: a model or a freeze committed and redeployed is picked up, and nothing else
+    pays twice.
+    """
+    global _BUILD_INFO_CACHE
+    key = (
+        str(ONNX_PATH),
+        _file_key(ONNX_PATH),
+        str(RESULTS_DIR),
+        _file_key(RESULTS_DIR / "constants.sha256"),
+    )
+    if _BUILD_INFO_CACHE is not None and _BUILD_INFO_CACHE[0] == key:
+        return _BUILD_INFO_CACHE[1]
+    identity = _instance_identity()
+    body: dict[str, Any] = {
         "service": "plumerank",
         "opencv": {
             "version": cv2.__version__,
@@ -1255,12 +1305,20 @@ async def build_info() -> dict[str, Any]:
         "constants": _constants_freeze(),
         "instance_id": identity["instance_id"],
         "ami_id": identity["ami_id"],
-        "commit": await asyncio.to_thread(_git_commit),
+        "commit": _git_commit(),
         "onnx_sha256": _sha256(ONNX_PATH),
     }
+    _BUILD_INFO_CACHE = (key, body)
+    return body
 
 
-@app.get("/health")
+@app.get("/build-info")
+async def build_info() -> dict[str, Any]:
+    """Everything a judge needs to check the OpenCV 5 claim without trusting a sentence."""
+    return await asyncio.to_thread(_build_info_body)
+
+
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health(request: Request) -> dict[str, Any]:
     """Liveness, uptime, the last tick, the replay state and the viewer count."""
     await REPLAY.ensure_probed()
@@ -1277,6 +1335,14 @@ async def health(request: Request) -> dict[str, Any]:
 @app.get("/api/watchlist")
 async def watchlist(request: Request) -> StreamingResponse:
     """The live wall, as server-sent events: one ``meta``, then one ``tick`` per minute."""
+    if REPLAY.at_capacity():
+        # Refused before the response starts, so the browser's EventSource sees a plain
+        # 503 and backs off on Retry-After instead of holding a socket that never ticks.
+        raise HTTPException(
+            status_code=503,
+            detail=f"the live wall is at its {MAX_VIEWERS}-viewer limit; retry shortly",
+            headers={"Retry-After": "30"},
+        )
 
     async def stream() -> AsyncIterator[str]:
         queue = await REPLAY.attach()

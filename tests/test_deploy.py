@@ -41,8 +41,9 @@ BOOTSTRAP = DEPLOY / "bootstrap.sh"
 CADDYFILE = DEPLOY / "Caddyfile"
 UNIT = DEPLOY / "plumerank.service"
 LAUNCH = DEPLOY / "launch.md"
+ALARMS = DEPLOY / "alarms.sh"
 
-ALL_DEPLOY_FILES = [BOOTSTRAP, CADDYFILE, UNIT, LAUNCH]
+ALL_DEPLOY_FILES = [BOOTSTRAP, CADDYFILE, UNIT, LAUNCH, ALARMS]
 
 # The four routes of build-contract.md W5. Written out rather than imported from
 # api/main.py on purpose: this test's job is to catch the two drifting apart, and a test
@@ -169,7 +170,7 @@ def test_bootstrap_never_mocks_the_judged_capability() -> None:
 
 
 def test_no_long_lived_credential_anywhere_in_deploy() -> None:
-    # complexity.md A15: "no long-lived access key ever lands on the box", and
+    # the scope ledger A15: "no long-lived access key ever lands on the box", and
     # check_submission_readiness.py greps for AKIA. This is the same check, earlier.
     # The literal shape, not the prefix: launch.md legitimately says the word AKIA when
     # it explains what check_submission_readiness.py greps for.
@@ -328,7 +329,7 @@ def test_the_unit_binds_loopback_and_one_worker() -> None:
 
     ``--host 127.0.0.1``: Caddy owns every public byte and this process has no TLS
     configuration, so 0.0.0.0 would be an unencrypted second front door. ``--workers 1``:
-    the replay loop is process-wide by design (complexity.md A13), and a second worker
+    the replay loop is process-wide by design (the scope ledger A13), and a second worker
     means a second wall, a second set of background models and double the CPU credits.
     """
     text = _read(UNIT)
@@ -358,7 +359,7 @@ def test_every_bash_block_in_launch_md_parses() -> None:
 
 
 def test_the_instance_policy_is_the_three_statements_a15_specifies() -> None:
-    """complexity.md A15 is a scored responsible-operation claim, so it is asserted.
+    """the scope ledger A15 is a scored responsible-operation claim, so it is asserted.
 
     Widening this policy is a one-word edit that nothing else in the repo would notice.
     """
@@ -424,7 +425,7 @@ def test_ssh_is_never_open_to_the_world() -> None:
 
 
 def test_launch_md_documents_branch_a() -> None:
-    # architecture.md section 7 lets check_claims.py treat build-opencv5.sh as
+    # the architecture notes section 7 lets check_claims.py treat build-opencv5.sh as
     # present-or-absent; whichever it is, launch.md is where the branch is recorded.
     assert not (DEPLOY / "build-opencv5.sh").exists()
     text = _read(LAUNCH)
@@ -458,3 +459,88 @@ def test_caddyfile_validates() -> None:
         env={**os.environ, "PLUMERANK_DOMAIN": "", "PLUMERANK_ROOT": "/opt/plumerank"},
     )
     assert result.returncode == 0, result.stderr
+
+
+# ---------------------------------------------------------------------------------
+# Telemetry and hardening -- audit 2026-10-04 #9 and P2
+# ---------------------------------------------------------------------------------
+
+
+def test_alarms_script_parses_and_is_executable() -> None:
+    subprocess.run(["bash", "-n", str(ALARMS)], check=True)
+    assert os.access(ALARMS, os.X_OK)
+
+
+def test_drift_alarm_thresholds_are_the_frozen_budget_band() -> None:
+    from plumerank.constants import (
+        BUDGET_ALERTS_PER_CAMERA_NIGHT,
+        BUDGET_DRIFT_TOLERANCE,
+        CLOUDWATCH_NAMESPACE,
+    )
+
+    text = _read(ALARMS)
+    high = float(re.search(r'^DRIFT_HIGH="([0-9.]+)"', text, re.M).group(1))  # type: ignore[union-attr]
+    low = float(re.search(r'^DRIFT_LOW="([0-9.]+)"', text, re.M).group(1))  # type: ignore[union-attr]
+    assert high == pytest.approx(BUDGET_ALERTS_PER_CAMERA_NIGHT * (1 + BUDGET_DRIFT_TOLERANCE))
+    assert low == pytest.approx(BUDGET_ALERTS_PER_CAMERA_NIGHT * (1 - BUDGET_DRIFT_TOLERANCE))
+    assert f'NAMESPACE="{CLOUDWATCH_NAMESPACE}"' in text
+
+
+def test_every_alarm_watches_a_metric_telemetry_publishes() -> None:
+    from plumerank.telemetry import METRICS
+
+    watched = set(re.findall(r"--metric-name (\w+)", _read(ALARMS)))
+    assert watched and watched <= set(METRICS)
+    assert "Heartbeat" in watched
+
+
+def test_alarms_are_created_from_the_operator_side_not_the_box() -> None:
+    """PutMetricAlarm is not in the instance profile, and must not need to be."""
+    assert "put-metric-alarm" not in _read(BOOTSTRAP)
+    assert "PutMetricAlarm" not in _read(LAUNCH).split("## 3.")[0]
+
+
+def test_bootstrap_writes_the_region_into_the_env_file() -> None:
+    """Without it boto3 raises NoRegionError and no metric ever lands (audit #9)."""
+    text = _read(BOOTSTRAP)
+    env_block = text.split('cat > "$ENV_FILE" <<ENVEOF', 1)[1].split("ENVEOF", 1)[0]
+    assert "AWS_REGION=" in env_block and "AWS_DEFAULT_REGION=" in env_block
+
+
+def test_bootstrap_hints_use_sudo_env() -> None:
+    """The header says `sudo VAR=` can be dropped by env_reset; no hint may use it."""
+    offenders = [
+        line for line in _read(BOOTSTRAP).splitlines()
+        if re.search(r"\bsudo [A-Z_]+=", line) and "never `sudo VAR=" not in line
+    ]
+    assert offenders == []
+
+
+def test_pip_is_pinned_and_npm_never_runs_as_root() -> None:
+    text = _read(BOOTSTRAP)
+    assert not re.search(r"^[^#]*--upgrade pip", text, re.M)
+    assert re.search(r'"pip==\$\{PIP_VERSION\}"', text)
+    assert 'runuser -u "$APP_USER"' in text
+
+
+def test_the_unit_caps_connections_above_the_viewer_cap() -> None:
+    from api import main
+
+    unit = _read(UNIT)
+    limit = int(re.search(r"--limit-concurrency (\d+)", unit).group(1))  # type: ignore[union-attr]
+    assert limit > main.MAX_VIEWERS, "the viewer cap must leave room for /health and /build-info"
+    assert re.search(r"^LimitNOFILE=\d+", unit, re.M)
+
+
+def test_caddy_sends_security_headers_and_hsts_only_over_tls() -> None:
+    text = _read(CADDYFILE)
+    for header in (
+        "Content-Security-Policy",
+        "X-Content-Type-Options nosniff",
+        "X-Frame-Options DENY",
+        "Referrer-Policy",
+        "frame-ancestors 'none'",
+    ):
+        assert header in text, header
+    assert "@tls protocol https" in text
+    assert 'header @tls Strict-Transport-Security' in text
