@@ -183,8 +183,9 @@ HPWREN FIgLib replay ──▶ stabilise (phaseCorrelate + MAGSAC) ──▶ seg
 ```
 
 One t4g.small (Graviton/ARM) instance, one S3 bucket for the corpus, CloudWatch for the alert
-budget (the rate on the wall's fire-free cameras, with drift alarms at ±15%) and a
-heartbeat-silence alarm. No Lambda, no managed vision API, no second instance.
+budget (the rate on the wall's fire-free cameras, with drift alarms at ±15% — the wall replays
+those windows exactly as the benchmark does, so a healthy box reads the calibrated 1.99) and a
+heartbeat-silence alarm that reboots the instance if the service stops beating. No Lambda, no managed vision API, no second instance.
 
 ---
 

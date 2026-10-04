@@ -75,8 +75,10 @@ One `t4g.small` (Graviton/ARM, burstable, `unlimited` credit mode) EC2 instance,
 holding the corpus and a git bundle of the source, CloudWatch carrying the realised alert rate
 and escalation fraction as metrics — the alert rate measured on the wall's fire-free
 confusion-set cameras only, the same population the threshold was solved on — with drift
-alarms (±15% of the budget) and a heartbeat-silence alarm (`deploy/alarms.sh`, per-instance
-dimension; no notification target is configured yet), and an IAM instance profile with read-only S3 access to the corpus
+alarms (±15% of the budget) and a heartbeat-silence alarm whose action reboots the instance
+(`deploy/alarms.sh`, per-instance dimension; no notification target is configured yet). The wall
+replays the confusion windows frame-for-frame as the benchmark does, so on a healthy box the
+live fire-free rate reproduces the calibrated 1.99, and an IAM instance profile with read-only S3 access to the corpus
 plus `cloudwatch:PutMetricData` scoped to the `PlumeRank` namespace. `deploy/bootstrap.sh` provisions the box from the S3
 git bundle; `deploy/Caddyfile` reverse-proxies `/api/*`, `/health` and `/build-info` to Uvicorn
 on the **same origin** as the static frontend, so production never makes a cross-origin
