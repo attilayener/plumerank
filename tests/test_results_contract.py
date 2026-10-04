@@ -216,13 +216,17 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Run]:
     patch = pytest.MonkeyPatch()
     patch.setattr(bench, "git_commit", lambda _root: COMMIT)
     patch.setattr(bench, "assert_tree_clean", lambda _root: None)
+    # The tmp tree is not the checkout bench.py runs from; the root guard is tested in
+    # test_bench.py, the rest of the shipped-run guard still runs via its real checks.
+    patch.setattr(bench, "repo_root", lambda: root.resolve())
     patch.setattr(bench, "ablation_cells", _two_cell_grid)
     buffer = io.StringIO()
     try:
         with contextlib.redirect_stdout(buffer):
-            status = bench.main(
-                ["--arm", "hold", "--sensitivity", "--ablation", "--root", str(root)]
-            )
+            # The grid is its own DEV invocation; the HOLD run quotes the committed CSV.
+            status = bench.main(["--arm", "dev", "--ablation", "--root", str(root)])
+            assert status == 0, buffer.getvalue()
+            status = bench.main(["--arm", "hold", "--sensitivity", "--root", str(root)])
     finally:
         patch.undo()
     assert status == 0, buffer.getvalue()

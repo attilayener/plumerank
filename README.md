@@ -199,7 +199,7 @@ make verify             # ≤3 min: rebuilds .venv, runs the offline suite, then
                          # the micro-corpus metrics and checks them against the committed
                          # results/verify_micro.json. Does NOT reproduce the published
                          # headline and never claims to.
-make fetch && make bench  # ~135 min total: the pair that reproduces the held-out headline
+make fetch && make bench  # ~95 min total: the pair that reproduces the held-out headline
                            # once results/bench_<date>.json exists (HOLD run, pending)
 ```
 

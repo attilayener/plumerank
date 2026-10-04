@@ -5,7 +5,7 @@
 # and scripts/check_claims.py asserts that every target the docs mention lives here.
 #
 #   make fetch       the corpus, sha256-verified, resumable            (~35 min)
-#   make bench       the full held-out evaluation + DEV ablation grid  (~100 min)
+#   make bench       the full held-out evaluation                      (~60 min)
 #   make test        offline suite, no network, no credentials         (~95 s)
 #   make test-live   the two R11 external-side-effect tests + determinism
 #   make verify      THE JUDGE ONE-LINER: clean clone -> numbers       (<=3 min)
@@ -22,7 +22,7 @@ fetch:
 	$(PY) scripts/fetch.py --corpus all
 
 bench:
-	$(PY) scripts/bench.py --arm hold --budget 2.0 --sensitivity --ablation --seed 20261026
+	$(PY) scripts/bench.py --arm hold --budget 2.0 --sensitivity --seed 20261026
 
 test:
 	$(PY) -m pytest tests -m "not live" --cov=plumerank --cov-report=term-missing

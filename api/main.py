@@ -493,6 +493,19 @@ def _calibrated_threshold() -> tuple[float | None, str | None]:
         return None, None
 
     relative = _repo_relative(path)
+    # The wall runs MOG2 at the frozen budget, so a threshold solved under anything else
+    # would calibrate it to an operating point it does not run at. bench.py refuses to
+    # write such a HOLD file; this is the second lock on the same door.
+    background = payload.get("background")
+    budget = payload.get("budget_alerts_per_camera_night")
+    if background not in (None, "mog2") or (
+        budget is not None and budget != BUDGET_ALERTS_PER_CAMERA_NIGHT
+    ):
+        LOG.error(
+            "benchmark file %s was solved for bg=%r budget=%r, not the wall's mog2 at %s",
+            path, background, budget, BUDGET_ALERTS_PER_CAMERA_NIGHT,
+        )
+        return None, relative
     # Two spellings and no more. Both are named here rather than discovered by walking the
     # document, because a search that finds *a* number called "threshold" somewhere in a
     # nested ablation grid would calibrate the wall on an ablation cell.

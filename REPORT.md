@@ -104,7 +104,7 @@ evaluation — the only run whose number this project is willing to call a headl
 executed. `scripts/bench.py`'s `_check_calibration` refuses to publish an operating point it
 cannot support, so `GET /api/benchmark` returns `404` with an explicit message, and the live
 Wall reports `live_pipeline.available: false` with the same reason, rather than inventing a
-ranking. Reproduce path once it exists: `make fetch && make bench` (≈135 minutes;
+ranking. Reproduce path once it exists: `make fetch && make bench` (≈95 minutes;
 `make verify`, ≤3 minutes, is a sanity check against the micro-corpus only and does not
 reproduce this number — see `DEMO.md`).
 

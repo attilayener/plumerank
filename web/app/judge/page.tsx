@@ -104,7 +104,7 @@ make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
         </pre>
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)" }}>
           The pair that reproduces the held-out headline itself, once it exists:{" "}
-          <code className="code">make fetch</code> then <code className="code">make bench</code>, ≈135
+          <code className="code">make fetch</code> then <code className="code">make bench</code>, ≈95
           minutes. Nobody needs to run that to evaluate this submission.
         </p>
       </Section>

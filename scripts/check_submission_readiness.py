@@ -85,7 +85,7 @@ MOCK_COMMAND_RE = re.compile(
 SPECIAL_AWARDS: tuple[str, ...] = ("Best Use of COOL", "Agentic Vision with OpenCV 5")
 
 #: The two labels the reproduce block must carry. They are the whole point of the block:
-#: one command reproduces the micro numbers here and now, the other is the 135-minute pair
+#: one command reproduces the micro numbers here and now, the other is the 95-minute pair
 #: that produced the published headline, and conflating them is the single most attackable
 #: claim this project could make.
 REPRODUCE_LABELS: tuple[str, ...] = ("REPRODUCED HERE", "PUBLISHED, NOT RECOMPUTED HERE")
@@ -533,7 +533,7 @@ def check_special_awards(submission: pathlib.Path | None, config: Config) -> Che
 
 #: The one sentence this project must never contain. ``make verify`` runs the ~400-frame
 #: micro corpus in three minutes; the published number is 60 held-out sequences and takes
-#: ``make fetch && make bench``, ~135 minutes. A judge who runs the three-minute command
+#: ``make fetch && make bench``, ~95 minutes. A judge who runs the three-minute command
 #: expecting the headline gets a different p50 and concludes the headline does not
 #: reproduce -- which turns the strongest asset in the project into its most attackable
 #: claim. Having both labelled commands present is not enough -- a sentence elsewhere can
@@ -551,7 +551,7 @@ CONFLATION_DENIALS: tuple[str, ...] = (
     "not ", "n't", "never", "no ", "without", "rather than", "instead of",
 )
 
-#: A sentence that names the 135-minute pair as well is a sentence DRAWING the distinction,
+#: A sentence that names the 95-minute pair as well is a sentence DRAWING the distinction,
 #: not collapsing it -- "`make verify` recomputes the micro corpus and `make fetch && make
 #: bench` is the one that reproduces the published headline" is the correct sentence, and
 #: a gate that failed on it would be punishing the most careful writing in the document.
@@ -567,7 +567,7 @@ def conflations(text: str) -> list[str]:
     claim split across two lines; then sentence, because the denial has to sit next to the
     claim it denies. "`make verify` recomputes the micro corpus. It does not reproduce the
     headline." must pass, and it does: neither sentence carries subject, object and verb
-    together without a denial. A sentence naming the 135-minute pair as well passes for a
+    together without a denial. A sentence naming the 95-minute pair as well passes for a
     different reason -- it is showing the reader both commands, which is the whole ask.
     """
     hits: list[str] = []

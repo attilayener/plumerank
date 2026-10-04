@@ -37,7 +37,7 @@ Block 1 -- REPRODUCED HERE (the real OpenCV 5 pipeline, run live against real pi
 
 Block 2 -- PUBLISHED, NOT RECOMPUTED HERE
   status: no committed HOLD run in results/ -- nothing is published yet, and this
-          command does not produce it. Reproduce with `make fetch && make bench` (~135 min).
+          command does not produce it. Reproduce with `make fetch && make bench` (~95 min).
 ```
 
 `make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **664 passed, 2
@@ -47,7 +47,9 @@ skipped, 97% coverage on `plumerank/`, ~95s, no network, no credentials.**
 
 ```bash
 make fetch   # ~35 min: the corpus, sha256-verified, resumable
-make bench   # ~100 min: scripts/bench.py --arm hold --budget 2.0 --sensitivity --ablation --seed 20261026
+make bench   # ~60 min: scripts/bench.py --arm hold --budget 2.0 --sensitivity --seed 20261026
+# the ablation grid is its own DEV run, quoted by the held-out file:
+.venv/bin/python scripts/bench.py --arm dev --ablation   # twelve cells, a few hours, off the box
 ```
 
 Nobody needs to run this to evaluate the submission — `results/` already carries every

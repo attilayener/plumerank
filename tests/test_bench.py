@@ -237,10 +237,15 @@ def template(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
     return root
 
 
+#: The current test's tree, so the ``commit`` fixture can stand it in for repo_root().
+_TREE_ROOT: list[pathlib.Path] = [pathlib.Path(".")]
+
+
 @pytest.fixture
 def tree(template: pathlib.Path, tmp_path: pathlib.Path) -> pathlib.Path:
     root = tmp_path / "tree"
     shutil.copytree(template, root)
+    _TREE_ROOT[0] = root.resolve()
     return root
 
 
@@ -252,6 +257,9 @@ def commit(monkeypatch: pytest.MonkeyPatch) -> str:
     # The tmp tree is not a checkout either, so the clean-tree guard is stubbed with the
     # sha; test_hold_refuses_a_dirty_checkout exercises the real one against a real repo.
     monkeypatch.setattr(bench, "assert_tree_clean", lambda root: None)
+    # Same reason: the tmp tree is not the checkout bench.py runs from. The root guard is
+    # exercised in test_hold_refuses_a_foreign_root.
+    monkeypatch.setattr(bench, "repo_root", lambda: _TREE_ROOT[0])
     return SHA
 
 
@@ -419,6 +427,10 @@ def test_each_hold_read_appends_exactly_one_line(tree: pathlib.Path, commit: str
     _freeze(tree)
     log = tree / "results" / "hold_access.log"
     for expected in (1, 2):
+        # A second same-day HOLD run is refused while bench_<date>.json exists, so the
+        # first one's output is moved aside to observe the second read's log line.
+        for done in (tree / "results").glob("bench_*.json"):
+            done.rename(done.with_suffix(".moved"))
         assert _run(tree, "--arm", "hold") == 0
         lines = log.read_text(encoding="utf-8").splitlines()
         assert len(lines) == expected, "one line per read of HOLD pixels, not one per window"
@@ -626,7 +638,8 @@ def test_ablation_resumes_from_the_csv_it_already_wrote(
             csv_path,
             bench.ABLATION_COLUMNS,
             {c: "" for c in bench.ABLATION_COLUMNS}
-            | {"bg": bg, "s4": str(s4), "escalation": str(esc), "p50_minutes": "99.000"},
+            | {"bg": bg, "s4": str(s4), "escalation": str(esc), "p50_minutes": "99.000"}
+            | {"baseline": "shipped", "budget": "2.0", "seed": "20261026", "commit": "none"},
         )
     before = csv_path.read_text(encoding="utf-8")
 
@@ -1144,10 +1157,11 @@ def test_an_uncalibratable_system_stops_hold_before_the_read_is_logged(
 ) -> None:
     """The one logged HOLD read must not be spent on a run that cannot publish."""
     _freeze(tree)
+    # At the frozen budget, a solver pinned to 0.0 alerts on everything: overshoot.
     monkeypatch.setattr(bench.rk, "solve_threshold", lambda *a, **k: 0.0)
     calls = _counting(monkeypatch)
     with pytest.raises(SystemExit, match="fabrication"):
-        _run(tree, "--arm", "hold", "--budget", "0.001")
+        _run(tree, "--arm", "hold")
     assert not (tree / "results" / "hold_access.log").exists()
     assert calls[0] == 1, "only CONFUSE may have been replayed"
 
@@ -1161,3 +1175,51 @@ def test_undershoot_with_headroom_is_refused() -> None:
 def test_undershoot_at_the_corpus_resolution_is_accepted() -> None:
     """One more alert would overshoot, so 0.0 is the tightest honest answer."""
     bench._check_calibration({"plumerank": (0.6, 0.0)}, 2.0, step=5.0)
+
+
+def test_ablation_refuses_to_resume_rows_from_another_experiment(tree: pathlib.Path) -> None:
+    csv_path = tree / "results" / "ablation.csv"
+    bench._append_csv_row(
+        csv_path,
+        bench.ABLATION_COLUMNS,
+        {c: "" for c in bench.ABLATION_COLUMNS}
+        | {"bg": "mog2", "s4": "True", "escalation": "True"}
+        | {"baseline": "shipped", "budget": "3.0", "seed": "20261026", "commit": "none"},
+    )
+    with pytest.raises(SystemExit, match="refusing to resume"):
+        bench.run_ablation(tree, csv_path, **_ablation_kwargs(tree, bench.replay_arm))
+
+
+def test_replay_refuses_mixed_window_lengths() -> None:
+    """Lockstep replay over 80- and 81-frame windows must be unified first."""
+    a = bench.Window("a", "cam", 1, tuple(pathlib.Path(f"{i}.jpg") for i in range(3)))
+    b = bench.Window("b", "cam", 1, tuple(pathlib.Path(f"{i}.jpg") for i in range(2)))
+    with pytest.raises(ValueError, match="one length"):
+        bench.replay_arm([a, b], arm="dev", background="mog2", s4_enabled=True,
+                         escalation_enabled=False, classifier=None, systems=("plumerank",))
+
+
+@pytest.mark.parametrize(
+    "argv, match",
+    [
+        (["--bg", "gsoc"], "the wall runs mog2"),
+        (["--budget", "1.0"], "frozen operating point"),
+        (["--ablation"], "refusing --ablation on HOLD"),
+        (["--dump-features"], "refusing --dump-features on HOLD"),
+    ],
+)
+def test_hold_refuses_anything_but_the_shipped_run(
+    tree: pathlib.Path, commit: str, argv: list[str], match: str
+) -> None:
+    _freeze(tree)
+    with pytest.raises(SystemExit, match=match):
+        _run(tree, "--arm", "hold", *argv)
+    assert not (tree / "results" / "hold_access.log").exists()
+
+
+def test_hold_refuses_a_foreign_root(tree: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bench, "git_commit", lambda root: SHA)
+    monkeypatch.setattr(bench, "assert_tree_clean", lambda root: None)
+    _freeze(tree)
+    with pytest.raises(SystemExit, match="is not the checkout this script runs"):
+        _run(tree, "--arm", "hold")

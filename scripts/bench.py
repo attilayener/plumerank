@@ -48,7 +48,7 @@ It prints exactly two labelled blocks, and the labels are the whole point. Block
 ``REPRODUCED HERE`` recomputes the micro metrics live and asserts them byte-for-byte
 against the committed ``results/verify_micro.json``. Block 2 ``PUBLISHED, NOT RECOMPUTED
 HERE`` prints the HOLD headline verbatim out of ``results/bench_<date>.json`` with the
-~135-minute command that actually reproduces it. A judge who runs the 3-minute command,
+~95-minute command that actually reproduces it. A judge who runs the 3-minute command,
 prints a p50 that is not the README's p50 and concludes the headline does not reproduce
 is the single worst outcome available to this submission, so no string in this file
 describes the short command as reproducing the long one.
@@ -187,7 +187,16 @@ ABLATION_COLUMNS: tuple[str, ...] = (
     "escalation_fraction",
     "model_calls_per_camera_night",
     "wall_clock_seconds",
+    "baseline",
+    "budget",
+    "seed",
+    "commit",
 )
+
+#: The ablation columns a resumed row must agree on with the run resuming it. A row from
+#: another commit, budget, seed or baseline is a different experiment, and splicing it
+#: into this grid would publish a table whose cells were not measured together.
+ABLATION_PROVENANCE: tuple[str, ...] = ("baseline", "budget", "seed", "commit")
 
 SENSITIVITY_COLUMNS: tuple[str, ...] = (
     "offset_minutes",
@@ -439,6 +448,49 @@ def manifest_sha256(root: pathlib.Path, arm: str) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def assert_hold_is_the_shipped_run(root: pathlib.Path, args: argparse.Namespace) -> None:
+    """Refuse a HOLD run that is not the one frozen, shipped configuration.
+
+    ``bench_<date>.json`` is what the API calibrates the live wall from and what the
+    headline is read from, so only the configuration the wall actually runs -- MOG2, the
+    frozen budget -- may write it, from the checkout whose code is executing, once a day.
+    """
+    if root != repo_root():
+        raise SystemExit(
+            f"refusing to read HOLD: --root {root} is not the checkout this script runs "
+            f"from ({repo_root()}), so the commit it would log is not the code executing"
+        )
+    if args.bg != "mog2":
+        raise SystemExit(f"refusing to read HOLD with --bg {args.bg}: the wall runs mog2")
+    if args.budget != K.BUDGET_ALERTS_PER_CAMERA_NIGHT:
+        raise SystemExit(
+            f"refusing to read HOLD at --budget {args.budget}: the frozen operating point is "
+            f"{K.BUDGET_ALERTS_PER_CAMERA_NIGHT}; other budgets are points on its curve"
+        )
+    if getattr(args, "ablation", False):
+        raise SystemExit(
+            "refusing --ablation on HOLD: run the grid as its own DEV invocation "
+            "(bench.py --arm dev --ablation); the HOLD run quotes the committed grid"
+        )
+    if getattr(args, "dump_features", False):
+        raise SystemExit(
+            "refusing --dump-features on HOLD: features_hold.jsonl is what fit_fusion.py "
+            "reads, and a fit on HOLD features is a fit on the held-out arm"
+        )
+    existing = root / "results" / results_filename("hold", _today())
+    if existing.exists():
+        raise SystemExit(f"refusing to read HOLD: {existing.name} already exists")
+
+
+def committed_ablation(root: pathlib.Path) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """The newest ``results/ablation_<date>.csv`` verbatim, or ``(None, None)``."""
+    grids = sorted((root / "results").glob("ablation_*.csv"))
+    if not grids:
+        return None, None
+    with grids[-1].open(newline="", encoding="utf-8") as fh:
+        return [dict(r) for r in csv.DictReader(fh)], grids[-1].name
+
+
 def log_hold_access(root: pathlib.Path, commit: str, note: str) -> pathlib.Path:
     """Append exactly one line recording one read of HOLD pixels.
 
@@ -599,8 +651,8 @@ DENOMINATOR_DISCLOSURE: str = (
     "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per "
     "window, roughly 40 minutes before ignition -- against the mechanical criteria stated "
     "in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was "
-    "chosen from it, and results/hold_access.log records no HOLD read because no HOLD "
-    "pixel has been scored."
+    "chosen from it; results/hold_access.log records every read of HOLD pixels, each "
+    "after the constants freeze it names."
 )
 
 
@@ -946,6 +998,12 @@ def replay_arm(
         for w in windows
     ]
     n_frames = len(windows[0])
+    lengths = {len(w) for w in windows}
+    if len(lengths) != 1:
+        # The replay is lockstep: every lane is indexed at the same t. Mixed lengths either
+        # raise IndexError past the shortest lane or silently truncate the longest -- the
+        # caller must unify_windows() first, as run_arm and run_ablation both do.
+        raise ValueError(f"replay_arm needs windows of one length, got {sorted(lengths)}")
     latency = Latency()
     calls = {"plumerank": 0, "b1_cnn_grid": 0}
     escalated = 0
@@ -1524,8 +1582,15 @@ def run_ablation(
     excluded: Sequence[str],
     replay: Callable[..., ScoreMatrix],
     seed: int,
+    commit: str | None = None,
+    baseline: str = "shipped",
 ) -> list[dict[str, Any]]:
     """The twelve cells on DEV, written one row at a time so an interrupt costs one cell.
+
+    Through the same per-camera ``baseline`` as the headline, so the (mog2, S4 on,
+    escalation on) cell IS the shipped pipeline rather than the pre-baseline one; and on
+    windows unified exactly as ``run_arm`` unifies them, because DEV mixes 80- and 81-frame
+    windows and the lockstep replay needs one length.
 
     This is the heaviest batch job in the plan -- twelve calibration replays and twelve DEV
     replays -- and a run that had to restart from zero after an SSH drop would cost more
@@ -1539,14 +1604,28 @@ def run_ablation(
     them twelve times would buy nothing but ONNX forwards.
     """
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    provenance = {
+        "baseline": baseline,
+        "budget": str(budget),
+        "seed": str(seed),
+        "commit": commit or "none",
+    }
     done: dict[tuple[str, str, str], dict[str, str]] = {}
     if csv_path.is_file():
         with csv_path.open(newline="", encoding="utf-8") as fh:
             for row in csv.DictReader(fh):
+                theirs = {k: row.get(k) or "" for k in ABLATION_PROVENANCE}
+                if theirs != provenance:
+                    raise SystemExit(
+                        f"refusing to resume {csv_path.name}: its row for {_cell_key(row)} "
+                        f"was measured under {theirs}, this run is {provenance}. Move the "
+                        f"file aside to start a fresh grid."
+                    )
                 done[_cell_key(row)] = row
 
-    dev = load_arm(root, "dev", excluded)
-    confuse = load_calibration(root, "dev", excluded)
+    dev, confuse = unify_windows(
+        load_arm(root, "dev", excluded), load_calibration(root, "dev", excluded)
+    )
     classifier = TileClassifier(onnx)
     per_camera = _per_camera_slots(budget)
     rows: list[dict[str, Any]] = []
@@ -1582,6 +1661,8 @@ def run_ablation(
             classifier=classifier,
             systems=systems,
         )
+        rebase(calibration, baseline)
+        rebase(matrix, baseline)
         result, _ = evaluate(matrix, calibration, "plumerank", budget, per_camera)
         elapsed = (cv2.getTickCount() - started) / cv2.getTickFrequency()
         summary = result.summary
@@ -1599,6 +1680,7 @@ def run_ablation(
             "escalation_fraction": round(matrix.escalation_fraction, 6),
             "model_calls_per_camera_night": round(result.model_calls_per_camera_night, 3),
             "wall_clock_seconds": round(elapsed, 1),
+            **provenance,
         }
         _append_csv_row(csv_path, ABLATION_COLUMNS, row)
         rows.append(row)
@@ -1749,10 +1831,11 @@ def run_arm(
     # Once, up front: a HOLD run in a cell that has nowhere safe to land must stop before
     # HOLD is opened, not after an hour of replay -- and a run that crosses midnight UTC
     # must not file under a different date than the one it started on.
+    results_date = _today()
     try:
         results_file = results_filename(
             args.arm,
-            _today(),
+            results_date,
             s4=getattr(args, "s4", "on"),
             baseline=getattr(args, "baseline", "shipped"),
         )
@@ -1767,6 +1850,7 @@ def run_arm(
                 "could not name a commit anybody can check out"
             )
         assert_tree_clean(root)
+        assert_hold_is_the_shipped_run(root, args)
     else:
         constants_sha = K.freeze_hash()
     confuse_manifest_sha = manifest_sha256(root, "micro" if args.arm == "micro" else "confuse")
@@ -1886,16 +1970,27 @@ def run_arm(
     )
 
     ablation: list[dict[str, Any]] | None = None
+    ablation_source: str | None = None
     if args.ablation:
+        ablation_csv = root / "results" / f"ablation_{results_date}.csv"
         ablation = run_ablation(
             root,
-            root / "results" / f"ablation_{_today()}.csv",
+            ablation_csv,
             budget=args.budget,
             onnx=root / "models" / "tile_classifier.onnx",
             excluded=excluded,
             replay=replay,
             seed=args.seed,
+            commit=commit,
+            baseline=baseline,
         )
+        ablation_source = ablation_csv.name
+    elif args.arm == "hold":
+        # The grid is a separate DEV invocation (bench.py --arm dev --ablation), never part
+        # of the HOLD run: it is twelve replays whose LSBP/GSOC cells need several GB, and a
+        # crash there after the logged HOLD read would lose the headline. The HOLD payload
+        # quotes the newest committed grid verbatim, with the commit each row names.
+        ablation, ablation_source = committed_ablation(root)
 
     elapsed = (cv2.getTickCount() - wall) / cv2.getTickFrequency()
     credits_after = cpu_credit_balance(facts["instance_id"])
@@ -1992,6 +2087,7 @@ def run_arm(
         "sensitivity": sensitivity,
         "operating_curve": curve,
         "ablation": ablation,
+        "ablation_source": ablation_source,
         "exclusions": {
             "source": exclusions_source,
             "count": len(arm_exclusions),
@@ -2056,7 +2152,7 @@ def run_arm(
         # DEV run that happened to be launched on the same day.
         stem = "sensitivity" if args.arm == "hold" else f"sensitivity_{args.arm}"
         write_sensitivity_csv(
-            root / "results" / f"{stem}_{_today()}.csv", sensitivity["rows"]
+            root / "results" / f"{stem}_{results_date}.csv", sensitivity["rows"]
         )
     return payload
 
@@ -2194,7 +2290,7 @@ def _dump(payload: dict[str, Any]) -> str:
 BLOCK_1 = "REPRODUCED HERE"
 BLOCK_2 = "PUBLISHED, NOT RECOMPUTED HERE"
 RULE = "=" * 72
-REPRODUCE_COMMAND = "reproduce with: make fetch && make bench  (about 135 min)"
+REPRODUCE_COMMAND = "reproduce with: make fetch && make bench  (about 95 min)"
 
 
 def verify_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -2218,7 +2314,9 @@ def verify_payload(payload: dict[str, Any]) -> dict[str, Any]:
         # reproduced PlumeRank byte-for-byte while B1 had moved would print MATCH over a
         # changed comparison, and the comparison is what the arm exists to check.
         "ttd": {r["system"]: r["ttd"] for r in payload["baselines"]},
-        "thresholds": {r["system"]: r["threshold"] for r in payload["baselines"]},
+        # Rounded HERE only: the published file carries the exact float, but a byte-for-byte
+        # check across machines must not hinge on the last ulp of an OpenCV-derived hazard.
+        "thresholds": {r["system"]: round(r["threshold"], 6) for r in payload["baselines"]},
         "realised_rate_uncapped": {
             r["system"]: r["arm_realised_rate_uncapped"] for r in payload["baselines"]
         },

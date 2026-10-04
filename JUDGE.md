@@ -40,8 +40,10 @@ make verify    # ≤3 min: rebuilds the venv from the lockfile, re-runs the offl
 ```
 
 The pair that **does** reproduce the held-out headline, once `results/bench_<date>.json` exists
-(the HOLD run — see §4): `make fetch && make bench`, ≈135 minutes (≈35 min corpus fetch + ≈60 min
-held-out evaluation + ≈40 min DEV ablation grid). Nobody is asked to run that to evaluate this submission; it exists so the number is
+(the HOLD run — see §4): `make fetch && make bench`, ≈95 minutes (≈35 min corpus fetch + ≈60 min
+held-out evaluation). The ablation grid is a separate DEV run,
+`scripts/bench.py --arm dev --ablation` (twelve cells, a few hours, run off the box), which the
+held-out file quotes verbatim. Nobody is asked to run that to evaluate this submission; it exists so the number is
 checkable rather than assertable.
 
 ## 4. What is and is not measured yet — read before trusting any number above
