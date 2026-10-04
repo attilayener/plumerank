@@ -30,6 +30,7 @@
 import type {
   AblationGrid,
   Benchmark,
+  CurvePoint,
   CurveSeries,
   Exclusions,
   SensitivityPoint,
@@ -155,20 +156,32 @@ function readOperating(doc: unknown, systems: SystemResult[]): CurveSeries[] {
   const rows = list(doc, "operating_curve");
   if (!rows) return [];
   return systems
-    .map((s) => ({
-      key: s.key,
-      label: s.label,
-      points: rows
+    .map((s) => {
+      const all = rows
         .map((r) => ({
           budget: num(r, "budget_alerts_per_camera_night"),
           p50_minutes: num(r, `${s.key}_p50_minutes`),
         }))
-        .filter((p): p is { budget: number; p50_minutes: number } =>
-          p.budget !== null && p.p50_minutes !== null,
-        )
-        .sort((a, b) => a.budget - b.budget),
-    }))
-    .filter((s) => s.points.length > 1);
+        .filter((p): p is { budget: number; p50_minutes: number | null } => p.budget !== null)
+        .sort((a, b) => a.budget - b.budget);
+      return {
+        key: s.key,
+        label: s.label,
+        points: all.filter((p): p is CurvePoint => p.p50_minutes !== null),
+        missing: all.filter((p) => p.p50_minutes === null).map((p) => p.budget),
+      };
+    })
+    // One point is still a point worth drawing (as a dot); a system with none is named
+    // in the caption instead.
+    .filter((s) => s.points.length > 0);
+}
+
+/** Every budget the operating curve publishes, ascending. */
+function readBudgets(doc: unknown): number[] {
+  const rows = list(doc, "operating_curve");
+  if (!rows) return [];
+  return [...new Set(rows.map((r) => num(r, "budget_alerts_per_camera_night")).filter((b): b is number => b !== null))]
+    .sort((a, b) => a - b);
 }
 
 /** The +/-5 min strip, for the headline system.
@@ -297,6 +310,7 @@ export function readBenchmark(doc: unknown): Benchmark {
     rebased: readSystems(doc, "baselines_rebased.rows"),
     operating: {
       series: readOperating(doc, systems),
+      budgets: readBudgets(doc),
       // The annotated rule on the curve is the operating point the project is calibrated
       // to, which is the budget the headline was measured at -- read from the file, never
       // typed into the chart.

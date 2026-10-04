@@ -30,3 +30,23 @@ test("the copy button copies or selects -- it never just fails", async ({ page }
   await button.click();
   await expect(page.getByRole("button", { name: /copied|selected/ }).first()).toBeVisible();
 });
+
+test("a deep link to a /results section lands on it once the data settles", async ({ page }) => {
+  await page.goto("/results#reproduce");
+  await expect(page.locator("#reproduce")).toBeInViewport({ timeout: 15_000 });
+});
+
+test("the operating curve ticks every published budget and marks the ones with no median", async ({
+  page,
+}) => {
+  await page.goto("/results");
+  const curve = page.getByRole("img", { name: /median time to detection against alert budget/ }).first();
+  await expect(curve).toBeVisible({ timeout: 15_000 });
+  await expect(curve.getByText("no median").first()).toBeAttached();
+});
+
+test("an unknown path gets the designed not-found page with a way home", async ({ page }) => {
+  await page.goto("/404.html");
+  await expect(page.getByRole("heading", { name: /Nothing at this address/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "the wall", exact: true })).toBeVisible();
+});

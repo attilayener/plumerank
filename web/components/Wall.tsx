@@ -54,6 +54,18 @@ export function Wall({
   holdExcluded: number | null;
 }) {
   const byCamera = new Map(rows.map((r) => [r.camera_id, r]));
+  const confuseCount = (meta?.sequences ?? []).filter((s) => s.arm === "confuse").length;
+  // The measured tick period when the server publishes one; the configured one otherwise.
+  const measured = meta?.tick_seconds_measured;
+  const configured = meta?.tick_seconds;
+  const period =
+    typeof measured === "number" && measured > 0
+      ? measured
+      : typeof configured === "number" && configured > 0
+        ? configured
+        : null;
+  const tickText =
+    period === null ? "replayed faster than real time" : `about one frame every ${period.toFixed(1)} s`;
   const roster = meta?.cameras ?? rows.map((r) => r.camera_id);
 
   const ordered = compact
@@ -98,7 +110,11 @@ export function Wall({
       >
         <span className="label">the wall</span>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          {roster.length === 0 ? "every camera on the roster, none removed" : `${roster.length} cameras, all of them, always`}
+          {roster.length === 0
+            ? "every camera on the roster, none removed"
+            : compact
+              ? `top ${ordered.length} of ${roster.length} cameras by rank — scroll sideways for more; none removed`
+              : `all ${roster.length} cameras, none removed`}
         </span>
       </div>
 
@@ -122,7 +138,7 @@ export function Wall({
             // dims NOTHING rather than dimming by a guessed one. See the note below.
             const dim = topK !== null && (row === undefined || row.rank > topK);
             return (
-              <div key={cam} className={`tile${dim ? " tile--dim" : ""}`}>
+              <div key={cam} className={`tile${dim ? " tile--dim" : ""}`} title={cam}>
                 {src ? (
                   <img src={apiUrl(src)} alt="" />
                 ) : (
@@ -167,9 +183,9 @@ export function Wall({
           "you demoed on the fire you tuned on", and answering it before it is asked is
           cheaper than answering it afterwards. The wall never reads HOLD. */}
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", marginTop: 10 }}>
-        Replaying the development set — the constants were fit on these fires, one frame
-        per minute of footage, about one frame per second on screen. The
-        headline {holdSequences === null ? "will be" : "is"} measured on{" "}
+        Replaying the development fires (the constants were fit on them)
+        {confuseCount > 0 ? ` and ${confuseCount} fire-free confusion-set windows` : ""} — one
+        frame per minute of footage, {tickText} on screen. The headline {holdSequences === null ? "will be" : "is"} measured on{" "}
         {holdSequences === null || holdExcluded === null
           ? "the"
           : `${holdSequences} of the ${holdSequences + holdExcluded}`}{" "}

@@ -16,7 +16,7 @@ const TITLE = "PlumeRank — which wildfire camera to look at first";
 // <=125 chars: og:description clips on mobile earlier than a plain meta description does,
 // so one string serves both constraints. It says what the page headline says.
 const DESCRIPTION =
-  "Two alerts per camera a night. PlumeRank ranks a wildfire camera network so the " +
+  "Two alerts per camera, hard budget. PlumeRank ranks a wildfire camera network so the " +
   "camera most likely showing smoke comes first.";
 const SITE_URL = "http://44.242.91.201";
 const AUTHOR = "Edy Cu";
@@ -26,7 +26,9 @@ export const metadata: Metadata = {
   // crawlers that cannot do it themselves. Points at the live box (no domain/TLS yet);
   // update when the real domain exists -- see deploy/bootstrap.sh's PLUMERANK_DOMAIN.
   metadataBase: new URL(SITE_URL),
-  title: TITLE,
+  // Per-route titles ("Results — PlumeRank") come from each route's own layout; the
+  // home page and anything without one keeps the full title.
+  title: { default: TITLE, template: "%s — PlumeRank" },
   description: DESCRIPTION,
   authors: [{ name: AUTHOR }],
   creator: AUTHOR,
@@ -38,7 +40,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: "PlumeRank",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: TITLE }],
+    images: [{ url: "/og-image.png?v=2", width: 1200, height: 630, alt: TITLE }],
     locale: "en_US",
     type: "website",
   },
@@ -50,7 +52,7 @@ export const metadata: Metadata = {
     // fabricated handle (a string here does not have to resolve to an account, but it
     // must be honest about what it names).
     creator: AUTHOR,
-    images: ["/og-image.png"],
+    images: ["/og-image.png?v=2"],
   },
 };
 

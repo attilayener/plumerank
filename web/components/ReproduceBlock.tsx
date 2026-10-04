@@ -27,6 +27,7 @@ import type { Benchmark } from "@/lib/types";
 
 const VERIFY = "make verify";
 const HEADLINE = "make fetch     # the corpus, sha256-verified, resumable\nmake bench     # the full held-out evaluation";
+const DEVELOPMENT = "make fetch\n.venv/bin/python scripts/bench.py --arm dev --sensitivity --seed 20261026";
 
 function Command({
   title,
@@ -58,6 +59,10 @@ function Command({
 
 export function ReproduceBlock({ data }: { data: Benchmark | null }) {
   const run = data?.run ?? null;
+  // The numbers above this block are the held-out headline only when a held-out file was
+  // served; otherwise they are the in-sample development run, and the block says which
+  // command reproduces THOSE rather than pointing at a headline that does not exist.
+  const heldOut = data !== null && (data.run.arm === null || data.run.arm === "hold");
 
   return (
     <section id="reproduce">
@@ -69,20 +74,34 @@ export function ReproduceBlock({ data }: { data: Benchmark | null }) {
         title="make verify"
         cost="about 3 min"
         claim={
-          "Recomputes the micro-corpus metrics with the real OpenCV 5 pipeline and asserts them " +
-          "byte-for-byte against the committed results/verify_micro.json. Non-zero exit on any " +
-          "mismatch. This does NOT reproduce the published headline — a 3-minute command cannot " +
-          "recompute the held-out evaluation the numbers above come from, and it does not claim to."
+          "The quick sanity check: the test suite, then a small committed sample re-run through " +
+          "the real OpenCV 5 pipeline and compared byte-for-byte with results/verify_micro.json. " +
+          "It reproduces neither the development numbers nor the held-out headline."
         }
         command={VERIFY}
       />
+
+      {heldOut ? null : (
+        <Command
+          title="the development run shown above"
+          cost="about 10 min after the fetch"
+          claim={
+            "Reproduces the in-sample development numbers on this page — the same replay, " +
+            "calibration and per-sequence scoring, written to results/arm_dev_<date>.json."
+          }
+          command={DEVELOPMENT}
+        />
+      )}
 
       <Command
         title="make fetch && make bench"
         cost="about 95 min"
         claim={
-          "THIS is the one that reproduces the published headline: the whole corpus, then the full " +
-          "held-out evaluation, on the same t4g.small the held-out numbers are measured on."
+          heldOut
+            ? "Reproduces the held-out headline above: the whole corpus, then the full held-out " +
+              "evaluation, read once after the constants were frozen."
+            : "Produces the held-out headline once it is run: the whole corpus, then the held-out " +
+              "evaluation, read once after the constants are frozen. It has not been run yet."
         }
         command={HEADLINE}
       />

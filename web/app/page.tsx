@@ -100,15 +100,17 @@ export default function WallPage() {
         <section className="landing">
           <div>
             <h1 className="display">
-              Two alerts per camera a night. Which camera do you look at first?
+              Two alerts per camera, hard budget. Which camera do you look at first?
             </h1>
             <p style={{ color: "var(--ink-1)", margin: 0 }}>
               PlumeRank ranks a wildfire-camera network so the camera most likely showing a
               new plume reaches the top of a dispatcher&apos;s watch list — under a hard
-              budget of two alerts per camera-night, with the threshold solved on fire-free
-              nights rather than picked by hand. OpenCV 5 does the per-frame work: background
-              modelling, optical flow and plume geometry, fused into one hazard and scored
-              against each camera&apos;s own recent history.
+              budget of two alerts per camera&#8209;night, with the threshold solved on
+              fire-free windows rather than picked by hand. (A camera&#8209;night here is one
+              81-minute camera window, the length of a FIgLib sequence — not a 12-hour shift.)
+              OpenCV 5 does the per-frame work: background modelling, optical flow and plume
+              geometry, fused into one hazard and scored against each camera&apos;s own recent
+              history.
             </p>
           </div>
 
@@ -146,8 +148,8 @@ export default function WallPage() {
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <code className="code">make verify</code>
               <span className="label" style={{ textTransform: "none", letterSpacing: 0, flex: "1 1 200px" }}>
-                about 3 min — re-runs the tests and recomputes a small committed sample.
-                The full held-out run is <Link href="/results#reproduce">a separate pair of commands</Link>.
+                about 3 min — the tests plus a small committed sample, re-run. The development
+                numbers and the held-out run each have <Link href="/results#reproduce">their own command</Link>.
               </span>
             </div>
             <p style={{ margin: "8px 0 0", fontSize: "var(--size-label)" }}>
@@ -184,6 +186,9 @@ export default function WallPage() {
           <div className="area-rail rail">
             <div className="rail-clock">
               <Clock meta={meta} frameIndex={frameIndex} />
+            </div>
+            <div className="show-mobile">
+              <CalibrationNote kind={calibration} />
             </div>
             <div className="rail-list">
               <WatchList

@@ -107,6 +107,10 @@ a:hover { text-decoration: underline; }
     radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.55), transparent) right / 12px 100% no-repeat scroll;
 }
 
+/* Charts scroll too, but sit on the page canvas, not in a card: the card-coloured
+ * scroll-hint edges painted grey bars beside every chart. */
+.scroll-x--bare { background: none; }
+
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 th, td { padding: 8px 14px; text-align: left; white-space: nowrap; }
 th {
@@ -221,13 +225,29 @@ tbody tr:last-child td { border-bottom: 0; }
   margin-top: 6px;
 }
 .hazard-bar > i { display: block; height: 100%; background: var(--signal); }
+/* The alert line on the same bar, so "how far from firing" is read, not inferred. */
+.hazard-threshold {
+  position: absolute; top: -2px; bottom: -2px; width: 2px;
+  background: var(--alert);
+}
+.hazard-bar { overflow: visible; }
+.row-score {
+  display: flex; gap: 6px; align-items: baseline; margin-top: 4px;
+  font-size: var(--size-label); color: var(--ink-2);
+}
+.row-score .mono { color: var(--ink-1); }
+.watchlist-caption, .watchlist-legend {
+  margin: 0; padding: 8px 14px 0; color: var(--ink-2); font-size: var(--size-label);
+}
+.watchlist-legend { padding-bottom: 8px; border-bottom: 1px solid var(--hairline); line-height: 1.9; }
+.watchlist-legend .badge { margin-right: 2px; }
 
 .stat-chip {
   display: inline-block;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: 12px;
+  color: var(--ink-3);
   border: 1px solid var(--hairline);
   border-radius: 2px;
   /* Padding trimmed to the minimum that still reads as a chip: at 420 px the three
@@ -349,7 +369,7 @@ tbody tr:last-child td { border-bottom: 0; }
  * mechanism: the system reorders, it never suppresses. The full roster is on screen
  * at all times and this rule is the only thing that separates a watched camera from
  * an unwatched one. */
-.tile--dim { opacity: 0.45; }
+.tile--dim > img, .tile--dim > .tile-empty { opacity: 0.45; }
 
 .tile-rank {
   position: absolute; top: 3px; left: 3px;
@@ -361,7 +381,7 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 .tile-name {
   position: absolute; bottom: 3px; left: 3px; right: 3px;
-  font-size: 11px; color: var(--ink-2);
+  font-size: 12px; color: var(--ink-1);
   background: rgba(10, 14, 19, 0.78);
   padding: 0 4px; border-radius: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -419,6 +439,8 @@ tbody tr:last-child td { border-bottom: 0; }
     "budget";
 }
 .area-wall   { grid-area: wall; min-width: 0; }
+.show-mobile { display: none; }
+@media (max-width: 767px) { .show-mobile { display: block; margin: 0 0 8px; } }
 .area-rail   { grid-area: rail; min-width: 0; }
 .area-budget { grid-area: budget; min-width: 0; }
 
@@ -434,6 +456,12 @@ tbody tr:last-child td { border-bottom: 0; }
     padding-bottom: 6px;
   }
   .wall-strip .tile { flex: 0 0 200px; }
+  /* Scroll cue: the strip fades out at the right edge, so a cut-off tile reads as "more
+   * this way" rather than as a layout bug. */
+  .wall-strip {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+  }
   /* In the flow, not docked: a sticky meter at tablet width sat over the watch list,
    * which is the thing a dispatcher reads. */
   .area-budget { position: static; }
@@ -468,7 +496,8 @@ tbody tr:last-child td { border-bottom: 0; }
    * and as close to the top as the hook allows. A dispatcher on a phone opened this to
    * see a shortlist, not to read a headline, and a product whose core is the third
    * thing on a phone screen is a product that has quietly become a landing page. */
-  .rail { grid-template-areas: "list" "clock"; }
+  .rail { grid-template-areas: "note" "list" "clock"; }
+  .rail > .show-mobile { grid-area: note; margin: 0; }
   .landing h1 { font-size: var(--size-lead); }
   /* One line of chips, not two: at phone width "S3 diffuse 0.24" is the token that
    * falls off the end, and S3 is the statistic the whole project turns on. */
@@ -476,7 +505,7 @@ tbody tr:last-child td { border-bottom: 0; }
    * padding is the cheapest place to find them, and it is cheaper than an ellipsis
    * over the S3 value or a second line of chips. */
   .stat-chip { font-size: 12px; padding: 1px 3px; }
-  .row > .row-stats { gap: 2px; }
+  .row > .row-stats { display: flex; flex-wrap: wrap; gap: 2px; }
 
   /* The budget meter stops being a sticky footer here. 80 slots wrap to four rows at
    * phone width, and a 270 px bar docked over an 820 px screen would cover the watch
@@ -510,6 +539,8 @@ tbody tr:last-child td { border-bottom: 0; }
   }
 }
 
+.topbar-status-short { display: none; letter-spacing: 0.04em; }
+@media (max-width: 479px) { .topbar-status-short { display: inline; } }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot--live { background: var(--signal); }
 .dot--idle { background: var(--ink-3); }
@@ -618,3 +649,20 @@ ul.bullets { list-style: disc; padding-left: 22px; }
   color: var(--ink-0);
   font-variant-numeric: tabular-nums;
 }
+
+/* Key/value tables (a row header and one value) stack below 768 px: the value goes
+ * under its label instead of off-screen inside a sideways-scrolling box. Long hashes
+ * and build strings wrap rather than push the card wider than the phone. */
+@media (max-width: 767px) {
+  tbody th[scope="row"],
+  tbody th[scope="row"] + td {
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+  tbody th[scope="row"] { padding-bottom: 0; border-bottom: 0; white-space: normal; }
+  tbody th[scope="row"] + td { padding-top: 2px; overflow-wrap: anywhere; word-break: break-word; }
+}
+
+/* Anchored sections land below the 56 px sticky top bar, not under it. */
+section[id] { scroll-margin-top: 72px; }

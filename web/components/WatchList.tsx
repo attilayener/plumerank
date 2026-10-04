@@ -94,9 +94,22 @@ export function WatchList({
       >
         <span className="label">watch list</span>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          {rows.length === 0 ? "ranked by hazard, none removed" : `ranked by hazard - ${rows.length} cameras, none removed`}
+          {rows.length === 0 ? "none removed" : `${rows.length} cameras, none removed`}
         </span>
       </div>
+      {/* What the rank IS, said once above the rows: the score each row carries is how
+          far the camera has departed from its own last 15 minutes, not a raw signal --
+          a camera that is hazy all morning is not a fire. */}
+      <p className="watchlist-caption">
+        Ranked by departure from each camera&apos;s own recent history (its last 15
+        minutes), not by raw signal.{threshold !== null ? ` A score at or above ${threshold.toFixed(2)} fires an alert.` : ""}
+      </p>
+      <p className="watchlist-legend">
+        <span className="badge badge--alert">alert</span> fired this frame{" · "}
+        <span className="badge badge--spent">budget spent</span> both slots used, still ranked{" · "}
+        <span className="badge badge--signal">escalated</span> checked by the tile classifier{" · "}
+        <span className="badge" style={{ color: "var(--fog)" }}>confusion set</span> a fire-free window
+      </p>
 
       {rows.length === 0 ? (
         <p style={{ color: "var(--ink-2)", padding: "16px 14px", margin: 0 }}>
@@ -165,7 +178,7 @@ export function WatchList({
 
                   <span className="row-main">
                     <span style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                      <span className="row-name">{row.camera_id}</span>
+                      <span className="row-name" title={row.camera_id}>{row.camera_id}</span>
                       {row.county ? <span className="row-meta">{row.county}</span> : null}
                       {row.alerted ? (
                         <span className="badge badge--alert">alert</span>
@@ -179,14 +192,28 @@ export function WatchList({
                         </span>
                       ) : null}
                     </span>
-                    <span className="hazard-bar">
+                    <span className="row-score">
+                      <span className="mono num">score {row.hazard.toFixed(2)}</span>
+                      <span>vs own last 15 min</span>
+                    </span>
+                    <span className="hazard-bar" style={{ position: "relative" }}>
                       <i style={{ width: `${Math.max(0, Math.min(1, row.hazard)) * 100}%` }} />
+                      {threshold !== null ? (
+                        <b
+                          aria-hidden="true"
+                          className="hazard-threshold"
+                          style={{ left: `${Math.max(0, Math.min(1, threshold)) * 100}%` }}
+                        />
+                      ) : null}
                     </span>
                   </span>
 
                   {/* Colour is never the only channel: every statistic is a written name
                       and a number, so a red/green-blind dispatcher loses nothing. */}
-                  <span className="row-stats">
+                  <span
+                    className="row-stats"
+                    title="The raw plume statistics behind the score. Each is weak on its own (AUC 0.53, 0.50, 0.44 on the development set); the rank comes from the fused, per-camera score."
+                  >
                     <span className="stat-chip">S1 anchor {row.s1.toFixed(2)}</span>
                     <span className="stat-chip">S2 aniso {row.s2.toFixed(2)}</span>
                     <span className="stat-chip">S3 diffuse {row.s3.toFixed(2)}</span>

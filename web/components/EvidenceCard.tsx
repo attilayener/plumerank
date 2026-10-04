@@ -66,7 +66,7 @@ export function EvidenceCard({ row, onClose }: { row: WatchRow; onClose: () => v
             <div style={{ color: "var(--ink-0)", fontWeight: 600 }}>{row.camera_id}</div>
             <div className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
               hazard {row.hazard.toFixed(3)}
-              {row.escalated ? " - escalated to the tile classifier" : ""}
+              {row.escalated ? " — escalated to the tile classifier" : ""}
             </div>
           </span>
           <button

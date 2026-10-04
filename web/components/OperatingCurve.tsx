@@ -35,29 +35,30 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
   }
 
   const pts = series.flatMap((s) => s.points);
-  const xs = pts.map((p) => p.budget);
+  // Every budget the file publishes is a tick, including the ones where no system has a
+  // median -- a curve that silently starts at 2.0 hides that 0.5 and 1.0 were measured.
+  const budgets = data.operating.budgets.length > 0 ? data.operating.budgets : pts.map((p) => p.budget);
+  const xs = budgets;
   const ys = pts.map((p) => p.p50_minutes);
-  const x0 = Math.min(...xs);
-  const x1 = Math.max(...xs);
   // The y axis starts at zero, always. A truncated axis is how a two-minute difference
   // is made to look like a rout, and this chart's whole job is to be believed.
   const y1 = Math.max(...ys);
 
+  // Budgets are spaced by index, not linearly: the published grid is geometric
+  // (0.5, 1, 2, 4, 8), and a linear axis crushes the low end into one pixel.
+  const index = new Map(xs.map((b, i) => [b, i]));
   const sx = (v: number) =>
-    PAD.left + ((v - x0) / (x1 - x0 || 1)) * (W - PAD.left - PAD.right);
+    PAD.left + ((index.get(v) ?? 0) / (xs.length - 1 || 1)) * (W - PAD.left - PAD.right);
   const sy = (v: number) => H - PAD.bottom - (v / (y1 || 1)) * (H - PAD.top - PAD.bottom);
 
   const op = data.operating.operating_point;
-  // An operating point outside the published budget range cannot be drawn as a rule on
-  // this axis, and silently omitting the rule would leave a chart whose caption says it
-  // has one annotated point and whose picture has none. The caption says which case it
-  // is instead.
-  const opInRange = op !== null && op >= x0 && op <= x1;
+  const opInRange = op !== null && index.has(op);
+  const headlineKey = (series.find((s) => s.key === "plumerank") ?? series[0])?.key;
 
   return (
     <figure style={{ margin: 0 }}>
-      <div className="scroll-x">
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 440, display: "block" }} role="img"
+      <div className="scroll-x scroll-x--bare">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 560, maxWidth: 760, display: "block" }} role="img"
              aria-label="median time to detection against alert budget, one line per system">
           <line x1={PAD.left} y1={H - PAD.bottom} x2={W - PAD.right} y2={H - PAD.bottom}
                 stroke="var(--hairline)" />
@@ -66,7 +67,7 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
           {[0, 0.5, 1].map((f) => (
             <g key={f}>
               <text x={PAD.left - 8} y={sy(y1 * f) + 4} textAnchor="end"
-                    fill="var(--ink-3)" fontSize="12" fontFamily="var(--font-mono)">
+                    fill="var(--ink-2)" fontSize="13" fontFamily="var(--font-mono)">
                 {(y1 * f).toFixed(0)}
               </text>
               <line x1={PAD.left} y1={sy(y1 * f)} x2={W - PAD.right} y2={sy(y1 * f)}
@@ -74,31 +75,62 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
             </g>
           ))}
 
-          {opInRange && op !== null ? (
-            <g>
-              <line x1={sx(op)} y1={PAD.top} x2={sx(op)} y2={H - PAD.bottom}
-                    stroke="var(--alert)" strokeWidth="1.5" />
-              <text x={sx(op) + 6} y={PAD.top + 12} fill="var(--alert)" fontSize="12">
-                operating point {rate(op, 1)} alerts / camera-night
+          {xs.map((b) => (
+            <g key={b}>
+              <line x1={sx(b)} y1={H - PAD.bottom} x2={sx(b)} y2={H - PAD.bottom + 5} stroke="var(--ink-3)" />
+              <text x={sx(b)} y={H - PAD.bottom + 18} textAnchor="middle"
+                    fill={b === op ? "var(--alert)" : "var(--ink-2)"} fontSize="13" fontFamily="var(--font-mono)">
+                {b % 1 === 0 ? b.toFixed(0) : b.toFixed(1)}
               </text>
             </g>
+          ))}
+
+          {opInRange && op !== null ? (
+            <line x1={sx(op)} y1={PAD.top} x2={sx(op)} y2={H - PAD.bottom}
+                  stroke="var(--alert)" strokeWidth="1.5" strokeDasharray="4 4" />
           ) : null}
 
           {series.map((s, i) => (
-            <polyline
-              key={s.key}
-              fill="none"
-              stroke={STROKES[i % STROKES.length]}
-              strokeWidth={s.key === "plumerank" ? 2.5 : 1.5}
-              points={s.points.map((p) => `${sx(p.budget)},${sy(p.p50_minutes)}`).join(" ")}
-            />
+            <g key={s.key}>
+              {s.points.length > 1 ? (
+                <polyline
+                  fill="none"
+                  stroke={STROKES[i % STROKES.length]}
+                  strokeWidth={s.key === "plumerank" ? 2.5 : 1.5}
+                  points={s.points.map((p) => `${sx(p.budget)},${sy(p.p50_minutes)}`).join(" ")}
+                />
+              ) : null}
+              {s.points.map((p) => (
+                <circle key={p.budget} cx={sx(p.budget)} cy={sy(p.p50_minutes)} r={s.key === "plumerank" ? 4 : 3}
+                        fill={STROKES[i % STROKES.length]} />
+              ))}
+              {s.key === headlineKey
+                ? s.points.map((p) => (
+                    <text key={`l${p.budget}`} x={sx(p.budget) + (p.budget === xs[xs.length - 1] ? -7 : 7)}
+                          y={sy(p.p50_minutes) - 9}
+                          textAnchor={p.budget === xs[xs.length - 1] ? "end" : "start"}
+                          fill="var(--ink-1)" fontSize="13" fontFamily="var(--font-mono)">
+                      {minutes(p.p50_minutes)}
+                    </text>
+                  ))
+                : null}
+              {s.key === headlineKey
+                ? s.missing.map((b) => (
+                    <text key={`m${b}`} x={sx(b) + (b === xs[0] ? 4 : 0)} y={H - PAD.bottom - 22}
+                          textAnchor={b === xs[0] ? "start" : "middle"}
+                          fill="var(--ink-3)" fontSize="12">
+                      no median
+                    </text>
+                  ))
+                : null}
+            </g>
           ))}
 
-          <text x={(W + PAD.left) / 2} y={H - 8} textAnchor="middle" fill="var(--ink-3)" fontSize="12">
-            alerts per camera-night
+          <text x={(W + PAD.left) / 2} y={H - 4} textAnchor="middle" fill="var(--ink-2)" fontSize="13">
+            alert budget (alerts per camera-night)
           </text>
-          <text x={8} y={16} fill="var(--ink-3)" fontSize="12">
-            median TTD (min)
+          <text x={8} y={16} fill="var(--ink-2)" fontSize="13">
+            median minutes to detection
           </text>
         </svg>
       </div>
@@ -110,6 +142,7 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
               background: STROKES[i % STROKES.length],
             }} />
             {s.label}
+            {s.missing.length > 0 ? ` (no median at ${s.missing.map((b) => rate(b, 1)).join(", ")})` : ""}
           </span>
         ))}
         {data.systems
@@ -120,13 +153,12 @@ export function OperatingCurve({ data }: { data: Benchmark }) {
             </span>
           ))}
         <span style={{ fontSize: "var(--size-label)", color: "var(--ink-3)" }}>
-          y axis starts at 0; peak {minutes(y1)} min
           {op === null
-            ? ` - operating point ${ABSENT}`
+            ? `operating point ${ABSENT}`
             : opInRange
-              ? ""
-              : ` - operating point ${rate(op, 1)} lies outside the published budget range ` +
-                `${rate(x0, 1)} to ${rate(x1, 1)} and is not marked`}
+              ? `dashed line: the operating point, ${rate(op, 1)} alerts per camera-night`
+              : `operating point ${rate(op, 1)} lies outside the published budgets and is not marked`}
+          {" · "}budgets evenly spaced; y axis starts at 0
         </span>
       </figcaption>
     </figure>

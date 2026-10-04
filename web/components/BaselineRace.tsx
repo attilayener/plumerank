@@ -63,15 +63,14 @@ function Lane({
         <span>
           {lane.n_detected !== null && lane.n !== null ? `${lane.n_detected} of ${lane.n} detected` : ""}
           {noMedian
-            ? " — fewer than half, so the median is off the clock"
+            ? ""
             : gap > 0
               ? ` — +${minutes(gap)} min behind`
               : " — first"}
         </span>
         {lane.arm_alerts_per_camera_night !== null ? (
           <span className="num" style={{ color: "var(--ink-3)", fontWeight: 400 }}>
-            {rate(lane.alerts_per_camera_night)} alerts/camera-night on the confusion set,{" "}
-            {rate(lane.arm_alerts_per_camera_night)} realised on this arm
+            {rate(lane.arm_alerts_per_camera_night)} realised on these fires
           </span>
         ) : null}
       </div>
@@ -175,12 +174,12 @@ export function BaselineRace({ data }: { data: Benchmark }) {
       )}
       <p style={{ fontSize: "var(--size-label)", color: "var(--ink-3)", margin: 0 }}>
         One clock, minutes after ignition. Every threshold is solved to the same alert
-        budget on the same fire-free confusion set; on the fire arm each system then
-        realises its own rate, shown per lane. The learned component is identical in
-        PlumeRank and in B1, so the like-for-like gap is not a bigger model. B1 as deployed
-        scores with saturated CNN probabilities, so its threshold sits at the very top of
-        the scale. A hatched lane detected fewer than half the fires: its median is off the
-        clock, which is a result and not a gap in the file.
+        budget on the same fire-free confusion set (every system lands at the same rate
+        there); on the fire footage each system then realises its own rate, shown per lane.
+        The learned component is identical in PlumeRank and in B1, so the like-for-like gap
+        is not a bigger model. B1 as deployed scores with saturated CNN probabilities, so
+        its threshold sits at the very top of the scale. A hatched lane detected fewer than
+        half the fires, so it has no median — a result, not a gap in the file.
         {timed.length && slowest === 0 ? ` scale ${ABSENT}` : ""}
       </p>
     </div>

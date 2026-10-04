@@ -101,16 +101,22 @@ export function BudgetMeter({
   const band = tolerance !== null && target !== null ? tolerance * target : null;
   const off = realised !== null && target !== null ? Math.abs(realised - target) : null;
   const bandText = tolerance === null ? "" : ` (band \u00b1${Math.round(tolerance * 100)}%)`;
+  const bandPct = tolerance === null ? "band" : `\u00b1${Math.round(tolerance * 100)}%`;
   const driftClass =
     off === null || band === null ? "badge--spent" : off <= band ? "badge--ok" : "badge--alert";
+  // The band is about the CONFUSION SET the threshold was solved on -- said in the pill,
+  // because next to a hero quoting a higher realised rate on the fire footage, a bare
+  // "within band" reads as a contradiction.
   const driftText =
     realised === null
-      ? `calibration: not published yet${bandText}`
+      ? meta === null
+        ? "calibration: connecting…"
+        : `calibration not published${bandText}`
       : band === null
         ? "calibration band not published"
         : off !== null && off <= band
-          ? `calibration within band${bandText}${source ? `, ${source}` : ""}`
-          : `calibration outside band${bandText}${source ? `, ${source}` : ""}`;
+          ? `within ${bandPct} on the fire-free confusion set it was solved on${source ? ` (${source})` : ""}`
+          : `outside ${bandPct} on the fire-free confusion set it was solved on${source ? ` (${source})` : ""}`;
 
   return (
     <section className="card" id="budget" style={{ padding: "14px 16px" }}>
@@ -120,7 +126,7 @@ export function BudgetMeter({
           {totalSpent} / {totalSlots}
         </span>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          slots spent tonight, {perCamera} per camera (budget-capped)
+          slots spent this camera-night, {perCamera} per camera (budget-capped)
         </span>
       </div>
 

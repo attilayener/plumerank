@@ -68,8 +68,8 @@ export function SensitivityStrip({ data }: { data: Benchmark }) {
 
   return (
     <figure style={{ margin: 0 }}>
-      <div className="scroll-x">
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 420, display: "block" }} role="img"
+      <div className="scroll-x scroll-x--bare">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520, maxWidth: 760, display: "block" }} role="img"
              aria-label={`median time to detection across ${all.length} ignition-clock offsets from ${x0} to +${x1} minutes${gaps.length ? `, ${gaps.length} with no median` : ""}`}>
           <rect x={PAD.left} y={sy(hi)} width={W - PAD.left - PAD.right} height={Math.max(1, sy(lo) - sy(hi))}
                 fill="var(--signal)" opacity="0.14" />
@@ -89,13 +89,13 @@ export function SensitivityStrip({ data }: { data: Benchmark }) {
                   fill="var(--ink-3)" fontSize="12" fontFamily="var(--font-mono)">&times;</text>
           ))}
 
-          <text x={PAD.left - 6} y={sy(hi) + 4} textAnchor="end" fill="var(--ink-3)" fontSize="11"
+          <text x={PAD.left - 6} y={sy(hi) + 4} textAnchor="end" fill="var(--ink-2)" fontSize="13"
                 fontFamily="var(--font-mono)">{hi.toFixed(1)}</text>
-          <text x={PAD.left - 6} y={sy(lo) + 4} textAnchor="end" fill="var(--ink-3)" fontSize="11"
+          <text x={PAD.left - 6} y={sy(lo) + 4} textAnchor="end" fill="var(--ink-2)" fontSize="13"
                 fontFamily="var(--font-mono)">{lo.toFixed(1)}</text>
-          <text x={sx(x0)} y={H - 9} fill="var(--ink-3)" fontSize="11">{x0} min</text>
-          <text x={sx(0)} y={H - 9} textAnchor="middle" fill="var(--ink-3)" fontSize="11">published t0</text>
-          <text x={sx(x1)} y={H - 9} textAnchor="end" fill="var(--ink-3)" fontSize="11">+{x1} min</text>
+          <text x={sx(x0)} y={H - 9} fill="var(--ink-2)" fontSize="13">{x0} min</text>
+          <text x={sx(0)} y={H - 9} textAnchor="middle" fill="var(--ink-2)" fontSize="13">published t0</text>
+          <text x={sx(x1)} y={H - 9} textAnchor="end" fill="var(--ink-2)" fontSize="13">+{x1} min</text>
         </svg>
       </div>
       <figcaption style={{ marginTop: 6, fontSize: "var(--size-label)", color: "var(--ink-2)" }}>

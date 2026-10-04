@@ -55,6 +55,10 @@ export interface WatchMeta {
   /** Replay start as an epoch second, if the server simulates a wall clock. */
   t0?: number | null;
   seconds_per_frame?: number;
+  /** Configured replay pace, seconds per tick (one frame = one minute of footage). */
+  tick_seconds?: number;
+  /** Measured pace (EWMA of tick starts), when the server has one. Preferred for copy. */
+  tick_seconds_measured?: number | null;
   /** Frames the background model needs before its output means anything. Drives the
    *  warm-up state; absent means the wall does not claim to know. */
   warmup_frames?: number;
@@ -139,6 +143,9 @@ export interface CurveSeries {
   key: string;
   label: string;
   points: CurvePoint[];
+  /** Budgets the file publishes at which this system has no median (fewer than half
+   *  the fires detected). Drawn as "no median" ticks rather than silently skipped. */
+  missing: number[];
 }
 
 export interface SensitivityPoint {
@@ -185,7 +192,8 @@ export interface Benchmark {
   /** B1 and B2 through PlumeRank's own per-camera baseline (bench.py baselines_rebased):
    *  the like-for-like comparison. Empty when the file predates them. */
   rebased: SystemResult[];
-  operating: { series: CurveSeries[]; operating_point: number | null };
+  /** `budgets` is every budget the file publishes, so the x axis can tick all of them. */
+  operating: { series: CurveSeries[]; operating_point: number | null; budgets: number[] };
   sensitivity: SensitivityPoint[];
   ablation: AblationGrid | null;
   escalation: { fraction: number | null; max: number | null };

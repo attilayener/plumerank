@@ -203,36 +203,36 @@
     "p50_minutes": 32.0,
     "p95_minutes": null
   },
-  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50   32.0 min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 2.23% of frames touched by ONNX\n  model calls    : PlumeRank 2 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : advantage not finite at all 11 offsets in [-5,+5]\n  background     : mog2\n  commit 68b6def985e5e536fc0e643c42ad84e1987c94fc  instance local (not EC2)  wall clock 9m30s  2026-10-04\n-> results/arm_dev_2026-10-04.json",
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : dev (29 sequences, 1 excluded from the 30 in manifest_dev.json, see data/excluded.json)\n  PlumeRank      : p50   32.0 min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 2.23% of frames touched by ONNX\n  model calls    : PlumeRank 2 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : advantage not finite at all 11 offsets in [-5,+5]\n  background     : mog2\n  commit c977858c0b046c9d4bfe7da3fab7f9b2da20d4cf  instance local (not EC2)  wall clock 9m46s  2026-10-04\n-> results/arm_dev_2026-10-04.json",
   "headline_system": "plumerank",
   "latency_ms": {
     "b1": {
-      "mean_ms": 60.182,
+      "mean_ms": 62.259,
       "n": 2291,
-      "p50_ms": 56.569,
-      "p95_ms": 70.616,
-      "total_ms": 137876.794
+      "p50_ms": 56.442,
+      "p95_ms": 79.278,
+      "total_ms": 142635.031
     },
     "b2": {
-      "mean_ms": 0.014,
+      "mean_ms": 0.015,
       "n": 2291,
-      "p50_ms": 0.013,
-      "p95_ms": 0.018,
-      "total_ms": 32.269
+      "p50_ms": 0.014,
+      "p95_ms": 0.021,
+      "total_ms": 35.289
     },
     "classical": {
-      "mean_ms": 8.12,
+      "mean_ms": 8.125,
       "n": 2291,
-      "p50_ms": 7.464,
-      "p95_ms": 10.587,
-      "total_ms": 18602.98
+      "p50_ms": 7.735,
+      "p95_ms": 11.204,
+      "total_ms": 18613.774
     },
     "escalation": {
-      "mean_ms": 1.788,
+      "mean_ms": 1.324,
       "n": 51,
-      "p50_ms": 1.253,
-      "p95_ms": 2.029,
-      "total_ms": 91.179
+      "p50_ms": 1.281,
+      "p95_ms": 1.548,
+      "total_ms": 67.515
     }
   },
   "model_invocations_per_camera_night": {
@@ -576,8 +576,8 @@
   "results_file": "arm_dev_2026-10-04.json",
   "run": {
     "calibration_manifest_sha256": "42157351223964176c8af43b822e225a94c195bf6ab9140b8d7c95ae7548f3b0",
-    "commit": "68b6def985e5e536fc0e643c42ad84e1987c94fc",
-    "constants_sha256": "ce9da71c7288fb3ada201a3852011668ce8bb05f3142b60a88abd32a637906f1",
+    "commit": "c977858c0b046c9d4bfe7da3fab7f9b2da20d4cf",
+    "constants_sha256": "02752e86dc651fcfbf65e448cd669220e678c6c82ee6790b9f5821dd9aaea2d4",
     "cpu_credit_balance_after": null,
     "cpu_credit_balance_before": null,
     "date": "2026-10-04",
@@ -585,8 +585,8 @@
     "instance_id": null,
     "opencv_version": "5.0.0",
     "python": "3.11.1",
-    "started": "2026-10-04T07:40:46+00:00",
-    "wall_clock_seconds": 570.8
+    "started": "2026-10-04T08:12:34+00:00",
+    "wall_clock_seconds": 586.8
   },
   "schema": "plumerank.bench/1",
   "seed": 20261026,

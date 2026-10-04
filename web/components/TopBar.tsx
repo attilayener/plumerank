@@ -17,13 +17,13 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/judge", label: "For judges" },
 ];
 
-const DOT: Record<StreamState, { cls: string; text: string }> = {
-  connecting: { cls: "dot--idle", text: "connecting" },
-  connected: { cls: "dot--idle", text: "connected" },
-  live: { cls: "dot--live", text: "live" },
-  idle: { cls: "dot--idle", text: "idle" },
-  down: { cls: "dot--down", text: "stream down" },
-  unavailable: { cls: "dot--down", text: "pipeline unavailable" },
+const DOT: Record<StreamState, { cls: string; text: string; short: string }> = {
+  connecting: { cls: "dot--idle", text: "connecting", short: "…" },
+  connected: { cls: "dot--idle", text: "connected", short: "on" },
+  live: { cls: "dot--live", text: "live", short: "live" },
+  idle: { cls: "dot--idle", text: "idle", short: "idle" },
+  down: { cls: "dot--down", text: "stream down", short: "down" },
+  unavailable: { cls: "dot--down", text: "pipeline unavailable", short: "off" },
 };
 
 export function TopBar({ stream }: { stream?: StreamState }) {
@@ -59,6 +59,11 @@ export function TopBar({ stream }: { stream?: StreamState }) {
           <span className={`dot ${dot.cls}`} aria-hidden="true" title={dot.text} />
           <span className="label topbar-status" style={{ letterSpacing: "0.06em" }}>
             {dot.text}
+          </span>
+          {/* At phone width the full word does not fit beside the nav; a short visible
+              word keeps the state readable instead of leaving a bare dot. */}
+          <span className="label topbar-status-short" aria-hidden="true">
+            {dot.short}
           </span>
         </span>
       ) : null}

@@ -11,6 +11,23 @@ import { TopBar } from "@/components/TopBar";
 import { DEV_RUN, DEV_RUN_FILE, DEV_SUMMARY } from "@/lib/devRun";
 import { ABSENT, count, minutes, percent, rate } from "@/lib/format";
 import { useBenchmark } from "@/lib/useBenchmark";
+import { useEffect } from "react";
+
+/** Scroll to the URL's #anchor once the sections exist. They render only after
+ *  /api/benchmark settles, so the browser's own scroll-to-anchor fires at an element
+ *  that is not there yet and lands at the top of the page. */
+function useScrollToHash(ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+    const go = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+    };
+    go();
+    window.addEventListener("hashchange", go);
+    return () => window.removeEventListener("hashchange", go);
+  }, [ready]);
+}
 
 /**
  * "/results" -- the technical-execution screen.
@@ -61,10 +78,10 @@ function DevelopmentEvidence() {
       </p>
       <p style={{ color: "var(--ink-1)", margin: "0 0 4px", maxWidth: 760 }}>
         {count(d.detected)} of {count(d.n)} development fires detected, median{" "}
-        {minutes(d.p50)} min after ignition. The threshold was solved to{" "}
-        {rate(d.calibrationRate)} alerts per camera-night on the fire-free confusion set;
-        on the development fires PlumeRank realised {rate(d.devRate)} (uncapped), because a
-        fire should alert. Source: <span className="mono">{DEV_RUN_FILE}</span>.
+        {minutes(d.p50)} min after ignition, under a budget of{" "}
+        {rate(DEV_RUN.budget.target, 1)} alerts per camera&#8209;night — here a
+        camera&#8209;night is one 81-minute camera window, the length of a FIgLib sequence.
+        Source: <span className="mono">{DEV_RUN_FILE}</span>.
       </p>
 
       <Section
@@ -93,7 +110,7 @@ function DevelopmentEvidence() {
       <Section
         id="budget"
         title="Budget calibration"
-        note="Solved on the fire-free confusion set, which is the only arm the threshold depends on — the held-out run will solve it on the same nights with the same code."
+        note="Solved on the fire-free confusion set, the only data the threshold depends on — the held-out run will solve it on the same windows with the same code."
       >
         <div className="scroll-x card">
           <table>
@@ -133,6 +150,7 @@ export default function ResultsPage() {
   const { data, loading, error } = useBenchmark();
   // 404 is the designed "not run yet" answer from api/main.py, not an outage.
   const pending = error !== null && / 404\b/.test(error);
+  useScrollToHash(!loading);
 
   // The denominator, said in full. run.n_sequences is what the bench divided by AFTER the
   // exclusion list was applied, and printing it alone under "read exactly once" reads as
@@ -177,7 +195,7 @@ export default function ResultsPage() {
           <>
             <header>
               <p className="label">
-                median time-to-detection, {data.run.arm ?? ABSENT} arm,{" "}
+                median time-to-detection, {data.run.arm === "hold" ? "held-out" : (data.run.arm ?? ABSENT)} set,{" "}
                 {count(measuredOn)} of the {count(manifestWindows)} sequences the manifest
                 names, read exactly once after the constants were frozen —{" "}
                 {count(excluded)} excluded by the pre-stated criteria below
@@ -246,7 +264,7 @@ export default function ResultsPage() {
                       <th>p95 (min)</th>
                       <th>missed</th>
                       <th>alerts / camera-night (confusion set)</th>
-                      <th>realised on this arm</th>
+                      <th>realised on these fires</th>
                       <th>model calls / camera-night</th>
                     </tr>
                   </thead>
@@ -345,7 +363,7 @@ export default function ResultsPage() {
 
             <Section
               title="Ablation"
-              note="{MOG2, LSBP, GSOC} × {S4 on/off} × {escalation on/off}, on the development arm — a separate run, quoted verbatim by the held-out file."
+              note="{MOG2, LSBP, GSOC} × {S4 on/off} × {escalation on/off}, on the development set — a separate run, quoted verbatim by the held-out file."
             >
               <AblationTable data={data} />
             </Section>
@@ -363,7 +381,7 @@ export default function ResultsPage() {
                 </span>
                 {data.exclusions.contact_sheet_url ? (
                   <>
-                    {" - "}
+                    {" — "}
                     <a href={data.exclusions.contact_sheet_url}>the contact sheet they were eyeballed on</a>
                   </>
                 ) : null}

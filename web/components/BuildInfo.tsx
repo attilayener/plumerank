@@ -72,7 +72,7 @@ export function BuildInfoSection() {
         </h2>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
           {doc || error
-            ? "verify it without leaving the page, or leave the page and verify it anyway"
+            ? "read live off this box — the same JSON as /build-info"
             : `reading ${ROUTES.buildInfo} ...`}
         </span>
       </div>

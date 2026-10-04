@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { TopBar } from "@/components/TopBar";
 import { DEV_RUN_FILE, DEV_SUMMARY } from "@/lib/devRun";
-import { count, minutes, rate } from "@/lib/format";
+import { count, minutes } from "@/lib/format";
 
 /**
  * "/judge" -- built for exactly one reader. No auth, no cookies, no rate limit, no
@@ -14,8 +14,9 @@ import { count, minutes, rate } from "@/lib/format";
 
 const CLAIM =
   "PlumeRank ranks which wildfire-camera tiles a dispatcher should open next, " +
-  "calibrated to a fixed budget of 2 alerts per camera-night, and measures itself on " +
-  "median minutes-after-ignition until the right camera reaches the top of that ranking.";
+  "calibrated to a fixed budget of 2 alerts per camera\u2011night (one 81-minute camera " +
+  "window, the length of a FIgLib sequence), and measures itself on median minutes after " +
+  "ignition until the right camera reaches the top of that ranking.";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -37,7 +38,7 @@ export default function JudgePage() {
         for judges
       </p>
       <h1 className="display" style={{ fontSize: "var(--size-metric-s)", margin: "0 0 14px" }}>
-        The 30-second path
+        The 30&#8209;second path
       </h1>
       <p style={{ color: "var(--ink-1)", fontSize: "var(--size-lead)", margin: 0 }}>{CLAIM}</p>
 
@@ -47,9 +48,8 @@ export default function JudgePage() {
             <Link href="/" style={{ textDecoration: "underline" }}>
               The Wall
             </Link>{" "}
-            — the live ranking, no login, replaying development fires. Until the held-out run
-            is published it runs on the threshold the development run solved on the
-            fire-free confusion set, and says so on screen.
+            — the live ranking, no login, replaying development fires and fire-free
+            confusion-set windows. Its threshold is labelled on screen.
           </li>
           <li>
             <a href="/build-info" style={{ textDecoration: "underline" }}>
@@ -72,27 +72,26 @@ export default function JudgePage() {
       <Section title="2. The receipt">
         <ul className="bullets" style={{ color: "var(--ink-1)", lineHeight: 1.8 }}>
           <li>
-            <strong>664 passed, 2 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
+            <strong>686 passed, 2 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
           </li>
           <li>
-            <strong>1,500 generated cases</strong> (<code className="code-inline">tests/test_invariants.py</code>,
-            hypothesis) verifying the fused hazard never leaves <code className="code-inline">[0, 1]</code> and the
-            alert budget can never be overspent, under any input or call sequence
+            <strong>Property-based tests</strong> (<code className="code-inline">tests/test_invariants.py</code>,
+            hypothesis, 1,500 generated cases) checking that the fused hazard stays in{" "}
+            <code className="code-inline">[0, 1]</code> and the alert budget is never overspent
           </li>
           <li>
             <code className="code-inline">ruff check .</code> and <code className="code-inline">mypy</code> both clean;{" "}
             <code className="code-inline">scripts/check_claims.py</code> (inside <code className="code-inline">make test</code>)
-            mechanically checks every route, dependency, Makefile target and OpenCV symbol this
-            page and the README name against the real source
+            mechanically checks every route, dependency, Makefile target and OpenCV symbol the
+            README and the other judge-facing documents name against the real source
           </li>
           <li>
-            Development arm (orientation only, never the claim): {count(DEV_SUMMARY.detected)}/
-            {count(DEV_SUMMARY.n)} detected, p50 {minutes(DEV_SUMMARY.p50)} min; threshold
-            solved to {rate(DEV_SUMMARY.calibrationRate)} alerts/camera-night on the confusion
-            set, {rate(DEV_SUMMARY.devRate)} realised on the development fires (
-            <span className="mono">{DEV_RUN_FILE}</span>)
+            Development set (in-sample, never the claim): {count(DEV_SUMMARY.detected)}/
+            {count(DEV_SUMMARY.n)} detected, p50 {minutes(DEV_SUMMARY.p50)} min (
+            <span className="mono">{DEV_RUN_FILE}</span>; rates and baselines on{" "}
+            <Link href="/results">/results</Link>)
           </li>
-          <li>Held-out arm (the only number allowed to be the headline): not yet run — see §4 below</li>
+          <li>Held-out set (the only number allowed to be the headline): not yet run — see §4 below</li>
           <li>
             One AWS <code className="code-inline">t4g.small</code> (Graviton) and one S3 bucket. No
             Lambda, no managed vision API.
@@ -103,8 +102,8 @@ export default function JudgePage() {
       <Section title="3. Reproduce it yourself">
         <pre className="code" style={{ padding: 12, overflowX: "auto", whiteSpace: "pre" }}>
 {`python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
-make test      # ~95s: 664-test offline suite + coverage + the claim-consistency check
-make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
+make test      # ~95s: 686-test offline suite + coverage + the claim-consistency check
+make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
                # micro-corpus metrics against the committed results. Does NOT
                # reproduce the published headline, and says so on screen.`}
         </pre>

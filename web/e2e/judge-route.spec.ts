@@ -16,12 +16,12 @@ test("GET /judge returns 200 with no credentials or session and carries the clai
   expect(response?.status()).toBe(200);
 
   await expect(
-    page.getByText(/calibrated to a fixed budget of 2 alerts per camera-night/i)
+    page.getByText(/calibrated to a fixed budget of 2 alerts per camera[-\u2011]night/i)
   ).toBeVisible();
 
   // The 30-second path, the receipt, the reproduce command, and the honest-limitations
   // section must all be reachable on this one page without navigating away.
-  await expect(page.getByText(/30-second path/i)).toBeVisible();
+  await expect(page.getByText(/30[-\u2011]second path/i)).toBeVisible();
   await expect(page.getByText(/the receipt/i)).toBeVisible();
   await expect(page.getByText(/make verify/)).toBeVisible();
   await expect(page.getByText(/honest limitations/i)).toBeVisible();
