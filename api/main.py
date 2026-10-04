@@ -49,6 +49,7 @@ pipeline producing the files.
 from __future__ import annotations
 
 import asyncio
+import collections
 import contextlib
 import dataclasses
 import hashlib
@@ -57,6 +58,7 @@ import logging
 import math
 import os
 import pathlib
+import re
 import subprocess
 import time
 import urllib.error
@@ -473,6 +475,27 @@ def _benchmark_file() -> pathlib.Path | None:
     return candidates[-1] if candidates else None
 
 
+#: The shipped DEV arm's filename -- no cell suffix, so no ablation can occupy it
+#: (bench.results_filename). Its calibration block is solved on CONFUSE, the same
+#: fire-free confusion set, by the same code, as the held-out run's will be.
+_DEV_SHIPPED = re.compile(r"^arm_dev_\d{4}-\d{2}-\d{2}\.json$")
+
+
+def _development_file() -> pathlib.Path | None:
+    """The newest shipped-configuration DEV payload, or None."""
+    if not RESULTS_DIR.is_dir():
+        return None
+    candidates = sorted(p for p in RESULTS_DIR.glob("arm_dev_*.json") if _DEV_SHIPPED.match(p.name))
+    return candidates[-1] if candidates else None
+
+
+def calibration_kind(source: str | None) -> str | None:
+    """``held-out`` or ``development``: which committed run the wall's threshold came from."""
+    if source is None:
+        return None
+    return "held-out" if "bench_" in source else "development"
+
+
 def _calibrated_threshold() -> tuple[float | None, str | None]:
     """The solved hazard threshold and where it was read from.
 
@@ -485,7 +508,24 @@ def _calibrated_threshold() -> tuple[float | None, str | None]:
     """
     path = _benchmark_file()
     if path is None:
-        return None, None
+        # Before the held-out run exists, the shipped DEV run's threshold is used -- and
+        # labelled as such (calibration_kind). It is not a default and not chosen: it is
+        # solved on the fire-free CONFUSE arm exactly as the held-out run's will be, which
+        # is the only arm the threshold ever depends on. DEV's own detection numbers are
+        # in-sample and are never presented as the headline.
+        path = _development_file()
+        if path is None:
+            return None, None
+        try:
+            dev = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            LOG.error("development file %s is unreadable: %s", path, exc)
+            return None, None
+        calibration = dev.get("calibration")
+        if not (isinstance(calibration, dict) and calibration.get("realised_on") == "confuse"):
+            return None, None
+        if not (isinstance(dev.get("baseline"), dict) and dev["baseline"].get("shipped")):
+            return None, None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -550,10 +590,17 @@ def _finite_threshold(value: Any, source: str) -> float | None:
 class _Camera:
     """Per-camera pipeline state. One background model, one tracker, two frames of memory."""
 
-    __slots__ = ("sequence", "frame_offset", "segmenter", "tracker", "prev_grey", "prev_work")
+    __slots__ = (
+        "sequence", "frame_offset", "key", "segmenter", "tracker", "prev_grey", "prev_work"
+    )
 
-    def __init__(self, sequence: Sequence, frame_offset: int = 0) -> None:
+    def __init__(self, sequence: Sequence, frame_offset: int = 0, key: str | None = None) -> None:
         self.sequence = sequence
+        #: The roster key. DEV and CONFUSE both carry windows from the same physical camera
+        #: on different nights, and the budget and baseline are keyed per roster slot -- so a
+        #: repeated camera id gets a ``#n`` suffix rather than sharing (and corrupting) one
+        #: slot. bench.py keys by sequence id for the same reason.
+        self.key = key or sequence.camera_id
         #: Frames skipped off the head of this window so that its own ignition lands on the
         #: same replay index as every other camera's. See ``Replay._align``.
         self.frame_offset = frame_offset
@@ -564,7 +611,7 @@ class _Camera:
 
     @property
     def camera_id(self) -> str:
-        return self.sequence.camera_id
+        return self.key
 
     def reset(self) -> None:
         """Start a fresh camera-night. The warm-up is re-run, on screen, on purpose.
@@ -617,10 +664,16 @@ def _align(sequences: list[Sequence]) -> tuple[list[_Camera], int | None, int]:
     leads = [s.t0_index for s in sequences if s.t0_index is not None]
     shared = min(leads) if leads else None
 
+    totals = collections.Counter(s.camera_id for s in sequences)
+    seen: collections.Counter[str] = collections.Counter()
     cameras: list[_Camera] = []
     for sequence in sequences:
         offset = 0 if sequence.t0_index is None or shared is None else sequence.t0_index - shared
-        cameras.append(_Camera(sequence, frame_offset=offset))
+        seen[sequence.camera_id] += 1
+        key = sequence.camera_id
+        if totals[key] > 1:
+            key = f"{key}#{seen[sequence.camera_id]}"
+        cameras.append(_Camera(sequence, frame_offset=offset, key=key))
 
     # The shortest window after its own offset, not FRAMES_PER_WINDOW. The published rate
     # stays in the canonical unit anyway -- ``alerts_per_camera_night`` takes the window
@@ -804,6 +857,7 @@ class Replay:
             "cameras": len(self._cameras),
             "threshold": self._threshold,
             "threshold_source": self._threshold_source,
+            "calibration_kind": calibration_kind(self._threshold_source),
         }
 
     # -----------------------------------------------------------------------------
@@ -1189,6 +1243,7 @@ class Replay:
             # null exactly when live_pipeline says the wall cannot run.
             "threshold": self._threshold,
             "threshold_source": self._threshold_source,
+            "calibration_kind": calibration_kind(self._threshold_source),
             "threshold_hash": freeze_hash(),
             "live_pipeline": self.live_pipeline(),
             "evidence_base": "/evidence",
