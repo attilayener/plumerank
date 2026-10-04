@@ -252,3 +252,22 @@ def test_a_failure_is_logged_at_warning_once_per_pause(
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 1
     assert "us-west-2" in warnings[0].getMessage() or "region" in warnings[0].getMessage()
+
+
+# --- opt-in ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("value", "expected"), [("1", True), ("", False), ("0", False), ("true", False)])
+def test_publishing_is_opt_in_by_environment(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected: bool
+) -> None:
+    """Only the box sets PLUMERANK_TELEMETRY=1; a laptop must never feed the silence alarm."""
+    monkeypatch.setenv(tel.TELEMETRY_ENV, value)
+    assert tel.enabled_by_environment() is expected
+
+
+def test_the_api_builds_its_sink_from_the_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    from api import main
+
+    monkeypatch.delenv(tel.TELEMETRY_ENV, raising=False)
+    assert main.Replay()._telemetry.live is False

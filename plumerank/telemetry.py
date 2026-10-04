@@ -44,7 +44,7 @@ from typing import Any, Callable
 
 from .constants import CLOUDWATCH_NAMESPACE
 
-__all__ = ["Telemetry", "METRICS"]
+__all__ = ["Telemetry", "METRICS", "enabled_by_environment"]
 
 LOG = logging.getLogger(__name__)
 
@@ -61,6 +61,19 @@ DEFAULT_REGION: str = "us-west-2"
 #: (1 s) so a credential-less laptop pays one timeout per five minutes, short against the
 #: silence alarm's evaluation window so one transient error never trips it on its own.
 RETRY_AFTER_SECONDS: float = 300.0
+
+
+#: The opt-in switch. deploy/bootstrap.sh writes ``PLUMERANK_TELEMETRY=1`` into the box's
+#: env file; nothing else sets it. Off by default because the heartbeat alarm watches for
+#: SILENCE: a laptop test run or dev server with AWS credentials in its shell used to
+#: publish real ``PlumeRank/Heartbeat`` datapoints into the same metric, so a dead box
+#: could read as alive while anyone worked on the code.
+TELEMETRY_ENV: str = "PLUMERANK_TELEMETRY"
+
+
+def enabled_by_environment() -> bool:
+    """True only when ``PLUMERANK_TELEMETRY`` is exactly ``1``."""
+    return os.environ.get(TELEMETRY_ENV, "").strip() == "1"
 
 
 def region() -> str:

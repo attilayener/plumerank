@@ -31,8 +31,10 @@ web/blob-report/
 web/playwright/.cache/
 web/.lighthouseci/
 
-# --- third-party imagery: NEVER in the history of a repo that flips public ---
-# HPWREN FIgLib / MTA frames. Regenerable from the committed manifests and urls.txt.
+# --- third-party imagery: the bulk corpus never enters the repo ---
+# HPWREN FIgLib / MTA frames, regenerable from the committed manifests and urls.txt.
+# The ONE deliberate exception is the small, credited evaluation slice below
+# (data/micro/ and data/contact_sheet.jpg) -- see NOTICE for its terms.
 spike/frames/
 data/corpus/
 data/pyrosdis/

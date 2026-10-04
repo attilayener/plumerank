@@ -1,7 +1,11 @@
 name: release
 
+# After CI, never beside it: a push used to be tagged while its own CI run was still red.
+# workflow_run fires when "CI/CD Pipeline" finishes on main; the job runs only if it passed.
 on:
-  push:
+  workflow_run:
+    workflows: [ "CI/CD Pipeline" ]
+    types: [ completed ]
     branches: [ "main" ]
   workflow_dispatch:
 
@@ -10,6 +14,7 @@ permissions:
 
 jobs:
   release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write    # required to push the tag and create the Release
@@ -17,6 +22,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0        # full history — we read commits since the last tag
+          # The commit CI actually tested, not whatever main points at by now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Compute next version from Angular commits
         id: ver

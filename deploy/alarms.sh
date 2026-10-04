@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# PlumeRank -- the two CloudWatch alarms the docs describe. Run from the OPERATOR's
+# PlumeRank -- the three CloudWatch alarms the docs describe (drift high, drift low, silence). Run from the OPERATOR's
 # laptop, never from the instance: put-metric-alarm needs cloudwatch:PutMetricAlarm,
 # and the instance profile (launch.md section 2) deliberately carries only PutMetricData
 # into the PlumeRank namespace. The box writes the metrics; the operator owns the alarms.

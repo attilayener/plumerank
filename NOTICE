@@ -1,0 +1,31 @@
+PlumeRank
+Copyright 2026 the PlumeRank authors
+
+The source code in this repository is licensed under the Apache License, Version 2.0
+(see LICENSE).
+
+THIRD-PARTY IMAGERY -- NOT COVERED BY THE APACHE LICENSE
+
+data/micro/ (310 JPEG frames) and data/contact_sheet.jpg are derived from the HPWREN
+Fire Ignition images Library (FIgLib), HPWREN, University of California San Diego:
+http://hpwren.ucsd.edu/ -- https://hpwren.ucsd.edu/FIgLib/
+
+FIgLib carries no SPDX licence; its terms ask for a credit reference, given above and in
+data/micro/PROVENANCE.md. These frames are downscaled excerpts kept in the repository only
+so that `make verify` can recompute real numbers offline. They are used for evaluation
+only, never for training, and they remain subject to HPWREN's terms, not to the Apache
+License. The full evaluation corpus is fetched from HPWREN by `make fetch` and is never
+committed.
+
+The live wall replays HPWREN frames fetched onto the server under the same terms; the
+credit line is shown in the UI and carried in the stream's metadata.
+
+THIRD-PARTY FONT
+
+web/public/fonts/inter-latin-wght-normal.woff2 is Inter, under the SIL Open Font License
+1.1 (web/public/fonts/LICENSE-Inter.txt).
+
+TRAINING DATA
+
+The tile classifier (models/tile_classifier.onnx) was trained on Pyro-SDIS (Apache-2.0);
+no FIgLib or HPWREN imagery was used in training.

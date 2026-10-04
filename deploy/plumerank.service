@@ -62,6 +62,20 @@ ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 RestrictRealtime=yes
 LockPersonality=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+# INET for the loopback listener and the CloudWatch/IMDS client; UNIX for the journal.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+# Runs as an unprivileged user on port 8000: it needs no capability at all.
+CapabilityBoundingSet=
+AmbientCapabilities=
+# No UMask tightening: evidence JPEGs are read by Caddy, a different user, so they must
+# stay world-readable (the tree holds nothing secret -- see bootstrap.sh).
 # ProtectSystem=strict makes /opt read-only too, which is right: the only thing this
 # process legitimately writes is the evidence crop it just drew. If it ever tries to
 # write anywhere else, that is a bug and it should surface as EROFS rather than as a

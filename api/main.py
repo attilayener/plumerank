@@ -92,7 +92,7 @@ from plumerank.rank import Baseline, BudgetState, draw_evidence, emit, fuse
 from plumerank.segment import Segmenter
 from plumerank.stabilise import stabilise
 from plumerank.statistic import Tracker, measure
-from plumerank.telemetry import Telemetry
+from plumerank.telemetry import Telemetry, enabled_by_environment
 from plumerank.types import CameraScore, Component, Sequence, Stats, Track, WatchEntry
 
 LOG = logging.getLogger("plumerank.api")
@@ -151,6 +151,23 @@ VIEWER_QUEUE_DEPTH: int = 4
 #: --limit-concurrency (96) so /health and /build-info always have connections to spare.
 #: ``PLUMERANK_MAX_VIEWERS`` overrides it without a redeploy of the code.
 MAX_VIEWERS: int = int(os.environ.get("PLUMERANK_MAX_VIEWERS", "32"))
+
+#: Wall tile thumbnails (Replay._write_thumbnails): width in px and JPEG quality. ~7 KB
+#: and ~1 ms to encode each from the 480x270 working frame (measured on an M-series laptop).
+THUMB_WIDTH: int = 320
+THUMB_QUALITY: int = 70
+
+#: Concurrent walls one client address may hold. The global cap alone let one script
+#: holding 32 streams lock every judge out; four covers a judge with a few tabs open.
+MAX_VIEWERS_PER_CLIENT: int = int(os.environ.get("PLUMERANK_MAX_VIEWERS_PER_CLIENT", "4"))
+
+#: How often an otherwise silent stream sends an SSE comment. Separate from
+#: IDLE_POLL_SECONDS, which is how often the generator wakes to notice a disconnect: tying
+#: the two sent four comment frames a second and kept phone radios awake.
+KEEPALIVE_SECONDS: float = 15.0
+
+#: Open walls per client address (see client_address). Module state, like REPLAY.
+_CLIENT_VIEWERS: collections.Counter[str] = collections.Counter()
 
 
 # ---------------------------------------------------------------------------------
@@ -599,7 +616,8 @@ class _Camera:
         #: The roster key. DEV and CONFUSE both carry windows from the same physical camera
         #: on different nights, and the budget and baseline are keyed per roster slot -- so a
         #: repeated camera id gets a ``#n`` suffix rather than sharing (and corrupting) one
-        #: slot. bench.py keys by sequence id for the same reason.
+        #: slot. bench.py keys by sequence id for the same reason. The suffix is "~n" so the
+        #: key stays safe as a filename and URL segment.
         self.key = key or sequence.camera_id
         #: Frames skipped off the head of this window so that its own ignition lands on the
         #: same replay index as every other camera's. See ``Replay._align``.
@@ -643,7 +661,7 @@ def _best_track(components: list[Component], tracks: list[Track]) -> tuple[Compo
 def _align(sequences: list[Sequence]) -> tuple[list[_Camera], int | None, int]:
     """Put every camera's own ignition on the same replay index, and say which index that is.
 
-    The wall is one clock over windows recorded on different nights, and ``ui.md``'s Clock
+    The wall is one clock over windows recorded on different nights, and the web Clock
     renders a single "T+n min since ignition" from ``meta.t0_index`` and the tick's frame
     index. FIgLib's convention is 40 frames of lead, but 12 of the 30 DEV windows are one
     frame short of it and carry ``t0_index: 39`` -- so replaying every window from its own
@@ -672,7 +690,9 @@ def _align(sequences: list[Sequence]) -> tuple[list[_Camera], int | None, int]:
         seen[sequence.camera_id] += 1
         key = sequence.camera_id
         if totals[key] > 1:
-            key = f"{key}#{seen[sequence.camera_id]}"
+            # "~", not "#": the key is also a filename and a URL path segment (evidence
+            # crops, thumbnails), and "#" would start a URL fragment.
+            key = f"{key}~{seen[sequence.camera_id]}"
         cameras.append(_Camera(sequence, frame_offset=offset, key=key))
 
     # The shortest window after its own offset, not FRAMES_PER_WINDOW. The published rate
@@ -731,8 +751,12 @@ class Replay:
         #: cached crop from the previous session under this session's ranking -- exactly the
         #: stale-image failure the suffix exists to prevent.
         self._evidence_seq: int = 0
+        #: The newest thumbnail URL per roster key (see _write_thumbnails), and which
+        #: camera the round-robin refreshes next.
+        self._frame_urls: dict[str, str] = {}
+        self._thumb_cursor: int = 0
         self._budget: BudgetState | None = None
-        self._telemetry = Telemetry()
+        self._telemetry = Telemetry(enabled=enabled_by_environment())
 
     # -----------------------------------------------------------------------------
     # Availability
@@ -838,7 +862,13 @@ class Replay:
     def status(self) -> dict[str, Any]:
         """What ``/health`` and the ``meta`` event both report, written once."""
         return {
-            "state": "running" if self._task is not None and not self._task.done() else "idle",
+            "state": (
+                "unavailable"
+                if self._probed and not self.available
+                else "running"
+                if self._task is not None and not self._task.done()
+                else "idle"
+            ),
             "viewers": len(self._viewers),
             "replay_id": self.replay_id,
             "ticks": self._ticks,
@@ -850,7 +880,7 @@ class Replay:
         }
 
     def live_pipeline(self) -> dict[str, Any]:
-        """The degraded-state flag, in the words ``ui.md`` section 7 designed for it."""
+        """The degraded-state flag, in the words the web's degraded state is designed around."""
         return {
             "available": self.available,
             "detail": None if self.available else f"live pipeline unavailable -- {self._unavailable}",
@@ -925,6 +955,8 @@ class Replay:
         # The per-camera trailing windows start empty with the background models: a camera
         # that has no night yet cannot depart from it, and scores 0.0 through the warm-up.
         self._baseline = Baseline()
+        self._frame_urls = {}
+        self._thumb_cursor = 0
 
     async def _run(self) -> None:
         """Tick while anyone is watching; sleep, then exit, when nobody is.
@@ -1029,6 +1061,7 @@ class Replay:
             for s in final
         ]
         entries = self._write_evidence(emit(final, threshold, budget), frames, picked, index)
+        self._write_thumbnails(entries, frames)
 
         self._alerts_uncapped += sum(1 for s in final if s.hazard >= threshold)
         self._frame_index = (index + 1) % self._frame_count
@@ -1055,7 +1088,9 @@ class Replay:
                 else round((index - self._t0_index) * MINUTES_PER_FRAME, 3)
             ),
             "threshold": threshold,
-            "entries": [e.to_json() for e in entries],
+            "entries": [
+                e.to_json() | {"frame_url": self._frame_urls.get(e.camera_id)} for e in entries
+            ],
         }
 
     def _escalate(
@@ -1133,6 +1168,38 @@ class Replay:
             )
             out.append(dataclasses.replace(entry, evidence_url=url))
         return out
+
+    def _write_thumbnails(self, entries: list[WatchEntry], frames: dict[str, np.ndarray]) -> None:
+        """Refresh the small live image a wall tile shows, within a fixed per-tick budget.
+
+        Evidence crops exist only for cameras with a tracked component, so without these most
+        tiles would read "no frame published". Encoding all ~60 cameras every tick would cost
+        a t4g.small tens of milliseconds a second; instead the top-k rows -- the ones a
+        dispatcher is reading -- are refreshed every tick, and one more camera per tick in
+        round-robin, so every tile has a picture within one roster's worth of ticks.
+
+        One file per camera, overwritten in place (``{replay_id}/frames/{key}.jpg``), so the
+        directory is bounded at the roster size; ``?t=`` busts the browser cache on rewrite.
+        """
+        targets = [e.camera_id for e in entries if e.rank <= TOP_K]
+        if self._cameras:
+            self._thumb_cursor %= len(self._cameras)
+            targets.append(self._cameras[self._thumb_cursor].camera_id)
+            self._thumb_cursor += 1
+        directory = EVIDENCE_DIR / self.replay_id / "frames"
+        for key in dict.fromkeys(targets):
+            frame = frames.get(key)
+            if frame is None:
+                continue
+            directory.mkdir(parents=True, exist_ok=True)
+            height = round(frame.shape[0] * THUMB_WIDTH / frame.shape[1])
+            thumb = cv2.resize(frame, (THUMB_WIDTH, height), interpolation=cv2.INTER_AREA)
+            if cv2.imwrite(
+                str(directory / f"{key}.jpg"), thumb, [cv2.IMWRITE_JPEG_QUALITY, THUMB_QUALITY]
+            ):
+                self._frame_urls[key] = (
+                    f"/evidence/{self.replay_id}/frames/{key}.jpg?t={self._evidence_seq}"
+                )
 
     def _reset_camera_night(self) -> None:
         """A new night gets a new budget. The 80 slots are per camera-night, not per process."""
@@ -1273,7 +1340,7 @@ async def _heartbeat() -> None:
 
     The silence alarm fires on the absence of this metric, so it cannot be tied to the
     replay loop: an idle box is the normal overnight state and a dead box must not look
-    like one. ``Telemetry`` is a no-op without credentials, so this costs a laptop nothing.
+    like one. ``Telemetry`` is off unless PLUMERANK_TELEMETRY=1, so a laptop publishes nothing.
     """
     while True:
         await asyncio.to_thread(REPLAY.heartbeat)
@@ -1400,9 +1467,29 @@ async def health(request: Request) -> dict[str, Any]:
     }
 
 
+def client_address(request: Request) -> str:
+    """The viewer's address. Behind Caddy the peer is loopback, so the address is the last
+    ``X-Forwarded-For`` hop -- the one Caddy itself appended, which a client cannot forge.
+    A non-loopback peer is taken as-is and its header ignored."""
+    peer = request.client.host if request.client else "unknown"
+    if peer in ("127.0.0.1", "::1"):
+        forwarded = request.headers.get("x-forwarded-for", "")
+        hops = [h.strip() for h in forwarded.split(",") if h.strip()]
+        if hops:
+            return hops[-1]
+    return peer
+
+
 @app.get("/api/watchlist")
 async def watchlist(request: Request) -> StreamingResponse:
     """The live wall, as server-sent events: one ``meta``, then one ``tick`` per minute."""
+    client = client_address(request)
+    if _CLIENT_VIEWERS[client] >= MAX_VIEWERS_PER_CLIENT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"at most {MAX_VIEWERS_PER_CLIENT} live walls per client; close a tab",
+            headers={"Retry-After": "30"},
+        )
     if REPLAY.at_capacity():
         # Refused before the response starts, so the browser's EventSource sees a plain
         # 503 and backs off on Retry-After instead of holding a socket that never ticks.
@@ -1413,7 +1500,10 @@ async def watchlist(request: Request) -> StreamingResponse:
         )
 
     async def stream() -> AsyncIterator[str]:
+        _CLIENT_VIEWERS[client] += 1
         queue = await REPLAY.attach()
+        loop = asyncio.get_running_loop()
+        quiet_since = loop.time()
         try:
             yield _sse("meta", REPLAY.meta())
             # A judge who connects mid-replay sees the current ranking immediately instead
@@ -1425,14 +1515,21 @@ async def watchlist(request: Request) -> StreamingResponse:
             while True:
                 try:
                     yield await asyncio.wait_for(queue.get(), timeout=IDLE_POLL_SECONDS)
+                    quiet_since = loop.time()
                 except asyncio.TimeoutError:
-                    # A comment frame, not a tick: it keeps proxies and phone radios from
-                    # closing an idle stream, and an SSE client ignores it by definition --
-                    # so a degraded wall never has to invent a tick to stay connected.
-                    yield ": keep-alive\n\n"
+                    # A comment frame, not a tick: it keeps proxies from closing an idle
+                    # stream, and an SSE client ignores it by definition -- so a degraded
+                    # wall never has to invent a tick to stay connected. Every
+                    # KEEPALIVE_SECONDS of silence, not every poll.
+                    if loop.time() - quiet_since >= KEEPALIVE_SECONDS:
+                        quiet_since = loop.time()
+                        yield ": keep-alive\n\n"
                 if await request.is_disconnected():
                     return
         finally:
+            _CLIENT_VIEWERS[client] -= 1
+            if _CLIENT_VIEWERS[client] <= 0:
+                del _CLIENT_VIEWERS[client]
             # The finally is the disconnect detector that actually works: a client that
             # vanishes without a close frame is noticed when the generator is closed, which
             # happens whether it ended, raised or was cancelled. Polling is_disconnected

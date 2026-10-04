@@ -87,7 +87,10 @@ jobs:
       - name: TruffleHog Secret Scan
         uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # v3.97.9
         with:
-          extra_args: --only-verified
+          # Lob is excluded: its detector reads long snake_case test names
+          # (test_baseline_reset_forgets_every_camera) as Lob keys and Lob's API "verifies"
+          # them -- 12 false positives that fail the scan on a clean checkout.
+          extra_args: --only-verified --exclude-detectors=Lob
 
   dependency-audit:
     name: "Stage 2 · Dependency Audit"
@@ -248,10 +251,21 @@ jobs:
             sleep 1
           done
           echo "static export did not answer on :3000"; cat /tmp/serve.log; exit 1
+      # The project's own pinned @lhci/cli (web/package-lock.json), not a second global
+      # version; reports stay in the run as an artifact, never on public temporary storage
+      # (web/lighthouserc.json's upload target is overridden here for CI).
       - name: Lighthouse CI
         run: |
-          npm install -g @lhci/cli@0.15.1
-          lhci autorun --collect.startServerCommand=""
+          npx --no-install lhci autorun --collect.startServerCommand="" \
+            --upload.target=filesystem --upload.outputDir=lhci-report
+        continue-on-error: true # Advisory — don't block deploys on perf regressions yet
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lighthouse-report
+          path: web/lhci-report
+          if-no-files-found: ignore
         continue-on-error: true # Advisory — don't block deploys on perf regressions yet
 
   # ── STAGE 6: Deploy Gate (main only) ──────────────────────

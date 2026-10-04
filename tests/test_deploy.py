@@ -170,7 +170,7 @@ def test_bootstrap_never_mocks_the_judged_capability() -> None:
 
 
 def test_no_long_lived_credential_anywhere_in_deploy() -> None:
-    # the scope ledger A15: "no long-lived access key ever lands on the box", and
+    # the scope record (A15): "no long-lived access key ever lands on the box", and
     # check_submission_readiness.py greps for AKIA. This is the same check, earlier.
     # The literal shape, not the prefix: launch.md legitimately says the word AKIA when
     # it explains what check_submission_readiness.py greps for.
@@ -302,10 +302,12 @@ def test_the_one_writable_path_is_created_before_the_unit_starts() -> None:
     assert "ProtectSystem=strict" in unit_text
     boot = _read(BOOTSTRAP)
     created = rw.replace(_app_dir(), "$APP_DIR")
-    assert f'mkdir -p "{created}"' in boot, (
+    assert f'"{created}"' in boot and (
+        f'mkdir -p "{created}"' in boot or 'install -d -o "$APP_USER"' in boot
+    ), (
         f"{rw} is the unit's only writable path but bootstrap.sh never creates it"
     )
-    assert boot.index(f'mkdir -p "{created}"') < boot.index("systemctl restart plumerank")
+    assert boot.index(f'"{created}"') < boot.index("systemctl restart plumerank")
 
 
 def test_caddy_serves_the_directories_bootstrap_produces() -> None:
@@ -329,7 +331,7 @@ def test_the_unit_binds_loopback_and_one_worker() -> None:
 
     ``--host 127.0.0.1``: Caddy owns every public byte and this process has no TLS
     configuration, so 0.0.0.0 would be an unencrypted second front door. ``--workers 1``:
-    the replay loop is process-wide by design (the scope ledger A13), and a second worker
+    the replay loop is process-wide by design, and a second worker
     means a second wall, a second set of background models and double the CPU credits.
     """
     text = _read(UNIT)
@@ -359,7 +361,7 @@ def test_every_bash_block_in_launch_md_parses() -> None:
 
 
 def test_the_instance_policy_is_the_three_statements_a15_specifies() -> None:
-    """the scope ledger A15 is a scored responsible-operation claim, so it is asserted.
+    """the scope record (A15) is a scored responsible-operation claim, so it is asserted.
 
     Widening this policy is a one-word edit that nothing else in the repo would notice.
     """
@@ -424,12 +426,12 @@ def test_ssh_is_never_open_to_the_world() -> None:
             assert "revoke-security-group-ingress" in block, block
 
 
-def test_launch_md_documents_branch_a() -> None:
-    # the architecture notes section 7 lets check_claims.py treat build-opencv5.sh as
-    # present-or-absent; whichever it is, launch.md is where the branch is recorded.
+def test_launch_md_documents_the_wheel_install() -> None:
+    # No source build exists, and launch.md is where that is recorded: the aarch64 wheel
+    # is what makes `pip install -r requirements.lock` the whole OpenCV 5 install.
     assert not (DEPLOY / "build-opencv5.sh").exists()
     text = _read(LAUNCH)
-    assert "branch A" in text and "build-opencv5.sh" in text
+    assert "no OpenCV source build" in text and "manylinux_2_28_aarch64" in text
 
 
 def test_the_repo_url_placeholder_fails_loudly_rather_than_guessing() -> None:
@@ -544,3 +546,38 @@ def test_caddy_sends_security_headers_and_hsts_only_over_tls() -> None:
         assert header in text, header
     assert "@tls protocol https" in text
     assert 'header @tls Strict-Transport-Security' in text
+
+
+def test_the_checkout_is_root_owned_and_the_service_owns_only_evidence() -> None:
+    """root runs git and pip in the tree on every deploy, so the service account must not
+    be able to write it -- an npm install script running as that account could otherwise
+    plant code root executes on the next deploy."""
+    boot = _read(BOOTSTRAP)
+    assert 'chown -R "$APP_USER":"$APP_USER" "$APP_DIR"\n' not in boot
+    assert 'chown -R root:root "$APP_DIR"' in boot
+    assert 'chown -R "$APP_USER":"$APP_USER" "$APP_DIR/web/evidence"' in boot
+    # npm builds in a copy the service account owns, never in the checkout
+    assert 'npm --prefix "$BUILD_ROOT/web" ci' in boot
+    assert 'npm --prefix "$APP_DIR/web"' not in boot
+
+
+def test_only_the_box_opts_into_telemetry() -> None:
+    assert "PLUMERANK_TELEMETRY=1" in _read(BOOTSTRAP)
+
+
+def test_the_unit_is_hardened_without_breaking_evidence_reads() -> None:
+    unit = _read(UNIT)
+    for directive in (
+        "ProtectKernelLogs=yes", "ProtectClock=yes", "ProtectHostname=yes",
+        "ProtectProc=invisible", "RestrictNamespaces=yes", "SystemCallArchitectures=native",
+        "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX", "CapabilityBoundingSet=",
+    ):
+        assert directive in unit, directive
+    # Caddy (another user) reads the JPEGs the service writes: no restrictive UMask.
+    assert "UMask=0027" not in unit and "UMask=0077" not in unit
+
+
+def test_caddy_serves_the_designed_404_and_strips_trailing_slashes() -> None:
+    text = _read(CADDYFILE)
+    assert "handle_errors 404" in text and "rewrite * /404.html" in text
+    assert "redir @trailing" in text

@@ -54,11 +54,25 @@
 			file_server
 		}
 
+		# /results/ and /judge/ -> the slashless page. try_files cannot see "/results/" as
+		# results.html, and a judge pasting a URL with a trailing slash got a bare 404.
+		@trailing path_regexp trailing ^(/.+)/$
+		redir @trailing {re.trailing.1} 308
+
 		# The Next.js static export. try_files covers both export shapes, so a trailingSlash
 		# change in next.config cannot turn /results into a 404 on the box only.
 		root * {$PLUMERANK_ROOT:/opt/plumerank}/web/out
 		encode zstd gzip
 		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
+
+	# Unknown paths get the export's own designed 404 page (with the 404 status), not
+	# Caddy's empty body. Only static misses reach here: the API's JSON 404s are responses
+	# from the backend, not handler errors, and pass through untouched.
+	handle_errors 404 {
+		root * {$PLUMERANK_ROOT:/opt/plumerank}/web/out
+		rewrite * /404.html
 		file_server
 	}
 }

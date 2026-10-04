@@ -812,3 +812,77 @@ def test_build_info_is_computed_once_per_model_and_freeze(
     third = client.get("/build-info").json()
     assert len(calls) == 2
     assert third["constants"]["committed_sha256"] == "deadbeef"
+
+
+def test_the_wall_refuses_a_client_past_its_own_cap(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One script must not be able to hold every slot of the global cap."""
+    monkeypatch.setattr(main, "MAX_VIEWERS_PER_CLIENT", 0)
+    response = client.get("/api/watchlist")
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "30"
+    assert main.REPLAY.viewer_count == 0
+
+
+def test_the_client_address_behind_caddy_is_the_hop_caddy_appended() -> None:
+    from starlette.requests import Request as StarletteRequest
+
+    def request(peer: str, xff: str | None) -> StarletteRequest:
+        headers = [(b"x-forwarded-for", xff.encode())] if xff else []
+        return StarletteRequest(
+            {"type": "http", "client": (peer, 1234), "headers": headers, "method": "GET", "path": "/"}
+        )
+
+    assert main.client_address(request("127.0.0.1", "6.6.6.6, 203.0.113.9")) == "203.0.113.9"
+    assert main.client_address(request("198.51.100.4", "6.6.6.6")) == "198.51.100.4"
+    assert main.client_address(request("127.0.0.1", None)) == "127.0.0.1"
+
+
+def test_health_says_unavailable_rather_than_running_when_the_pipeline_is_down() -> None:
+    replay = main.Replay()
+    replay._probed = True
+    replay._unavailable = "no calibrated threshold"
+    assert replay.status()["state"] == "unavailable"
+
+
+def test_keepalive_is_not_sent_on_every_poll() -> None:
+    assert main.KEEPALIVE_SECONDS >= 10 * main.IDLE_POLL_SECONDS
+
+
+def test_thumbnails_cover_the_top_k_plus_one_round_robin_camera(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Most tiles have no tracked component, so without these they show no image at all."""
+    import numpy as np
+
+    from plumerank.types import WatchEntry
+
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path)
+    replay = main.Replay()
+    keys = [f"cam{i}" for i in range(main.TOP_K + 3)]
+    replay._cameras = [
+        main._Camera(main.Sequence(sequence_id=k, camera_id=k, arm="dev", frame_paths=[], t0_index=None))
+        for k in keys
+    ]
+    frames = {k: np.full((270, 480, 3), 80, np.uint8) for k in keys}
+    entries = [
+        WatchEntry(rank=i + 1, camera_id=k, hazard=0.5, s1=0, s2=0, s3=0, s4=0,
+                   escalated=False, alerted=False, budget_spent=0)
+        for i, k in enumerate(reversed(keys))
+    ]
+    replay._write_thumbnails(entries, frames)
+    top = {e.camera_id for e in entries if e.rank <= main.TOP_K}
+    assert top | {keys[0]} == set(replay._frame_urls)
+    written = list((tmp_path / replay.replay_id / "frames").glob("*.jpg"))
+    assert len(written) == main.TOP_K + 1
+    assert all(u.startswith("/evidence/") and "?t=" in u for u in replay._frame_urls.values())
+
+
+def test_repeated_cameras_get_url_safe_roster_keys() -> None:
+    seqs = [
+        main.Sequence(sequence_id=f"s{i}", camera_id="cp-s-mobo-c", arm="dev", frame_paths=["a"], t0_index=None)
+        for i in range(2)
+    ]
+    cameras, _, _ = main._align(seqs)
+    assert [c.camera_id for c in cameras] == ["cp-s-mobo-c~1", "cp-s-mobo-c~2"]

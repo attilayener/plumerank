@@ -10,13 +10,11 @@ curl an endpoint -- and this deployment is *more* verifiable than a template, be
 `/build-info` echoes the AMI id back, so the running box can be checked against the AMI
 pinned in this file in one request. A template proves nothing until somebody runs it.
 
-**There is no `deploy/build-opencv5.sh`.** The D4 wheel gate resolved to **branch A** on
-2026-09-04: `opencv-contrib-python-headless==5.0.0.93` publishes a
-`manylinux_2_28_aarch64` wheel, so OpenCV 5 installs on Graviton with
-`pip install -r requirements.lock` and there is no source build to script. Branches C and
-D of that gate -- stop the instance, resize to a bigger Graviton for an hour, build,
-resize back -- were pre-written and never ran. `architecture.md` section 8 has the
-decision table; `DEMO.md` records that branch A is what happened.
+**There is no OpenCV source build.** As of 2026-09-04
+`opencv-contrib-python-headless==5.0.0.93` publishes a `manylinux_2_28_aarch64` wheel, so
+OpenCV 5 installs on Graviton with `pip install -r requirements.lock` and there is nothing
+to compile. (The fallback -- resize to a larger Graviton for an hour, build from source,
+resize back -- was planned and never needed.)
 
 **There is no Route 53 hosted zone.** One A record at the registrar points at the Elastic
 IP. Managed DNS scores zero rubric lines, and it would add an infrastructure resource that
@@ -253,7 +251,7 @@ There is no CloudWatch Logs agent and no log group: CloudWatch carries the three
 
 Two prefixes, both written from here under `~/.aws/` and read by the box under its
 instance profile. **HOLD is never uploaded.** It is read once, by `bench.py`, on this
-machine (section 8 of `specs/build-plan.md`); the wall refuses HOLD sequence ids by name
+machine, after the constants freeze; the wall refuses HOLD sequence ids by name
 and there is nothing for it to refuse if they are not in the bucket.
 
 ```bash
@@ -334,8 +332,8 @@ Four flags worth naming:
 
 ## 5. Elastic IP
 
-The instance is stopped and started during the build (branch C of the wheel gate was
-pre-written around exactly that, and the load check reboots it), and a public IP that
+The instance may be stopped and started (a source-build fallback would resize it, and
+the load check reboots it), and a public IP that
 changes on stop would take the A record with it.
 
 ```bash
@@ -448,21 +446,24 @@ earned per hour, 576 maximum accrued**. One credit is one vCPU-minute at 100%.
 
 **The instance stays in its default `unlimited` credit mode. It is never switched to
 `standard`.** `t4g` launches in `unlimited`, and in `unlimited` mode an instance may spend
-surplus credits up to the maximum it could earn in 24 hours -- 576 at this size -- at no
-charge. `standard` mode would have throttled the box to 0.4 vCPU part-way through the
-bench, roughly a five-fold longer run, **to save nothing**, because the runs fit inside the
-free surplus allowance either way. Unlimited mode does not throttle; it bills, and inside
-576 it bills zero.
+surplus credits up to the maximum it could earn in 24 hours -- 576 at this size. Surplus
+credits are not free: they are paid back from credits earned afterwards, and any that are
+still unpaid when the instance stops, or that exceed what the next 24 hours can repay, are
+billed (a few cents per vCPU-hour on t4g). `standard` mode would have throttled the box to
+0.4 vCPU part-way through the bench, roughly a five-fold longer run, to save at most
+those cents. Unlimited mode does not throttle; it bills only for surplus left unrepaid.
 
 The budget, therefore, is a rule about hours rather than a mode setting:
 
 - **At most 4 hours of full-tilt 2-vCPU batch work per rolling 24 hours** -- 480 of the 576
-  credits the instance earns in a day. The full HOLD bench is ~60 minutes (120 credits);
-  the twelve-cell ablation grid is at most 4 hours (480 credits) and is resumable per cell,
-  so an interruption never restarts it.
+  credits the instance earns in a day. The full HOLD bench is ~60 minutes (120 credits).
+- **The ablation grid never runs on the box.** It is a separate DEV invocation,
+  `scripts/bench.py --arm dev --ablation`, run off the box: its LSBP and GSOC cells need
+  several GB across the lockstep roster, more than a 2 GiB t4g.small has. It is resumable
+  per cell, and the HOLD run quotes the committed grid verbatim.
 - `bench.py` prints `CPUCreditBalance` before and after every run and the delta is
   published in `DEMO.md`. The risk becomes evidence.
-- **No full bench and no ablation run after Oct 23**, so the balance is back at its 576
+- **No full bench on the box after Oct 23**, so the balance is back at its 576
   ceiling when the judging window opens.
 
 The streaming side is handled in code, not by a rule: the replay loop starts on the first

@@ -23,10 +23,9 @@
 # the repo, and the services are restarted rather than started. Re-running after a
 # `git push` is the deploy.
 #
-# There is no deploy/build-opencv5.sh. The D4 wheel gate resolved to branch A on
-# 2026-09-04: opencv-contrib-python-headless==5.0.0.93 publishes a
-# manylinux_2_28_aarch64 wheel, so `pip install -r requirements.lock` is the whole
-# OpenCV 5 install on Graviton. See deploy/launch.md.
+# There is no OpenCV source build. opencv-contrib-python-headless==5.0.0.93 publishes a
+# manylinux_2_28_aarch64 wheel (checked 2026-09-04), so `pip install -r requirements.lock`
+# is the whole OpenCV 5 install on Graviton. See deploy/launch.md.
 #
 # Target: under 10 minutes end to end on a t4g.small from a bare AL2023 arm64 AMI.
 
@@ -185,9 +184,8 @@ else
   PLUMERANK_DOMAIN="${PLUMERANK_DOMAIN:-}"
 fi
 
-if [ ! -d "$APP_DIR/.git" ] && [ "$PLUMERANK_REPO" = "__SET_ME__" ]; then
-  die "PLUMERANK_REPO is unset and there is no checkout at $APP_DIR.
-       Edit PLUMERANK_REPO_DEFAULT at the top of this file and commit it, or re-run as
+if [ ! -d "$APP_DIR/.git" ] && [ -z "${PLUMERANK_REPO:-}" ]; then
+  die "PLUMERANK_REPO is empty and there is no checkout at $APP_DIR. Re-run as
          sudo env PLUMERANK_REPO=s3://<bucket>/src/plumerank.bundle bash $0
        (or an https:// clone URL once the repository is public)"
 fi
@@ -286,12 +284,19 @@ fi
 # ---------------------------------------------------------------------------------
 
 step "checkout ${PLUMERANK_REF} into ${APP_DIR}"
-# root operating on a tree owned by plumerank trips git's dubious-ownership guard; the
-# alternative is running git as the service user, which would then need a shell.
-# `--get-all` first: `--add` is not idempotent, and this script runs on every deploy,
-# so the unguarded form grows /root/.gitconfig by one duplicate line per deploy.
-git config --global --get-all safe.directory 2>/dev/null | grep -qxF "$APP_DIR" \
-  || git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+# The tree is ROOT-owned. root runs git, pip and this script inside it on every deploy,
+# so a tree the service account could write would let anything running as that account
+# (an npm install script, a compromised dependency) plant code root later executes.
+# Boxes built before 2026-10-04 handed the whole tree to the service account: reclaim it,
+# and rebuild the venv rather than run a pip that account could have replaced.
+if [ -d "$APP_DIR" ]; then
+  if [ -d "$APP_DIR/.venv" ] && [ "$(stat -c %U "$APP_DIR/.venv")" != "root" ]; then
+    say "venv was owned by $(stat -c %U "$APP_DIR/.venv") -- rebuilding it as root"
+    rm -rf "$APP_DIR/.venv"
+  fi
+  rm -rf "$APP_DIR/web/node_modules" "$APP_DIR/web/.next"
+  chown -R root:root "$APP_DIR"
+fi
 
 # An s3:// source is a bundle: fetched to a fixed path, then used exactly where a remote
 # URL would be. `aws` is on every AL2023 image; the instance profile is what authorises
@@ -339,18 +344,14 @@ fi
 "$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check -r "$APP_DIR/requirements.lock"
 
 # The single fact that decides whether this box is worth deploying at all. It is
-# asserted here rather than discovered later from a browser: branch A of the D4 wheel
-# gate says a manylinux_2_28_aarch64 wheel exists, and if that is ever untrue the right
+# asserted here rather than discovered later from a browser: the plan rests on a
+# manylinux_2_28_aarch64 wheel existing, and if that is ever untrue the right
 # outcome is a failed bootstrap, not a running site serving OpenCV 4 results.
 CV_VERSION="$("$APP_DIR/.venv/bin/python" -c 'import cv2; print(cv2.__version__)')"
 case "$CV_VERSION" in
-  5.*) say "OpenCV ${CV_VERSION} (branch A: PyPI aarch64 wheel, no source build)" ;;
+  5.*) say "OpenCV ${CV_VERSION} (PyPI aarch64 wheel, no source build)" ;;
   *)   die "OpenCV ${CV_VERSION} is not 5.x. The endpoint must not serve a 4.x result." ;;
 esac
-
-# ---------------------------------------------------------------------------------
-# 5. The frontend -- built here, served as files
-# ---------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------
 # 4b. The corpus -- what the wall replays
@@ -364,36 +365,56 @@ step "corpus: ${PLUMERANK_CORPUS_S3} -> ${APP_DIR}/data/corpus"
 mkdir -p "$APP_DIR/data/corpus"
 aws s3 sync --only-show-errors "$PLUMERANK_CORPUS_S3" "$APP_DIR/data/corpus/"
 say "corpus: $(find "$APP_DIR/data/corpus" -type f -name '*.jpg' | wc -l) frames on disk"
-chown -R "$APP_USER:$APP_USER" "$APP_DIR/data"
+# Root-owned and world-readable like the rest of the tree: the service only reads it.
+
+# ---------------------------------------------------------------------------------
+# 5. The frontend -- built here, served as files
+# ---------------------------------------------------------------------------------
 
 step "Next.js static export -> ${APP_DIR}/web/out"
 if [ -f "$APP_DIR/web/package.json" ]; then
   export NEXT_TELEMETRY_DISABLED=1   # the endpoint must not leak judge traffic anywhere
   export NODE_OPTIONS="--max-old-space-size=${NODE_HEAP_MB}"
   # npm runs as the service account, not root: `npm ci` executes every dependency's
-  # install scripts, and root is the one user those scripts must never run as. The web
-  # tree and a dedicated cache are handed to that account first; root keeps the rest.
+  # install scripts, and root is the one user those scripts must never run as. It runs in
+  # a COPY of web/ (plus results/, which the build may read) owned by that account; only
+  # the finished out/ is copied back, root-owned. The checkout itself is never writable.
   NPM_CACHE="/var/cache/plumerank-npm"
-  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$NPM_CACHE"
-  chown -R "$APP_USER:$APP_USER" "$APP_DIR/web"
+  BUILD_ROOT="/var/lib/plumerank-build"
+  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$NPM_CACHE" "$BUILD_ROOT"
+  # node_modules is kept between deploys (npm ci replaces it anyway); sources are fresh.
+  find "$BUILD_ROOT" -mindepth 1 -maxdepth 1 ! -name web -exec rm -rf {} +
+  [ -d "$BUILD_ROOT/web" ] && find "$BUILD_ROOT/web" -mindepth 1 -maxdepth 1 \
+    ! -name node_modules -exec rm -rf {} +
+  mkdir -p "$BUILD_ROOT/web" "$BUILD_ROOT/results"
+  tar -C "$APP_DIR/web" --exclude=./node_modules --exclude=./out --exclude=./.next \
+    --exclude=./evidence -cf - . | tar -C "$BUILD_ROOT/web" -xf -
+  cp -a "$APP_DIR/results/." "$BUILD_ROOT/results/" 2>/dev/null || true
+  chown -R "$APP_USER:$APP_USER" "$BUILD_ROOT"
   npm() {
     runuser -u "$APP_USER" -- env HOME="$NPM_CACHE" npm_config_cache="$NPM_CACHE" \
       NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="$NODE_OPTIONS" PATH="$PATH" npm "$@"
   }
-  if [ -f "$APP_DIR/web/package-lock.json" ]; then
-    npm --prefix "$APP_DIR/web" ci
+  if [ -f "$BUILD_ROOT/web/package-lock.json" ]; then
+    npm --prefix "$BUILD_ROOT/web" ci
   else
     say "no package-lock.json -- falling back to npm install (the build is then unpinned)"
     # Into DID as well as the log: pinned dependencies are a scored line, and a run whose
     # closing report lists only "Next.js static export" lets an unpinned build read as a
     # pinned one in the one place anybody actually re-reads.
     DID+=("(no package-lock.json -- frontend built UNPINNED via npm install)")
-    npm --prefix "$APP_DIR/web" install
+    npm --prefix "$BUILD_ROOT/web" install
   fi
-  npm --prefix "$APP_DIR/web" run build
+  npm --prefix "$BUILD_ROOT/web" run build
   unset -f npm
-  [ -f "$APP_DIR/web/out/index.html" ] || \
+  [ -f "$BUILD_ROOT/web/out/index.html" ] || \
     die "the build produced no web/out/index.html -- next.config needs output: 'export'"
+  # Swap in place: copy, chown to root, then rename over the live directory.
+  rm -rf "$APP_DIR/web/out.new"
+  cp -a "$BUILD_ROOT/web/out" "$APP_DIR/web/out.new"
+  chown -R root:root "$APP_DIR/web/out.new"
+  rm -rf "$APP_DIR/web/out"
+  mv "$APP_DIR/web/out.new" "$APP_DIR/web/out"
   say "export: $(find "$APP_DIR/web/out" -type f | wc -l) files"
 else
   # Loud, and deliberately not a fabricated page. /build-info and /health ship before
@@ -418,7 +439,7 @@ fi
 # Evidence crops are written here by the pipeline and read from here by Caddy. This is
 # the only path the service is allowed to write to (see plumerank.service), and the
 # only path the image bytes ever take -- they never pass through Python on the way out.
-mkdir -p "$APP_DIR/web/evidence"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_DIR/web/evidence"
 
 # ---------------------------------------------------------------------------------
 # 6. Config files, from the repo
@@ -469,6 +490,8 @@ PLUMERANK_REF=${PLUMERANK_REF}
 # The region plumerank/telemetry.py writes CloudWatch metrics to, read from IMDS.
 AWS_REGION=${PLUMERANK_AWS_REGION}
 AWS_DEFAULT_REGION=${PLUMERANK_AWS_REGION}
+# Opt-in: only this box publishes CloudWatch metrics, so the silence alarm watches it alone.
+PLUMERANK_TELEMETRY=1
 ENVEOF
 
 install -D -m 0644 "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
@@ -477,9 +500,12 @@ install -D -m 0644 "$APP_DIR/deploy/plumerank.service" /etc/systemd/system/plume
 # Caddy's upstream unit has no EnvironmentFile, and patching the unit itself would be
 # undone by the next `dnf install`. A drop-in survives that.
 install -d -m 0755 /etc/systemd/system/caddy.service.d
+# NoNewPrivileges keeps the ambient CAP_NET_BIND_SERVICE the unit grants (ambient caps
+# survive exec under NNP) while refusing any setuid escalation from inside Caddy.
 cat > /etc/systemd/system/caddy.service.d/10-plumerank.conf <<'DROPIN_EOF'
 [Service]
 EnvironmentFile=-/etc/plumerank.env
+NoNewPrivileges=yes
 DROPIN_EOF
 
 # Validate before restarting anything: a Caddyfile typo that is only discovered by
@@ -491,7 +517,9 @@ DROPIN_EOF
 env -i $(grep -v '^#' "$ENV_FILE" | xargs) \
   caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
 
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
+# Root owns the tree (see step 3); the service account owns only what it writes.
+chown -R root:root "$APP_DIR"
+chown -R "$APP_USER":"$APP_USER" "$APP_DIR/web/evidence"
 # Caddy runs as its own user and has to traverse APP_DIR to reach web/out and
 # web/evidence, so the tree is world-traversable and nothing secret is ever in it.
 chmod 755 "$APP_DIR"
