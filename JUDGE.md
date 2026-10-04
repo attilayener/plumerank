@@ -24,20 +24,20 @@ here is one 81-minute window of footage on one camera — the length of a FIgLib
 
 | | |
 |---|---|
-| Tests | **686 passed, 2 skipped**, 97% coverage on `plumerank/` |
+| Tests | **714 passed, 2 skipped**, 97% coverage on `plumerank/` |
 | Property-based testing | **1,500 generated cases** (`tests/test_invariants.py`, `hypothesis`) — the fused hazard never leaves `[0, 1]` across 500 valid-input cases and never silently passes an invalid one through another 500; the alert budget can never be overspent under any of 500 generated call sequences |
 | Static analysis | `ruff check .` and `mypy plumerank api --ignore-missing-imports` — both clean |
-| Claim/code consistency | `scripts/check_claims.py`, run inside `make test` — 23 defended OpenCV 5 analysis surfaces across 6 modules, every API route, every dependency, every Makefile target and every file path this document and `README.md` name, checked mechanically against the real source on every test run |
+| Claim/code consistency | `scripts/check_claims.py`, run inside `make test` — 23 defended OpenCV 5 surfaces across 6 modules (18 analysis calls, 5 runtime/introspection), every API route, every dependency, every Makefile target and every file path this document and `README.md` name, checked mechanically against the real source on every test run |
 | DEV arm (orientation only — fit data, never the claim) | 17/29 detected, p50 32.0 min; calibrated to 1.99 alerts/camera-night on the confusion set, 2.37 realised on DEV. Like-for-like baselines (B1/B2 through the same per-camera baseline): 14/29 and 10/29 (`results/arm_dev_2026-10-04.json`) |
 | HOLD arm (the only number allowed to be called the headline) | **not yet run.** `GET /api/benchmark` 404s (no `results/bench_*.json` yet) rather than inventing one — see §4 |
-| Compute | One AWS `t4g.small` (Graviton/ARM), one S3 bucket (the replayed corpus: 5,082 frames, 2.38 GB), CloudWatch metrics, two drift alarms (±15% around the 2.0 budget) and a heartbeat-silence alarm (`deploy/alarms.sh`). No Lambda, no managed vision API. |
+| Compute | One AWS `t4g.small` (Graviton/ARM), one S3 bucket (the replayed corpus: 5,082 objects, 2.38 GB), CloudWatch metrics, two drift alarms (±15% around the 2.0 budget) and a heartbeat-silence alarm (`deploy/alarms.sh`). No Lambda, no managed vision API. |
 
 ## 3. Reproduce it yourself
 
 ```bash
 git clone <this repo> && cd <this repo>
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
-make test      # ~95s: the 686-test offline suite + coverage + the claim-consistency check above
+make test      # ~95s: the 714-test offline suite + coverage + the claim-consistency check above
 make verify    # ≤3 min: rebuilds the venv from the lockfile, re-runs the offline suite, then
                # recomputes the micro-corpus metrics and checks them byte-for-byte against the
                # committed results/verify_micro.json. This is the fast sanity check — it does

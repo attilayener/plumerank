@@ -32,7 +32,7 @@ from api import main
 from api.main import app
 from plumerank.types import Component, Sequence, Stats, Track, WatchEntry
 
-#: The four routes of build-contract.md W5, written out rather than imported from the app.
+#: The four documented routes, written out rather than imported from the app.
 #: A test that read them from the thing it is testing would agree with any fifth route the
 #: app grew, which is the one failure this test exists to catch.
 DOCUMENTED_ROUTES: frozenset[str] = frozenset(
@@ -162,7 +162,7 @@ def test_there_is_no_upload_route() -> None:
 def test_cors_allows_a_cross_origin_get_but_not_other_methods(client: TestClient) -> None:
     """README.md documents pointing a local `npm run dev` at the live box -- a genuinely
     cross-origin GET from a browser. Without CORS headers that fails silently in-browser
-    (shipcheck caught it: 'blocked by CORS policy', zero console errors on a server-rendered
+    (a browser check caught it: 'blocked by CORS policy', zero console errors on a server-rendered
     curl check). Scoped to GET only -- there is nothing here for a wider policy to protect."""
     resp = client.get("/health", headers={"Origin": "http://localhost:3000"})
     assert resp.headers["access-control-allow-origin"] == "*"

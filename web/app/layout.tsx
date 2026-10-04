@@ -16,8 +16,8 @@ const TITLE = "PlumeRank — which wildfire camera to look at first";
 // <=125 chars: og:description clips on mobile earlier than a plain meta description does,
 // so one string serves both constraints. It says what the page headline says.
 const DESCRIPTION =
-  "Two alerts per camera, hard budget. PlumeRank ranks a wildfire camera network so the " +
-  "camera most likely showing smoke comes first.";
+  "Two alerts per camera per 81-minute window. PlumeRank ranks wildfire cameras so the " +
+  "likeliest smoke comes first.";
 const SITE_URL = "http://44.242.91.201";
 const AUTHOR = "Edy Cu";
 

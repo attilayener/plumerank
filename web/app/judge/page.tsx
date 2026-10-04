@@ -72,7 +72,7 @@ export default function JudgePage() {
       <Section title="2. The receipt">
         <ul className="bullets" style={{ color: "var(--ink-1)", lineHeight: 1.8 }}>
           <li>
-            <strong>686 passed, 2 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
+            <strong>714 passed, 2 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
           </li>
           <li>
             <strong>Property-based tests</strong> (<code className="code-inline">tests/test_invariants.py</code>,
@@ -102,7 +102,7 @@ export default function JudgePage() {
       <Section title="3. Reproduce it yourself">
         <pre className="code" style={{ padding: 12, overflowX: "auto", whiteSpace: "pre" }}>
 {`python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
-make test      # ~95s: 686-test offline suite + coverage + the claim-consistency check
+make test      # ~95s: 714-test offline suite + coverage + the claim-consistency check
 make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
                # micro-corpus metrics against the committed results. Does NOT
                # reproduce the published headline, and says so on screen.`}
@@ -135,8 +135,9 @@ make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
           </li>
           <li>
             The soft-boundary statistic the design started from (S3) is not predictive on its
-            own — AUC 0.44 on the development frames where it is defined. The measured result
-            comes from the budget-calibrated ranking as a whole, not from that one signal.
+            own — AUC 0.44 on the development frames where it is defined — yet it carries the
+            largest fusion weight, and no S3-off ablation has run. The measured result comes from
+            the per-camera baseline and the budget-calibrated ranking, not from that one signal.
           </li>
           <li>One instance, no HA — every published number is committed in the repository.</li>
           <li>No dispatch, no suppression, no upload path — architecturally absent.</li>

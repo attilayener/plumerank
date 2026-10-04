@@ -121,7 +121,7 @@ export function EvidenceCard({ row, onClose }: { row: WatchRow; onClose: () => v
             <dt style={{ color: "var(--ink-3)" }}>S3</dt>
             <dd style={{ margin: 0, color: "var(--ink-1)" }}>
               diffuse-boundary contrast, {row.s3.toFixed(3)}. Measured on the development
-              set, none of the three separates fire on its own (AUC 0.53, 0.50 and 0.44);
+              set, none of the four separates fire on its own (AUC 0.53, 0.50, 0.44 and 0.54);
               the ranking comes from fusing them and scoring each camera against its own
               recent history.
             </dd>

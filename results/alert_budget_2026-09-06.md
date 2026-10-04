@@ -87,7 +87,7 @@ not either, and puts a number on it — **three sequences, and no median.**
   class that contains fog, is still the only measurement designed to answer that, and it is
   still unrun.
 
-## 5. What follows, and what is not an agent's call
+## 5. What follows, and what is a human decision
 
 1. **Stop looking at the budget for the headline.** The ceiling is measured; the direction is
    closed.

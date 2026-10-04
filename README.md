@@ -25,7 +25,7 @@
 ## The question
 
 It is 04:50 on a night shift at a CAL FIRE emergency command centre, and the one dispatcher
-awake is looking at more than 1,000 camera tiles with no instrument that tells her which four
+awake is looking at a wall of camera tiles (ALERTCalifornia alone runs over 1,000 cameras) with no instrument that tells her which four
 to open in the next sixty seconds.
 
 Published smoke detectors are scored on **per-frame accuracy** (F1, precision, recall) or on
@@ -100,7 +100,9 @@ summarised in [`REPORT.md`](REPORT.md) §6.
    −0.38 for a 0.0006 change in leave-one-sequence-out AUC; the shipped value is kept because
    it scores two sequences and six minutes of p50 better on DEV
    (`results/refit_through_baseline_2026-09-16.md`). DEV is the tuning arm, so that choice is
-   in-sample by construction.
+   in-sample by construction. Likewise the baseline window: 10 minutes scored 18/29 (p50 30.0)
+   against the shipped 15 minutes' 17/29 (p50 32.0) — one sequence apart, inside the noise, and
+   kept as a design choice rather than tuned (`results/baseline_calibrated_2026-09-16.md`).
 4. **The novelty is a metric reframe, not a new sensor.** The individual OpenCV operations are
    well-known; what is new is the primitive that composes them and the attention-budget
    objective they are pointed at.
@@ -143,8 +145,9 @@ comparison by having a bigger model, because the model is identical on both side
 
 ### Why OpenCV 5, specifically
 
-**Required by the competition**, and structural rather than decorative: 23 defended analysis
-surfaces across 6 OpenCV modules, mechanically counted from the source by
+**Required by the competition**, and structural rather than decorative: 23 defended OpenCV 5
+surfaces across 6 modules — 18 analysis calls plus 5 runtime/introspection ones (thread
+pinning, timing, build info, and two engine/estimator flags) — mechanically counted from the source by
 `scripts/check_claims.py` on every `make test` run (never hand-typed):
 
 | Surface | Lives in | Without it |
@@ -204,15 +207,15 @@ heartbeat-silence alarm. No Lambda, no managed vision API, no second instance.
 ## Testing
 
 ```
-686 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
+714 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
 ```
 
 | Layer | Tool | Notes |
 |---|---|---|
 | Unit + integration | `pytest` | `make test` — offline, no network, no credentials, ~95s |
 | Property-based | `hypothesis` | `tests/test_invariants.py` — **1,500 generated cases** (500 each) property-testing that the fused hazard never leaves `[0, 1]` on valid inputs and never silently passes an invalid one, and that the alert budget is never overspent across generated call sequences |
-| Regression | 630+ example tests, most named after the specific behaviour or defect they pin (e.g. `test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health`) | `tests/` |
-| Claim/code consistency | `scripts/check_claims.py` (runs inside `make test`) | every OpenCV symbol, API route, dependency, Makefile target and file path this document names is mechanically checked against the real source — a document and the code can disagree for at most one test run |
+| Regression | 690+ example tests, most named after the specific behaviour or defect they pin (e.g. `test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health`) | `tests/` |
+| Claim/code consistency | `scripts/check_claims.py` (runs inside `make test`) | every OpenCV symbol, API route, dependency, Makefile target and file path this document names is mechanically checked against the real source — a moved file, renamed symbol or deleted route fails the next test run (counts typed into prose, such as the test total, are not parsed) |
 | Static analysis | `ruff check .`, `mypy plumerank api --ignore-missing-imports` | both clean |
 | Secret scanning | `gitleaks` (full history) — run locally, 0 findings; GitHub secret scanning + push protection once the repo is public | CI (configured) |
 | Dependency audit | `pip-audit`, `npm audit` | CI, advisory |
@@ -261,7 +264,7 @@ plumerank/       # the pipeline: stabilise, segment, statistic, escalate, rank, 
 api/             # FastAPI app — /build-info, /health, /api/watchlist, /api/benchmark
 scripts/         # fetch.py, bench.py, check_claims.py, check_submission_readiness.py
 web/             # Next.js frontend — the Wall ("/"), "/results", "/judge"
-tests/           # 686 tests, 97% coverage on plumerank/
+tests/           # 714 tests, 97% coverage on plumerank/
 deploy/          # EC2 bootstrap (Caddy, systemd, OpenCV 5 build pin)
 results/         # committed run artefacts — every published number lives here
 ```

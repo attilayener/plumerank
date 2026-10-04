@@ -17,8 +17,8 @@ export function AblationTable({ data }: { data: Benchmark }) {
   if (!grid || grid.rows.length === 0) {
     return (
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)" }}>
-        ablation grid not published yet — it appears here after the held-out run,
-        which also runs the twelve-cell grid on the development set
+        ablation grid not published yet — it is a separate twelve-cell run on the
+        development set, quoted here by the held-out file once both exist
       </p>
     );
   }

@@ -18,7 +18,7 @@ The number that matters is different: **how many minutes after ignition does a h
 look at the right camera, given she will tolerate only a fixed number of interruptions per
 camera?** Raise sensitivity and you buy minutes at the cost of alarm fatigue; lower
 it and the network goes quiet and late. Every deployed system lives somewhere on that curve.
-Nobody publishes it. PlumeRank does.
+Deployed systems rarely publish where they sit on it. PlumeRank does.
 
 **The unit.** The budget is expressed per *camera-night*, which in this project means one
 evaluation window — 81 minutes of footage on one camera, the length of a FIgLib sequence — not a
@@ -55,8 +55,8 @@ one AWS `t4g.small` instance.
 ## 4. OpenCV 5 implementation
 
 **Required by the competition** ("every entry must use OpenCV 5 for substantive image or video
-analysis") and structural here, not decorative: **23 defended analysis surfaces across 6
-modules** (video, imgproc, geometry, bgsegm, dnn, core), mechanically counted from
+analysis") and structural here, not decorative: **23 defended OpenCV 5 surfaces across 6
+modules** (18 analysis calls, 5 runtime/introspection) (video, imgproc, geometry, bgsegm, dnn, core), mechanically counted from
 the real source on every `make test` run by `scripts/check_claims.py` — never hand-typed, never
 quoted from a plan. The full table with per-surface "what you would need without it" is in
 `README.md`'s "Why OpenCV 5" section.
@@ -176,7 +176,7 @@ designed to be re-scored at every offset from −5 to +5 minutes from the same c
 matrix in the same run, so the sensitivity curve cannot drift from the headline it describes
 (`scripts/bench.py --sensitivity`).
 
-**Testing, as a form of evaluation in its own right.** 686 tests passed, 2 skipped, 97%
+**Testing, as a form of evaluation in its own right.** 714 tests passed, 2 skipped, 97%
 coverage on `plumerank/`; 1,500 hypothesis-generated cases (`tests/test_invariants.py`)
 property-testing that the fused hazard never leaves `[0, 1]` and the alert budget is never overspent
 across 500 generated inputs or call sequences each; `scripts/check_claims.py` mechanically checks every route,

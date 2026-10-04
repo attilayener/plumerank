@@ -9,10 +9,10 @@ labels: enhancement
 A clear description of the problem.
 
 **Describe the solution you'd like**
-What you want to happen. This project runs on a deliberately narrow scope
-constraint (the ONE core flow) that treats most additions as out of scope by
-design — see the README's "Out of scope" section before proposing a new
-surface.
+What you want to happen. The project deliberately does one thing — rank camera
+attention under a fixed alert budget — and keeps no dispatch, upload or
+suppression path (see the README's "Responsible use" section), so proposals
+that add those are out of scope by design.
 
 **Alternatives considered**
 Any alternative solutions or features you've considered.

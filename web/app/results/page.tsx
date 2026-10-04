@@ -37,11 +37,11 @@ function useScrollToHash(ready: boolean) {
  * routes became two, which deleted four data paths and four loading states, and the
  * anchors #race and #build still address the same content.
  *
- * EVERY NUMBER ON THIS PAGE IS FETCHED FROM /api/benchmark AT RUNTIME. None is compiled
- * into the bundle, and there is no bundled fallback copy of the results either --
- * /api/benchmark serves the committed results/bench_<date>.json verbatim from disk, so
- * the page, the endpoint and the repository cannot disagree about the headline, and a
- * frontend that carried its own copy would be the one way to break that.
+ * The HEADLINE is fetched from /api/benchmark at runtime, which serves the committed
+ * results/bench_<date>.json verbatim, so the page, the endpoint and the repository cannot
+ * disagree about it. Until that file exists, DevelopmentEvidence renders the committed DEV
+ * payload compiled in at build time (lib/generated/dev-run.json, synced from
+ * results/arm_dev_<date>.json by scripts/sync-dev-run.mjs), labelled in-sample.
  */
 
 function Section({

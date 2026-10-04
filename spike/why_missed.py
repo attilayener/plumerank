@@ -27,7 +27,7 @@ WHAT IT DOES NOT DO
 It changes nothing. ``--policies`` measures counterfactual ways of spending the two alert
 slots and prints what each would have detected; no policy here is implemented in
 ``plumerank/rank.py``, and choosing one is a design decision about what an alert means, which
-is not an agent's call.
+is a human decision.
 
 Reproduce::
 

@@ -45,7 +45,7 @@ ALARMS = DEPLOY / "alarms.sh"
 
 ALL_DEPLOY_FILES = [BOOTSTRAP, CADDYFILE, UNIT, LAUNCH, ALARMS]
 
-# The four routes of build-contract.md W5. Written out rather than imported from
+# The four documented routes. Written out rather than imported from
 # api/main.py on purpose: this test's job is to catch the two drifting apart, and a test
 # that reads the same source as the code under test can never do that.
 DOCUMENTED_ROUTES = ("/build-info", "/health", "/api/watchlist", "/api/benchmark")
@@ -220,7 +220,7 @@ def test_the_run_checks_the_path_a_judge_uses() -> None:
 
 
 def test_caddy_proxies_exactly_the_documented_routes() -> None:
-    """The @backend matcher and build-contract W5's route table must not drift.
+    """The @backend matcher and the documented route table must not drift.
 
     A fifth route added to api/main.py without a matching prefix here is a 404 that every
     unit test passes and only production shows, because the static file_server catches

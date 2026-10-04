@@ -53,7 +53,7 @@ running and it is being read — but it is not doing what the design said it doe
   its control still runs on every fit: presence-alone LOSO 0.5610, as-fitted 0.6393, presence
   explicit 0.6644, and S3 still flips sign under the control.
 
-## 4. What follows — and none of it is an agent's call
+## 4. What follows — and each item is a human decision
 
 1. **Decide whether the weights are refitted.** The honest default is yes: D11 specifies
    weights fit on DEV, and the shipped ones were fit on an input the pipeline does not

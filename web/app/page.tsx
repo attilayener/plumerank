@@ -100,7 +100,7 @@ export default function WallPage() {
         <section className="landing">
           <div>
             <h1 className="display">
-              Two alerts per camera, hard budget. Which camera do you look at first?
+              Two alerts per camera per 81-minute window, hard budget. Which camera do you look at first?
             </h1>
             <p style={{ color: "var(--ink-1)", margin: 0 }}>
               PlumeRank ranks a wildfire-camera network so the camera most likely showing a

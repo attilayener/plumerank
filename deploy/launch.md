@@ -17,7 +17,7 @@ to compile. (The fallback -- resize to a larger Graviton for an hour, build from
 resize back -- was planned and never needed.)
 
 **There is no Route 53 hosted zone.** One A record at the registrar points at the Elastic
-IP. Managed DNS scores zero rubric lines, and it would add an infrastructure resource that
+IP. Managed DNS adds nothing a judge can use, and it would add an infrastructure resource that
 has to be created, destroyed and debugged for the sake of a field you can type once.
 
 ---

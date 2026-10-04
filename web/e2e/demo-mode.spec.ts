@@ -17,7 +17,7 @@ test.describe("demo mode", () => {
     await expect(page).toHaveTitle(/PlumeRank/);
     expect(
       await page.locator('meta[name="description"]').getAttribute("content")
-    ).toMatch(/two alerts per camera, hard budget/i);
+    ).toMatch(/two alerts per camera per 81-minute window/i);
 
     expect(errors).toEqual([]);
   });

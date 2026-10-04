@@ -139,7 +139,7 @@ error cannot be repeated silently.
    diffuseness. `check_claims.py` cannot catch this one; only reading can.
 2. **Decide whether the fusion carries a presence term.** It is worth +0.024 LOSO and it makes
    the other weights interpretable — but it changes what the UI's per-row S1/S2/S3 chips mean,
-   so it is a design decision, not an agent's. The uncontrolled weights still ship pending it.
+   so it is a design decision, not an automated one. The uncontrolled weights still ship pending it.
 3. **Fix the segmenter before re-reading anything into the statistics.** 37% of pre-ignition
    frames producing no component at all is the largest single signal in this corpus, and it is
    a property of MOG2's warm-up and thresholds rather than of smoke.
