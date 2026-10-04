@@ -278,6 +278,12 @@ else
   useradd --system --shell /sbin/nologin --home-dir "$APP_DIR" --no-create-home "$APP_USER"
   say "created ${APP_USER}"
 fi
+# A SEPARATE account for npm: its install scripts must not run as the user the API runs
+# as, and nothing they leave behind may outlive the build (step 5 kills its processes).
+BUILD_USER="${APP_USER}-build"
+id "$BUILD_USER" >/dev/null 2>&1 || \
+  useradd --system --shell /sbin/nologin --home-dir /var/lib/plumerank-build \
+    --no-create-home "$BUILD_USER"
 
 # ---------------------------------------------------------------------------------
 # 3. The checkout
@@ -375,13 +381,14 @@ step "Next.js static export -> ${APP_DIR}/web/out"
 if [ -f "$APP_DIR/web/package.json" ]; then
   export NEXT_TELEMETRY_DISABLED=1   # the endpoint must not leak judge traffic anywhere
   export NODE_OPTIONS="--max-old-space-size=${NODE_HEAP_MB}"
-  # npm runs as the service account, not root: `npm ci` executes every dependency's
-  # install scripts, and root is the one user those scripts must never run as. It runs in
-  # a COPY of web/ (plus results/, which the build may read) owned by that account; only
-  # the finished out/ is copied back, root-owned. The checkout itself is never writable.
+  # npm runs as the build account -- neither root nor the service account: `npm ci`
+  # executes every dependency's install scripts. It runs in a COPY of web/ (plus
+  # results/, which the build may read) owned by that account; only the finished out/ is
+  # copied back, root-owned and symlink-free. The checkout itself is never writable.
   NPM_CACHE="/var/cache/plumerank-npm"
   BUILD_ROOT="/var/lib/plumerank-build"
-  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$NPM_CACHE" "$BUILD_ROOT"
+  install -d -o "$BUILD_USER" -g "$BUILD_USER" -m 0750 "$NPM_CACHE" "$BUILD_ROOT"
+  chown -R "$BUILD_USER:$BUILD_USER" "$NPM_CACHE"
   # node_modules is kept between deploys (npm ci replaces it anyway); sources are fresh.
   find "$BUILD_ROOT" -mindepth 1 -maxdepth 1 ! -name web -exec rm -rf {} +
   [ -d "$BUILD_ROOT/web" ] && find "$BUILD_ROOT/web" -mindepth 1 -maxdepth 1 \
@@ -390,9 +397,9 @@ if [ -f "$APP_DIR/web/package.json" ]; then
   tar -C "$APP_DIR/web" --exclude=./node_modules --exclude=./out --exclude=./.next \
     --exclude=./evidence -cf - . | tar -C "$BUILD_ROOT/web" -xf -
   cp -a "$APP_DIR/results/." "$BUILD_ROOT/results/" 2>/dev/null || true
-  chown -R "$APP_USER:$APP_USER" "$BUILD_ROOT"
+  chown -R "$BUILD_USER:$BUILD_USER" "$BUILD_ROOT"
   npm() {
-    runuser -u "$APP_USER" -- env HOME="$NPM_CACHE" npm_config_cache="$NPM_CACHE" \
+    runuser -u "$BUILD_USER" -- env HOME="$NPM_CACHE" npm_config_cache="$NPM_CACHE" \
       NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="$NODE_OPTIONS" PATH="$PATH" npm "$@"
   }
   if [ -f "$BUILD_ROOT/web/package-lock.json" ]; then
@@ -407,8 +414,14 @@ if [ -f "$APP_DIR/web/package.json" ]; then
   fi
   npm --prefix "$BUILD_ROOT/web" run build
   unset -f npm
+  # Nothing an install script started may keep running past the build.
+  pkill -KILL -u "$BUILD_USER" 2>/dev/null || true
   [ -f "$BUILD_ROOT/web/out/index.html" ] || \
     die "the build produced no web/out/index.html -- next.config needs output: 'export'"
+  # Caddy follows symlinks; one planted in out/ would serve whatever caddy can read.
+  if [ -n "$(find "$BUILD_ROOT/web/out" -type l -print -quit)" ]; then
+    die "the build left a symlink in web/out -- refusing to publish it"
+  fi
   # Swap in place: copy, chown to root, then rename over the live directory.
   rm -rf "$APP_DIR/web/out.new"
   cp -a "$BUILD_ROOT/web/out" "$APP_DIR/web/out.new"
@@ -440,6 +453,8 @@ fi
 # the only path the service is allowed to write to (see plumerank.service), and the
 # only path the image bytes ever take -- they never pass through Python on the way out.
 install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_DIR/web/evidence"
+# The service writes only regular files here; a symlink can only have been planted.
+find "$APP_DIR/web/evidence" -type l -print -delete
 
 # ---------------------------------------------------------------------------------
 # 6. Config files, from the repo
@@ -473,6 +488,12 @@ if [ -n "$imds_token" ]; then
 fi
 PLUMERANK_AWS_REGION="${AWS_REGION_DETECTED:-${AWS_REGION:-$AWS_REGION_FALLBACK}}"
 say "CloudWatch region: ${PLUMERANK_AWS_REGION}"
+# The InstanceId dimension on every metric; deploy/alarms.sh alarms on the same one.
+PLUMERANK_INSTANCE_ID=""
+if [ -n "$imds_token" ]; then
+  PLUMERANK_INSTANCE_ID="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: ${imds_token}" \
+    http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || true)"
+fi
 
 install -m 0600 -o root -g root /dev/null "$ENV_FILE"
 cat > "$ENV_FILE" <<ENVEOF
@@ -492,6 +513,7 @@ AWS_REGION=${PLUMERANK_AWS_REGION}
 AWS_DEFAULT_REGION=${PLUMERANK_AWS_REGION}
 # Opt-in: only this box publishes CloudWatch metrics, so the silence alarm watches it alone.
 PLUMERANK_TELEMETRY=1
+${PLUMERANK_INSTANCE_ID:+PLUMERANK_INSTANCE_ID=${PLUMERANK_INSTANCE_ID}}
 ENVEOF
 
 install -D -m 0644 "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile

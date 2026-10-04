@@ -14,7 +14,14 @@ permissions:
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Only a successful CI run triggered by a PUSH to this repository's main. A pull
+    # request from a fork whose branch happens to be named "main" also completes "CI/CD
+    # Pipeline" on branch main, and must never be tagged.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: write    # required to push the tag and create the Release

@@ -522,7 +522,42 @@ def test_pip_is_pinned_and_npm_never_runs_as_root() -> None:
     text = _read(BOOTSTRAP)
     assert not re.search(r"^[^#]*--upgrade pip", text, re.M)
     assert re.search(r'"pip==\$\{PIP_VERSION\}"', text)
-    assert 'runuser -u "$APP_USER"' in text
+    # npm runs as its own build account -- neither root nor the service account.
+    assert 'runuser -u "$BUILD_USER"' in text
+    assert 'runuser -u "$APP_USER" -- env HOME="$NPM_CACHE"' not in text
+
+
+def test_npm_leaves_nothing_running_and_publishes_no_symlink() -> None:
+    text = _read(BOOTSTRAP)
+    assert 'BUILD_USER="${APP_USER}-build"' in text
+    assert 'pkill -KILL -u "$BUILD_USER"' in text
+    assert re.search(r'find "\$BUILD_ROOT/web/out" -type l', text)
+    assert 'find "$APP_DIR/web/evidence" -type l -print -delete' in text
+
+
+def test_the_env_file_carries_the_instance_id_for_the_metric_dimension() -> None:
+    text = _read(BOOTSTRAP)
+    assert "meta-data/instance-id" in text
+    assert "${PLUMERANK_INSTANCE_ID:+PLUMERANK_INSTANCE_ID=${PLUMERANK_INSTANCE_ID}}" in text
+
+
+def test_every_alarm_watches_the_instance_dimension() -> None:
+    text = _read(ALARMS)
+    assert text.count('--dimensions "$DIMENSIONS"') == 3
+    assert 'DIMENSIONS="Name=InstanceId,Value=${INSTANCE_ID}"' in text
+    from plumerank import telemetry
+
+    assert telemetry.INSTANCE_ENV == "PLUMERANK_INSTANCE_ID"
+
+
+def test_the_unit_gets_a_writable_frame_cache() -> None:
+    assert re.search(r"^CacheDirectory=plumerank$", _read(UNIT), re.M)
+
+
+def test_release_tags_only_pushes_to_this_repository() -> None:
+    text = (REPO / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "github.event.workflow_run.event == 'push'" in text
+    assert "head_repository.full_name == github.repository" in text
 
 
 def test_the_unit_caps_connections_above_the_viewer_cap() -> None:
@@ -580,4 +615,9 @@ def test_the_unit_is_hardened_without_breaking_evidence_reads() -> None:
 def test_caddy_serves_the_designed_404_and_strips_trailing_slashes() -> None:
     text = _read(CADDYFILE)
     assert "handle_errors 404" in text and "rewrite * /404.html" in text
-    assert "redir @trailing" in text
+    # Exactly /results/ and /judge/, to targets built from a matched literal segment: a
+    # regexp that echoed the request path into Location was an open redirect.
+    assert "path /results/ /judge/" in text
+    assert "redir @slash /{http.request.uri.path.0} 308" in text
+    assert "redir @slash_query /{http.request.uri.path.0}?{query} 308" in text
+    assert "path_regexp" not in text

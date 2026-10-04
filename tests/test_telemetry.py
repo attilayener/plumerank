@@ -189,7 +189,36 @@ def test_the_client_is_built_with_an_explicit_region(monkeypatch: pytest.MonkeyP
     monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
     monkeypatch.setattr(boto3, "client", fake_client)
     tel._cloudwatch_client()
-    assert seen == {"service": "cloudwatch", "region_name": "us-west-2"}
+    assert seen["service"] == "cloudwatch" and seen["region_name"] == "us-west-2"
+
+
+def test_the_client_makes_one_short_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A slow CloudWatch must cost seconds, never boto3's default retry ladder."""
+    boto3 = pytest.importorskip("boto3")
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(boto3, "client", lambda service, **kw: seen.update(kw) or StubCloudWatch())
+    tel._cloudwatch_client()
+    config = seen["config"]
+    assert config.connect_timeout <= 2.0 and config.read_timeout <= 3.0
+    assert config.retries["max_attempts"] == 1
+
+
+def test_every_datapoint_carries_the_instance_dimension_when_set(
+    stub: StubCloudWatch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Alarms watch this box's dimension, so no other publisher can keep them green."""
+    monkeypatch.setenv(tel.INSTANCE_ENV, "i-0123456789abcdef0")
+    assert tel.Telemetry().heartbeat() is True
+    datum = stub.calls[-1]["MetricData"][0]
+    assert datum["Dimensions"] == [{"Name": "InstanceId", "Value": "i-0123456789abcdef0"}]
+
+
+def test_no_dimension_without_an_instance_id(
+    stub: StubCloudWatch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(tel.INSTANCE_ENV, raising=False)
+    assert tel.Telemetry().heartbeat() is True
+    assert "Dimensions" not in stub.calls[-1]["MetricData"][0]
 
 
 class Clock:

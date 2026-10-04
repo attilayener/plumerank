@@ -81,6 +81,10 @@ AmbientCapabilities=
 # write anywhere else, that is a bug and it should surface as EROFS rather than as a
 # mystery file on a production box.
 ReadWritePaths=/opt/plumerank/web/evidence
+# The working-resolution frame cache (api/main.py _read_working_frame): systemd creates
+# /var/cache/plumerank owned by this user, exports CACHE_DIRECTORY, and keeps it writable
+# under ProtectSystem=strict. ~2 GB of .npy for the ~5,000 wall frames; disposable.
+CacheDirectory=plumerank
 
 # Deliberately no MemoryMax. 40 warm background models are the product's state; having
 # the cgroup kill the process mid-replay would look exactly like a crash to a judge and

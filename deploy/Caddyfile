@@ -56,8 +56,16 @@
 
 		# /results/ and /judge/ -> the slashless page. try_files cannot see "/results/" as
 		# results.html, and a judge pasting a URL with a trailing slash got a bare 404.
-		@trailing path_regexp trailing ^(/.+)/$
-		redir @trailing {re.trailing.1} 308
+		# Exactly these two paths, to fixed targets: a pattern that echoed the request path
+		# back into Location was an open redirect ("/%5Cevil.example/" -> "/\evil.example",
+		# which browsers read as "//evil.example"). The query string is kept.
+		@slash_query {
+			path /results/ /judge/
+			expression `{query} != ""`
+		}
+		redir @slash_query /{http.request.uri.path.0}?{query} 308
+		@slash path /results/ /judge/
+		redir @slash /{http.request.uri.path.0} 308
 
 		# The Next.js static export. try_files covers both export shapes, so a trailingSlash
 		# change in next.config cannot turn /results into a 404 on the box only.

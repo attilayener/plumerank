@@ -59,18 +59,23 @@ import math
 import os
 import pathlib
 import re
+import shutil
 import subprocess
+import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Iterable
+from typing import Any, AsyncIterator, Callable, Iterable
 
 import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
+from starlette.types import Receive, Scope, Send
 
 from plumerank.constants import (
     ALERTS_PER_CAMERA_PER_NIGHT,
@@ -104,7 +109,12 @@ LOG = logging.getLogger("plumerank.api")
 
 REPO_ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 DATA_DIR: pathlib.Path = REPO_ROOT / "data"
+#: The frame root for a manifest that names none. A manifest's own ``local_root`` wins
+#: (CONFUSE lives under ``corpus/mta``) -- the same rule as ``bench.py:_frame_root``.
 CORPUS_DIR: pathlib.Path = DATA_DIR / "corpus" / "figlib"
+#: Sequences dropped from every arm (night frames, whiteouts...). The wall drops them too:
+#: a daylight-only system must not replay the night window the evaluation excluded.
+EXCLUSIONS_FILE: str = "excluded.json"
 RESULTS_DIR: pathlib.Path = REPO_ROOT / "results"
 MODELS_DIR: pathlib.Path = REPO_ROOT / "models"
 EVIDENCE_DIR: pathlib.Path = REPO_ROOT / "web" / "evidence"
@@ -117,6 +127,26 @@ ONNX_PATH: pathlib.Path = MODELS_DIR / "tile_classifier.onnx"
 #: code rather than trusted to whoever writes the next manifest.
 WALL_MANIFESTS: tuple[str, ...] = ("manifest_dev.json", "manifest_confuse.json")
 HOLD_MANIFEST: str = "manifest_hold.json"
+
+#: Where working-resolution frames are cached, or None for no disk cache. systemd's
+#: ``CacheDirectory=plumerank`` exports ``CACHE_DIRECTORY``; ``PLUMERANK_FRAME_CACHE``
+#: overrides it. Read at call time so a test can point it at a tmp dir.
+FRAME_CACHE_DIR: pathlib.Path | None = (
+    pathlib.Path(os.environ["PLUMERANK_FRAME_CACHE"])
+    if os.environ.get("PLUMERANK_FRAME_CACHE")
+    else pathlib.Path(os.environ["CACHE_DIRECTORY"].split(":")[0]) / "frames"
+    if os.environ.get("CACHE_DIRECTORY")
+    else None
+)
+
+#: Worker threads for a tick: frame loading, and stabilise/segment/track per camera. Both
+#: release the GIL in OpenCV and touch only per-camera state; measure() shares
+#: statistic.py's per-shape DIS objects and stays on the tick thread. Two = the t4g's vCPUs.
+LOAD_WORKERS: int = 2
+
+#: Evidence directories are named by replay id (``%Y%m%dT%H%M%SZ``); startup prunes every
+#: one but the current process's, and touches nothing else under EVIDENCE_DIR.
+_REPLAY_ID_RE = re.compile(r"^\d{8}T\d{6}Z$")
 
 # ---------------------------------------------------------------------------------
 # Pacing -- deliberately NOT in constants.py
@@ -419,6 +449,36 @@ def _load_manifest(path: pathlib.Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _frame_root(manifest: dict[str, Any]) -> pathlib.Path:
+    """Where a manifest's frames live: its ``local_root`` under data/, else CORPUS_DIR.
+
+    Hard-coding ``corpus/figlib`` silently skipped all 33 CONFUSE windows (they live under
+    ``corpus/mta``), so the wall replayed fire footage only and its alert rate could not be
+    compared with the budget it was calibrated to on fire-free windows.
+    """
+    local_root = manifest.get("local_root")
+    if not local_root:
+        return CORPUS_DIR
+    return DATA_DIR.joinpath(*str(local_root).split("/"))
+
+
+def _excluded_ids() -> set[str]:
+    """Sequence ids in data/excluded.json (any arm). A missing file excludes nothing."""
+    blob = _load_manifest(DATA_DIR / EXCLUSIONS_FILE)
+    if not blob:
+        return set()
+    records = blob.get("excluded", blob) if isinstance(blob, dict) else blob
+    if isinstance(records, dict):
+        return {str(k) for k in records}
+    out: set[str] = set()
+    for item in records if isinstance(records, list) else []:
+        if isinstance(item, str):
+            out.add(item)
+        elif isinstance(item, dict) and "sequence_id" in item:
+            out.add(str(item["sequence_id"]))
+    return out
+
+
 def _wall_sequences() -> tuple[list[Sequence], str | None]:
     """Every replayable window whose frames are actually on this disk, and the credit line.
 
@@ -429,6 +489,8 @@ def _wall_sequences() -> tuple[list[Sequence], str | None]:
     trust. Enforcing it here means a mis-edited manifest cannot quietly put a held-out
     sequence on screen.
 
+    Sequences in ``data/excluded.json`` are dropped exactly as the evaluation drops them.
+
     A window with any frame missing from disk is skipped rather than truncated: a partly
     fetched sequence would replay a shorter camera-night, and every rate in this project is
     per camera-night.
@@ -437,6 +499,7 @@ def _wall_sequences() -> tuple[list[Sequence], str | None]:
     hold = _load_manifest(DATA_DIR / HOLD_MANIFEST)
     if hold:
         hold_ids = {w["sequence_id"] for w in hold.get("windows", [])}
+    excluded = _excluded_ids()
 
     sequences: list[Sequence] = []
     credit: str | None = None
@@ -446,12 +509,15 @@ def _wall_sequences() -> tuple[list[Sequence], str | None]:
             continue
         credit = credit or manifest.get("credit")
         arm = str(manifest.get("arm", ""))
+        root = _frame_root(manifest)
         for window in manifest.get("windows", []):
             sequence_id = str(window["sequence_id"])
             if sequence_id in hold_ids:
                 LOG.error("refusing HOLD sequence %s on the wall", sequence_id)
                 continue
-            paths = [str(CORPUS_DIR / sequence_id / frame) for frame in window["frames"]]
+            if sequence_id in excluded:
+                continue
+            paths = [str(root / sequence_id / frame) for frame in window["frames"]]
             if not paths or not all(pathlib.Path(p).is_file() for p in paths):
                 continue
             sequences.append(
@@ -466,8 +532,8 @@ def _wall_sequences() -> tuple[list[Sequence], str | None]:
     return sequences, credit
 
 
-def _read_working_frame(path: str) -> np.ndarray:
-    """One corpus JPEG at working resolution, BGR.
+def _decode_working_frame(path: str) -> np.ndarray:
+    """One corpus JPEG at working resolution, BGR -- the definition every cache must match.
 
     INTER_AREA because the source is 3072x2048 and this is a >6x downscale: bilinear would
     alias a thin plume edge into or out of existence, and S3 is a statistic about that edge.
@@ -476,6 +542,54 @@ def _read_working_frame(path: str) -> np.ndarray:
     if frame is None:
         raise ValueError(f"could not decode {path} -- the corpus on this box is damaged")
     return cv2.resize(frame, (WORK_WIDTH, WORK_HEIGHT), interpolation=cv2.INTER_AREA)
+
+
+def _cache_path(path: str) -> pathlib.Path | None:
+    """The cache file for one source frame, keyed on its path, size, mtime and the working
+    size -- so a re-fetched or replaced JPEG can never be served from a stale entry."""
+    if FRAME_CACHE_DIR is None:
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    ident = f"{os.path.abspath(path)}|{st.st_size}|{st.st_mtime_ns}|{WORK_WIDTH}x{WORK_HEIGHT}"
+    key = hashlib.sha256(ident.encode("utf-8")).hexdigest()
+    return FRAME_CACHE_DIR / key[:2] / f"{key}.npy"
+
+
+def _read_working_frame(path: str) -> np.ndarray:
+    """``_decode_working_frame``, through a lossless on-disk cache when one is configured.
+
+    Decoding a 3072x2048 JPEG is most of a tick: 60-odd of them a second is more than one
+    Graviton core can do, and the wall ran ~2.5x slower than the clock it printed. The
+    cache stores the decoded, resized array as ``.npy`` -- byte-identical to what
+    ``_decode_working_frame`` returns, so the pipeline sees exactly the pixels bench.py
+    sees -- and is filled on first read. Any cache failure falls back to decoding.
+    """
+    cached = _cache_path(path)
+    if cached is not None:
+        try:
+            arr = np.load(cached, allow_pickle=False)
+        except (OSError, ValueError):
+            arr = None
+        if (
+            arr is not None
+            and arr.shape == (WORK_HEIGHT, WORK_WIDTH, 3)
+            and arr.dtype == np.uint8
+        ):
+            return arr
+    frame = _decode_working_frame(path)
+    if cached is not None:
+        try:
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=cached.parent, suffix=".tmp")
+            with os.fdopen(fd, "wb") as fh:
+                np.save(fh, frame, allow_pickle=False)
+            os.replace(tmp, cached)
+        except OSError as exc:
+            LOG.warning("frame cache write failed for %s: %s", path, exc)
+    return frame
 
 
 def _benchmark_file() -> pathlib.Path | None:
@@ -498,12 +612,60 @@ def _benchmark_file() -> pathlib.Path | None:
 _DEV_SHIPPED = re.compile(r"^arm_dev_\d{4}-\d{2}-\d{2}\.json$")
 
 
+#: Why each shipped DEV file was passed over on the last ``_development_file`` scan,
+#: newest first -- the probe's reason string when none is usable.
+_DEV_REJECTIONS: list[str] = []
+
+
+def _development_rejection(path: pathlib.Path) -> str | None:
+    """Why this DEV payload cannot calibrate the wall, or None when it can."""
+    try:
+        dev = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"unreadable ({type(exc).__name__})"
+    if not isinstance(dev, dict):
+        return "not a JSON object"
+    calibration = dev.get("calibration")
+    if not (isinstance(calibration, dict) and calibration.get("realised_on") == "confuse"):
+        return "its threshold was not solved on the confusion set"
+    if not (isinstance(dev.get("baseline"), dict) and dev["baseline"].get("shipped")):
+        return "not the shipped configuration"
+    if dev.get("background") != "mog2" or (
+        dev.get("budget_alerts_per_camera_night") != BUDGET_ALERTS_PER_CAMERA_NIGHT
+    ):
+        return "solved for another background or budget than the wall runs"
+    run = dev.get("run")
+    recorded = run.get("constants_sha256") if isinstance(run, dict) else None
+    if recorded != freeze_hash():
+        return (
+            "development run predates the running constants "
+            f"({str(recorded)[:12]} vs {freeze_hash()[:12]}) -- re-run the DEV bench"
+        )
+    return None
+
+
 def _development_file() -> pathlib.Path | None:
-    """The newest shipped-configuration DEV payload, or None."""
+    """The newest usable shipped-configuration DEV payload, or None.
+
+    Newest first, and an unusable file falls through to the next older one rather than
+    taking the wall down: a same-day ablation or a stale run must not cost the demo a
+    threshold an older, valid run already solved. Rejections are kept in
+    ``_DEV_REJECTIONS`` so the probe can say why when none is usable.
+    """
+    _DEV_REJECTIONS.clear()
     if not RESULTS_DIR.is_dir():
         return None
-    candidates = sorted(p for p in RESULTS_DIR.glob("arm_dev_*.json") if _DEV_SHIPPED.match(p.name))
-    return candidates[-1] if candidates else None
+    candidates = sorted(
+        (p for p in RESULTS_DIR.glob("arm_dev_*.json") if _DEV_SHIPPED.match(p.name)),
+        reverse=True,
+    )
+    for path in candidates:
+        why = _development_rejection(path)
+        if why is None:
+            return path
+        LOG.warning("development file %s not used: %s", path.name, why)
+        _DEV_REJECTIONS.append(f"{path.name}: {why}")
+    return None
 
 
 def calibration_kind(source: str | None) -> str | None:
@@ -532,16 +694,6 @@ def _calibrated_threshold() -> tuple[float | None, str | None]:
         # in-sample and are never presented as the headline.
         path = _development_file()
         if path is None:
-            return None, None
-        try:
-            dev = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            LOG.error("development file %s is unreadable: %s", path, exc)
-            return None, None
-        calibration = dev.get("calibration")
-        if not (isinstance(calibration, dict) and calibration.get("realised_on") == "confuse"):
-            return None, None
-        if not (isinstance(dev.get("baseline"), dict) and dev["baseline"].get("shipped")):
             return None, None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -757,6 +909,17 @@ class Replay:
         self._thumb_cursor: int = 0
         self._budget: BudgetState | None = None
         self._telemetry = Telemetry(enabled=enabled_by_environment())
+        #: Roster keys of the fire-free (CONFUSE) windows, and their uncapped threshold
+        #: crossings this camera-night: the published RealisedAlertRate is over these alone.
+        self._confuse_keys: set[str] = set()
+        self._alerts_confuse: int = 0
+        #: Measured seconds between tick starts (EWMA), beside the configured tick_seconds.
+        self.tick_seconds_measured: float | None = None
+        self._last_tick_started: float | None = None
+        #: Walls admitted by the route but not yet attached (see watchlist) -- counted
+        #: against MAX_VIEWERS so a burst of connects cannot all pass the check.
+        self._reserved: int = 0
+        self._loader: ThreadPoolExecutor | None = None
 
     # -----------------------------------------------------------------------------
     # Availability
@@ -797,6 +960,7 @@ class Replay:
         self._credit = None
         self._t0_index = None
         self._frame_count = 0
+        self._confuse_keys = set()
 
         try:
             sequences, credit = _wall_sequences()
@@ -819,6 +983,11 @@ class Replay:
             # writes results/bench_<date>.json. The threshold inside it is solved on
             # CONFUSE, but running anything "on the CONFUSE arm" writes a different file
             # (arm_confuse_<date>.json) that this route never reads.
+            if _benchmark_file() is None and _DEV_REJECTIONS:
+                return (
+                    "no usable calibrated threshold -- the wall will not invent one. "
+                    f"Newest development run: {_DEV_REJECTIONS[0]}"
+                )
             return (
                 "no calibrated threshold in results/ yet -- the wall will not invent one. "
                 "It needs the threshold solved by the held-out benchmark run "
@@ -831,6 +1000,7 @@ class Replay:
             return f"tile classifier unavailable: {type(exc).__name__}: {exc}"
 
         self._cameras, self._t0_index, self._frame_count = _align(sequences)
+        self._confuse_keys = {c.camera_id for c in self._cameras if c.sequence.arm == "confuse"}
         self._threshold = threshold
         self._threshold_source = source
         self._classifier = classifier
@@ -876,6 +1046,7 @@ class Replay:
             "frame_count": self._frame_count,
             "last_tick": self._last_tick_iso,
             "tick_seconds": self.tick_seconds,
+            "tick_seconds_measured": self.tick_seconds_measured,
             "idle_stop_seconds": self.idle_stop_seconds,
         }
 
@@ -914,8 +1085,17 @@ class Replay:
         return len(self._viewers)
 
     def at_capacity(self) -> bool:
-        """True when one more viewer would exceed ``MAX_VIEWERS``."""
-        return len(self._viewers) >= MAX_VIEWERS
+        """True when one more viewer would exceed ``MAX_VIEWERS``, counting admitted walls
+        that have not attached yet."""
+        return len(self._viewers) + self._reserved >= MAX_VIEWERS
+
+    def reserve(self) -> None:
+        """Hold one slot for a wall the route has admitted but not yet attached."""
+        self._reserved += 1
+
+    def unreserve(self) -> None:
+        """Give back a reserved slot (the wall attached, or never got that far)."""
+        self._reserved = max(0, self._reserved - 1)
 
     def detach(self, queue: asyncio.Queue[str]) -> None:
         """Drop one viewer. The loop notices on its next pass and starts its idle timer.
@@ -943,6 +1123,8 @@ class Replay:
         self._frame_index = 0
         self._ticks = 0
         self._alerts_uncapped = 0
+        self._alerts_confuse = 0
+        self._last_tick_started = None
         self._last_payload = None
         self._invocations_at_night_start = (
             self._classifier.invocations if self._classifier is not None else 0
@@ -970,6 +1152,7 @@ class Replay:
         try:
             while True:
                 if not self._viewers:
+                    self._last_tick_started = None
                     now = time.monotonic()
                     idle_since = now if idle_since is None else idle_since
                     if now - idle_since >= self.idle_stop_seconds:
@@ -986,6 +1169,7 @@ class Replay:
                     continue
 
                 started = time.monotonic()
+                self._observe_tick_start(started)
                 payload = await asyncio.to_thread(self._tick)
                 self._publish(payload)
                 # The remainder of the tick, not a flat sleep: at 40 cameras the pipeline
@@ -999,6 +1183,35 @@ class Replay:
             self._unavailable = f"replay loop failed: {type(exc).__name__}: {exc}"
         finally:
             self._task = None
+
+    def _observe_tick_start(self, started: float) -> None:
+        """Fold one tick-to-tick interval into the published measured period (EWMA).
+
+        The configured ``tick_seconds`` is a floor, not a promise: when the pipeline takes
+        longer than it, the wall runs slower than the clock it prints, and /health says so.
+        """
+        last, self._last_tick_started = self._last_tick_started, started
+        if last is None:
+            return
+        delta = started - last
+        previous = self.tick_seconds_measured
+        self.tick_seconds_measured = round(
+            delta if previous is None else 0.8 * previous + 0.2 * delta, 3
+        )
+
+    def _map(self, fn: Callable[[Any], Any], items: list[Any]) -> list[Any]:
+        """``fn`` over ``items`` on LOAD_WORKERS threads, results in input order."""
+        if LOAD_WORKERS <= 1 or len(items) < 2:
+            return [fn(item) for item in items]
+        if self._loader is None:
+            self._loader = ThreadPoolExecutor(
+                max_workers=LOAD_WORKERS, thread_name_prefix="plumerank-work"
+            )
+        return list(self._loader.map(fn, items))
+
+    def _load_frames(self, paths: list[str]) -> list[np.ndarray]:
+        """Every camera's frame for this tick, loaded on LOAD_WORKERS threads, in order."""
+        return self._map(_read_working_frame, paths)
 
     def _tick(self) -> dict[str, Any]:
         """One simulated minute across the whole roster. Blocking; runs in a worker thread.
@@ -1016,17 +1229,25 @@ class Replay:
         frames: dict[str, np.ndarray] = {}
         picked: dict[str, tuple[Component, Track, Stats]] = {}
 
-        for camera in self._cameras:
-            bgr = _read_working_frame(camera.sequence.frame_paths[index + camera.frame_offset])
+        images = self._load_frames(
+            [c.sequence.frame_paths[index + c.frame_offset] for c in self._cameras]
+        )
+        # Two phases. The first -- stabilise, segment, track -- touches only each camera's
+        # own state (its MOG2, CLAHE and tracker) and runs on the loader threads, because
+        # it is most of a tick's CPU. The second -- measure() -- shares statistic.py's
+        # per-shape DIS objects across cameras, so it stays on this thread, in roster order.
+        def segment_one(item: tuple[_Camera, np.ndarray]) -> tuple[Any, ...]:
+            camera, bgr = item
             grey = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
             # The first frame of a replay has no predecessor to register against, so it is
             # its own reference. Warping it against nothing would be a fabricated shift.
             work = grey if camera.prev_grey is None else stabilise(camera.prev_grey, grey).frame
-
             components = camera.segmenter.apply(work)
             tracks = camera.tracker.update(index, components)
-            best = _best_track(components, tracks)
+            return camera, bgr, grey, work, _best_track(components, tracks)
 
+        segmented = self._map(segment_one, list(zip(self._cameras, images)))
+        for camera, bgr, grey, work, best in segmented:
             if best is None:
                 # No foreground is not a missing measurement, it is a quiet camera: it scores
                 # sigmoid(FUSION_BIAS) and stays on the wall. Dropping it would make the
@@ -1063,7 +1284,9 @@ class Replay:
         entries = self._write_evidence(emit(final, threshold, budget), frames, picked, index)
         self._write_thumbnails(entries, frames)
 
-        self._alerts_uncapped += sum(1 for s in final if s.hazard >= threshold)
+        crossed = [s.camera_id for s in final if s.hazard >= threshold]
+        self._alerts_uncapped += len(crossed)
+        self._alerts_confuse += sum(1 for key in crossed if key in self._confuse_keys)
         self._frame_index = (index + 1) % self._frame_count
         self._ticks += 1
         self._last_tick_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -1204,37 +1427,58 @@ class Replay:
     def _reset_camera_night(self) -> None:
         """A new night gets a new budget. The 80 slots are per camera-night, not per process."""
         self._alerts_uncapped = 0
+        self._alerts_confuse = 0
         self._invocations_at_night_start = (
             self._classifier.invocations if self._classifier is not None else 0
         )
         self._budget = BudgetState([c.camera_id for c in self._cameras])
         self._baseline.reset()
 
-    def _publish_telemetry(self) -> None:
-        """The two measured rates, once per completed camera-night.
+    def night_metrics(self) -> dict[str, float]:
+        """The metrics one completed camera-night publishes, computed (not sent).
 
-        ``RealisedAlertRate`` is the **uncapped** count of threshold crossings, which is the
-        quantity ``solve_threshold`` was calibrated on. ``emit``'s ``alerted`` flag is the
-        budget-capped one, and publishing that instead would make every threshold look
-        compliant -- the drift alarm would then be watching a number that cannot drift.
+        ``RealisedAlertRate`` is the **uncapped** count of threshold crossings -- the quantity
+        ``solve_threshold`` was calibrated on -- and it is taken over the fire-free CONFUSE
+        windows ONLY. The threshold is solved on fire-free windows to 2.0 alerts per
+        camera-window; the DEV windows on the same wall are fire footage that is *supposed*
+        to alert after ignition, so a rate over the whole roster sits above budget by design
+        and the drift alarm fired every time anyone watched. With no CONFUSE window on the
+        roster the rate is not published at all. ``EscalationFraction`` stays over the whole
+        roster: it is the model-call cost of the wall as it runs.
         """
+        out: dict[str, float] = {}
         if not self._cameras or self._frame_count <= 0:
-            return
-        # Every camera on the wall is replayed for the same _frame_count -- _align()
-        # trims each window to a common length so one ignition clock is honest across a
-        # roster whose FIgLib windows are 80 and 81 frames -- so the lengths here really
-        # are uniform and the list comprehension is not hiding a mixed-length corpus.
-        rate = alerts_per_camera_night(
-            self._alerts_uncapped, [self._frame_count] * len(self._cameras)
-        )
-        self._telemetry.put("RealisedAlertRate", rate, unit="Count")
+            return out
+        if self._confuse_keys:
+            # Every camera on the wall is replayed for the same _frame_count (_align trims
+            # to a common length), so the lengths really are uniform.
+            out["RealisedAlertRate"] = alerts_per_camera_night(
+                self._alerts_confuse, [self._frame_count] * len(self._confuse_keys)
+            )
         if self._classifier is not None:
             # Differenced against the count at the start of this night, not the lifetime
-            # total: the published fraction is per camera-night, and a lifetime numerator
-            # over one night's denominator would climb with uptime rather than measure it.
+            # total: the published fraction is per camera-night.
             calls = self._classifier.invocations - self._invocations_at_night_start
-            examined = len(self._cameras) * self._frame_count
-            self._telemetry.put("EscalationFraction", calls / examined, unit="None")
+            out["EscalationFraction"] = calls / (len(self._cameras) * self._frame_count)
+        return out
+
+    def _publish_telemetry(self) -> None:
+        """Send ``night_metrics`` on a background thread, once per completed camera-night.
+
+        Off the tick thread: a slow or unreachable CloudWatch must cost the wall nothing,
+        and put_metric_data is a network call (telemetry.py also bounds it to one short
+        attempt).
+        """
+        metrics = self.night_metrics()
+        if not metrics:
+            return
+        units = {"RealisedAlertRate": "Count", "EscalationFraction": "None"}
+
+        def send() -> None:
+            for name, value in metrics.items():
+                self._telemetry.put(name, value, unit=units[name])
+
+        threading.Thread(target=send, name="plumerank-telemetry", daemon=True).start()
 
     # -----------------------------------------------------------------------------
     # Broadcast
@@ -1300,6 +1544,7 @@ class Replay:
             "seconds_per_frame": SECONDS_PER_FRAME,
             "minutes_per_frame": MINUTES_PER_FRAME,
             "tick_seconds": self.tick_seconds,
+            "tick_seconds_measured": self.tick_seconds_measured,
             "warmup_frames": WARMUP_FRAMES,
             "top_k": TOP_K,
             "budget_target": BUDGET_ALERTS_PER_CAMERA_NIGHT,
@@ -1347,6 +1592,60 @@ async def _heartbeat() -> None:
         await asyncio.sleep(HEARTBEAT_SECONDS)
 
 
+def warm_frame_cache(stop: threading.Event) -> int:
+    """Fill the frame cache for every wall frame, once, at the lowest CPU priority.
+
+    The first replay after a deploy would otherwise decode every full-size JPEG on the tick
+    path (~2 s a tick on a laptop, more on Graviton). Run on a daemon thread at nice 19, so
+    a judge's wall always wins the CPU; a frame already cached costs one stat(). Returns how
+    many frames it decoded.
+    """
+    if FRAME_CACHE_DIR is None:
+        return 0
+    if hasattr(os, "setpriority") and hasattr(threading, "get_native_id"):
+        with contextlib.suppress(OSError):  # per-thread nice on Linux; harmless elsewhere
+            os.setpriority(os.PRIO_PROCESS, threading.get_native_id(), 19)
+    try:
+        sequences, _ = _wall_sequences()
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        LOG.warning("frame cache warm-up skipped: %s", exc)
+        return 0
+    decoded = 0
+    for sequence in sequences:
+        for path in sequence.frame_paths:
+            if stop.is_set():
+                return decoded
+            cached = _cache_path(path)
+            if cached is None or cached.is_file():
+                continue
+            try:
+                _read_working_frame(path)
+                decoded += 1
+            except ValueError as exc:
+                LOG.warning("frame cache warm-up: %s", exc)
+    LOG.info("frame cache warm: %d frames decoded", decoded)
+    return decoded
+
+
+def prune_evidence(keep: str) -> list[str]:
+    """Delete every replay-id evidence directory under EVIDENCE_DIR except ``keep``.
+
+    The replay id is fixed per process, so a running wall overwrites in place; but every
+    process start (deploy, crash restart, reboot) used to leave its predecessor's directory
+    -- up to ~24 MB -- behind forever. Only names shaped like a replay id are touched.
+    """
+    removed: list[str] = []
+    if not EVIDENCE_DIR.is_dir():
+        return removed
+    for child in EVIDENCE_DIR.iterdir():
+        if child.name == keep or not _REPLAY_ID_RE.match(child.name):
+            continue
+        if child.is_dir() and not child.is_symlink():
+            shutil.rmtree(child, ignore_errors=True)
+            removed.append(child.name)
+    return removed
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # One OpenCV thread for the whole process, set before anything can do CV work.
@@ -1356,12 +1655,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # has nothing to do with the pipeline -- and on a burstable instance, contention is
     # spend. Parallelism belongs across cameras, not inside one frame.
     app.state.opencv_threads = pin_opencv_threads()
+    with contextlib.suppress(OSError):
+        pruned = prune_evidence(REPLAY.replay_id)
+        if pruned:
+            LOG.info("pruned %d stale evidence directories", len(pruned))
     app.state.started_at = time.time()
     app.state.started_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     beat = asyncio.create_task(_heartbeat(), name="plumerank-heartbeat")
+    warm_stop = threading.Event()
+    threading.Thread(
+        target=warm_frame_cache, args=(warm_stop,), name="plumerank-cache-warm", daemon=True
+    ).start()
     try:
         yield
     finally:
+        warm_stop.set()
         beat.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await beat
@@ -1480,6 +1788,54 @@ def client_address(request: Request) -> str:
     return peer
 
 
+class _Slot:
+    """One admitted wall's claim on the caps, released exactly once.
+
+    Taken in the handler, before the response exists, so a burst of simultaneous connects
+    cannot all pass the cap check and then all attach. Released by ``_WallResponse`` when
+    the response finishes for any reason -- including a client that vanished before the
+    body was ever iterated, where the generator's own ``finally`` would never run.
+    """
+
+    __slots__ = ("client", "_reserved", "_released")
+
+    def __init__(self, client: str) -> None:
+        self.client = client
+        _CLIENT_VIEWERS[client] += 1
+        REPLAY.reserve()
+        self._reserved = True
+        self._released = False
+
+    def attached(self) -> None:
+        """The wall is now a counted viewer; its reservation is no longer needed."""
+        if self._reserved:
+            self._reserved = False
+            REPLAY.unreserve()
+
+    def release(self) -> None:
+        if self._released:
+            return
+        self._released = True
+        self.attached()
+        _CLIENT_VIEWERS[self.client] -= 1
+        if _CLIENT_VIEWERS[self.client] <= 0:
+            del _CLIENT_VIEWERS[self.client]
+
+
+class _WallResponse(StreamingResponse):
+    """A StreamingResponse that releases its ``_Slot`` however the response ends."""
+
+    def __init__(self, content: AsyncIterator[str], release: Callable[[], None], **kwargs: Any) -> None:
+        super().__init__(content, **kwargs)
+        self._release = release
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            self._release()
+
+
 @app.get("/api/watchlist")
 async def watchlist(request: Request) -> StreamingResponse:
     """The live wall, as server-sent events: one ``meta``, then one ``tick`` per minute."""
@@ -1499,9 +1855,11 @@ async def watchlist(request: Request) -> StreamingResponse:
             headers={"Retry-After": "30"},
         )
 
+    slot = _Slot(client)
+
     async def stream() -> AsyncIterator[str]:
-        _CLIENT_VIEWERS[client] += 1
         queue = await REPLAY.attach()
+        slot.attached()
         loop = asyncio.get_running_loop()
         quiet_since = loop.time()
         try:
@@ -1527,9 +1885,6 @@ async def watchlist(request: Request) -> StreamingResponse:
                 if await request.is_disconnected():
                     return
         finally:
-            _CLIENT_VIEWERS[client] -= 1
-            if _CLIENT_VIEWERS[client] <= 0:
-                del _CLIENT_VIEWERS[client]
             # The finally is the disconnect detector that actually works: a client that
             # vanishes without a close frame is noticed when the generator is closed, which
             # happens whether it ended, raised or was cancelled. Polling is_disconnected
@@ -1537,8 +1892,9 @@ async def watchlist(request: Request) -> StreamingResponse:
             # judging window.
             REPLAY.detach(queue)
 
-    return StreamingResponse(
+    return _WallResponse(
         stream(),
+        slot.release,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

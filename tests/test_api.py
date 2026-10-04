@@ -188,7 +188,10 @@ def test_health_is_well_formed_before_any_replay_has_run(client: TestClient) -> 
 
     assert body["status"] == "ok"
     assert body["uptime_seconds"] >= 0.0
-    assert body["replay"]["state"] == "idle"
+    # Nothing is replaying yet: "idle" on a box that can run, "unavailable" on one that
+    # cannot -- never "running".
+    expected = "idle" if body["live_pipeline"]["available"] else "unavailable"
+    assert body["replay"]["state"] == expected
     assert body["replay"]["viewers"] == 0
     assert body["replay"]["last_tick"] is None
     assert body["replay"]["ticks"] == 0
@@ -444,7 +447,7 @@ async def _drain_replay() -> None:
     mid-await and would leave the process-wide singleton holding a task bound to a dead
     loop -- which the next test would inherit.
     """
-    await _wait_for(lambda: main.REPLAY.status()["state"] == "idle", timeout=5.0)
+    await _wait_for(lambda: main.REPLAY._task is None, timeout=5.0)
     await main.REPLAY.stop()
 
 
@@ -576,17 +579,19 @@ def test_the_loop_starts_on_connect_and_is_torn_down_on_disconnect(
     """
 
     async def run() -> tuple[dict[str, Any], bool, bool]:
-        assert main.REPLAY.status()["state"] == "idle"
+        assert main.REPLAY._task is None, "no loop may run before anyone connects"
         async with _Viewer() as viewer:
             await viewer.next_event()
             attached = main.REPLAY.status()
         gone = await _wait_for(lambda: main.REPLAY.status()["viewers"] == 0)
-        stopped = await _wait_for(lambda: main.REPLAY.status()["state"] == "idle")
+        stopped = await _wait_for(lambda: main.REPLAY._task is None)
         await _drain_replay()
         return attached, gone, stopped
 
     attached, gone, stopped = asyncio.run(run())
-    assert attached["state"] == "running"
+    # "running" on a box that can replay; on one that cannot the loop still holds the
+    # stream open, and the published state says why it computes nothing.
+    assert attached["state"] in ("running", "unavailable")
     assert attached["viewers"] == 1
     assert gone, "a disconnected viewer was still counted"
     assert stopped, "the loop outlived its last viewer"
@@ -886,3 +891,187 @@ def test_repeated_cameras_get_url_safe_roster_keys() -> None:
     ]
     cameras, _, _ = main._align(seqs)
     assert [c.camera_id for c in cameras] == ["cp-s-mobo-c~1", "cp-s-mobo-c~2"]
+
+
+# ---------------------------------------------------------------------------------
+# Round-2 audit: development fallback, roster, frame cache, caps, pruning, telemetry
+# ---------------------------------------------------------------------------------
+
+
+def _dev_payload(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "background": "mog2",
+        "budget_alerts_per_camera_night": main.BUDGET_ALERTS_PER_CAMERA_NIGHT,
+        "baseline": {"shipped": True},
+        "calibration": {"realised_on": "confuse", "threshold": 0.84},
+        "run": {"constants_sha256": main.freeze_hash()},
+    }
+    body.update(overrides)
+    return body
+
+
+def test_calibration_kind_names_the_run() -> None:
+    assert main.calibration_kind(None) is None
+    assert main.calibration_kind("results/bench_2026-10-20.json:calibration.threshold") == "held-out"
+    assert main.calibration_kind("results/arm_dev_2026-10-04.json:calibration.threshold") == "development"
+
+
+def test_the_development_fallback_uses_the_newest_valid_shipped_run(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    (tmp_path / "arm_dev_2026-10-01.json").write_text(json.dumps(_dev_payload()))
+    # Newest by name, but solved under constants that are no longer running.
+    (tmp_path / "arm_dev_2026-10-04.json").write_text(
+        json.dumps(_dev_payload(run={"constants_sha256": "0" * 64}))
+    )
+    # An ablation cell never qualifies, whatever its date.
+    (tmp_path / "arm_dev_s4off_2026-10-09.json").write_text(json.dumps(_dev_payload()))
+    assert main._development_file() == tmp_path / "arm_dev_2026-10-01.json"
+    assert "predates the running constants" in main._DEV_REJECTIONS[0]
+    value, source = main._calibrated_threshold()
+    assert value == pytest.approx(0.84)
+    assert source is not None and "arm_dev_2026-10-01.json" in source
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"run": {"constants_sha256": "0" * 64}},
+        {"background": "gsoc"},
+        {"budget_alerts_per_camera_night": 3.0},
+        {"baseline": {"shipped": False}},
+        {"calibration": {"realised_on": "dev", "threshold": 0.84}},
+    ],
+)
+def test_an_unusable_development_run_takes_the_wall_down_with_its_reason(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, reprobe: None, override: dict[str, Any]
+) -> None:
+    monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    (tmp_path / "arm_dev_2026-10-04.json").write_text(json.dumps(_dev_payload(**override)))
+    assert main._development_file() is None
+    assert main._calibrated_threshold() == (None, None)
+    monkeypatch.setattr(
+        main, "_wall_sequences",
+        lambda: ([main.Sequence(sequence_id="s", camera_id="c", arm="dev", frame_paths=["x"], t0_index=None)], None),
+    )
+    main.REPLAY.probe()
+    assert not main.REPLAY.available
+    assert "Newest development run: arm_dev_2026-10-04.json" in main.REPLAY.live_pipeline()["detail"]
+
+
+def test_the_wall_reads_confuse_frames_from_their_local_root_and_drops_exclusions(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def write(root: pathlib.Path, sequence_id: str) -> None:
+        (root / sequence_id).mkdir(parents=True)
+        (root / sequence_id / "f.jpg").write_bytes(b"x")
+
+    figlib, mta = tmp_path / "corpus" / "figlib", tmp_path / "corpus" / "mta"
+    write(figlib, "fire-a")
+    write(figlib, "night-b")
+    write(mta, "confuse-c")
+    window = lambda sid: {"sequence_id": sid, "camera_id": f"cam-{sid}", "t0_index": None, "frames": ["f.jpg"]}  # noqa: E731
+    (tmp_path / "manifest_dev.json").write_text(
+        json.dumps({"arm": "dev", "windows": [window("fire-a"), window("night-b")]})
+    )
+    (tmp_path / "manifest_confuse.json").write_text(
+        json.dumps({"arm": "confuse", "local_root": "corpus/mta", "windows": [window("confuse-c")]})
+    )
+    (tmp_path / "excluded.json").write_text(
+        json.dumps({"excluded": [{"sequence_id": "night-b", "reason": "night frame"}]})
+    )
+    monkeypatch.setattr(main, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(main, "CORPUS_DIR", figlib)
+    sequences, _ = main._wall_sequences()
+    assert [(s.sequence_id, s.arm) for s in sequences] == [("fire-a", "dev"), ("confuse-c", "confuse")]
+
+
+def test_the_frame_cache_is_pixel_identical_and_is_read_back(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frame = sorted((main.REPO_ROOT / "data" / "micro").rglob("*.jpg"))[0]
+    direct = main._decode_working_frame(str(frame))
+    monkeypatch.setattr(main, "FRAME_CACHE_DIR", tmp_path / "cache")
+    first = main._read_working_frame(str(frame))
+    assert np.array_equal(first, direct) and first.dtype == direct.dtype
+    assert len(list((tmp_path / "cache").rglob("*.npy"))) == 1
+
+    def no_decode(_path: str) -> np.ndarray:
+        raise AssertionError("a cached frame must not be decoded again")
+
+    monkeypatch.setattr(main, "_decode_working_frame", no_decode)
+    assert np.array_equal(main._read_working_frame(str(frame)), direct)
+
+
+def test_a_burst_of_connects_cannot_exceed_the_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slots are reserved before the response exists, so two admits cannot share one."""
+    from starlette.requests import Request as StarletteRequest
+
+    monkeypatch.setattr(main, "MAX_VIEWERS", 1)
+    req = StarletteRequest(
+        {"type": "http", "client": ("198.51.100.7", 1), "headers": [], "method": "GET", "path": "/"}
+    )
+
+    async def run() -> None:
+        first = await main.watchlist(req)
+        with pytest.raises(main.HTTPException) as refused:
+            await main.watchlist(req)
+        assert refused.value.status_code == 503
+        first._release()  # the response ended before its body was iterated
+        assert main.REPLAY._reserved == 0
+        assert "198.51.100.7" not in main._CLIENT_VIEWERS
+
+    asyncio.run(run())
+
+
+def test_startup_prunes_only_stale_replay_directories(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path)
+    for name in ("20261001T000000Z", "20261004T075517Z", "keep-me"):
+        (tmp_path / name).mkdir()
+    (tmp_path / ".gitkeep").write_text("")
+    assert main.prune_evidence("20261004T075517Z") == ["20261001T000000Z"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".gitkeep", "20261004T075517Z", "keep-me"]
+
+
+def test_the_alert_rate_is_published_over_fire_free_windows_only() -> None:
+    replay = main.Replay()
+    seq = lambda sid, arm: main.Sequence(sequence_id=sid, camera_id=sid, arm=arm, frame_paths=["x"] * 81, t0_index=None)  # noqa: E731
+    replay._cameras = [main._Camera(seq("fire", "dev")), main._Camera(seq("calm", "confuse"))]
+    replay._confuse_keys = {"calm"}
+    replay._frame_count = 81
+    replay._alerts_uncapped = 40  # the fire window alerting after ignition, as designed
+    replay._alerts_confuse = 2
+    metrics = replay.night_metrics()
+    assert metrics["RealisedAlertRate"] == pytest.approx(2.0)
+    replay._confuse_keys = set()
+    assert "RealisedAlertRate" not in replay.night_metrics()
+
+
+def test_publishing_telemetry_never_blocks_the_tick(monkeypatch: pytest.MonkeyPatch) -> None:
+    replay = main.Replay()
+    replay._cameras = [main._Camera(main.Sequence(sequence_id="c", camera_id="c", arm="confuse", frame_paths=["x"], t0_index=None))]
+    replay._confuse_keys = {"c"}
+    replay._frame_count = 81
+    released = __import__("threading").Event()
+
+    class SlowSink:
+        def put(self, *a: Any, **k: Any) -> bool:
+            released.wait(5)
+            return True
+
+    replay._telemetry = SlowSink()  # type: ignore[assignment]
+    started = time.monotonic()
+    replay._publish_telemetry()
+    assert time.monotonic() - started < 0.5, "a slow CloudWatch stalled the tick"
+    released.set()
+
+
+def test_the_measured_tick_period_is_published() -> None:
+    replay = main.Replay()
+    for t in (0.0, 2.5, 5.0, 7.5):
+        replay._observe_tick_start(t)
+    assert replay.tick_seconds_measured == pytest.approx(2.5)
+    assert replay.status()["tick_seconds_measured"] == pytest.approx(2.5)

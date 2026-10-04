@@ -7,7 +7,8 @@ responsible thing is to put the *realised* rate on a dashboard with a drift alar
 it, rather than to publish a calibration and hope it holds. Three metrics and no fourth:
 
 * ``RealisedAlertRate``    -- alerts per camera-night, against the 2.0 target.
-* ``EscalationFraction``   -- the measured ~1%, so the cost claim cannot silently rot.
+* ``EscalationFraction``   -- the measured fraction (~2% on DEV), so the cost claim cannot
+  silently rot.
 * ``Heartbeat``            -- the alarm fires on *silence*, not on events. An alarm that
   only fires when something happens cannot tell "nothing happened" from "the box died".
 
@@ -44,7 +45,7 @@ from typing import Any, Callable
 
 from .constants import CLOUDWATCH_NAMESPACE
 
-__all__ = ["Telemetry", "METRICS", "enabled_by_environment"]
+__all__ = ["Telemetry", "METRICS", "enabled_by_environment", "instance_dimensions"]
 
 LOG = logging.getLogger(__name__)
 
@@ -71,6 +72,24 @@ RETRY_AFTER_SECONDS: float = 300.0
 TELEMETRY_ENV: str = "PLUMERANK_TELEMETRY"
 
 
+#: The box's EC2 instance id, written into the env file by deploy/bootstrap.sh from IMDS.
+#: When set, every datapoint carries an ``InstanceId`` dimension and deploy/alarms.sh
+#: alarms on that dimension -- so no other publisher, however configured, can keep this
+#: box's heartbeat alarm green.
+INSTANCE_ENV: str = "PLUMERANK_INSTANCE_ID"
+
+#: One short attempt per put. A slow or unreachable endpoint must cost a caller seconds,
+#: not boto3's default retry ladder.
+CONNECT_TIMEOUT_SECONDS: float = 2.0
+READ_TIMEOUT_SECONDS: float = 3.0
+
+
+def instance_dimensions() -> list[dict[str, str]]:
+    """``[{"Name": "InstanceId", "Value": ...}]`` when the box set one, else ``[]``."""
+    value = os.environ.get(INSTANCE_ENV, "").strip()
+    return [{"Name": "InstanceId", "Value": value}] if value else []
+
+
 def enabled_by_environment() -> bool:
     """True only when ``PLUMERANK_TELEMETRY`` is exactly ``1``."""
     return os.environ.get(TELEMETRY_ENV, "").strip() == "1"
@@ -88,8 +107,17 @@ def region() -> str:
 def _cloudwatch_client() -> Any:
     """Built here, in one named function, so tests can replace it without touching AWS."""
     import boto3
+    from botocore.config import Config
 
-    return boto3.client("cloudwatch", region_name=region())
+    return boto3.client(
+        "cloudwatch",
+        region_name=region(),
+        config=Config(
+            connect_timeout=CONNECT_TIMEOUT_SECONDS,
+            read_timeout=READ_TIMEOUT_SECONDS,
+            retries={"max_attempts": 1, "mode": "standard"},
+        ),
+    )
 
 
 class Telemetry:
@@ -152,11 +180,12 @@ class Telemetry:
         if not math.isfinite(value):
             LOG.warning("refusing non-finite value %r for %s", value, metric)
             return False
+        datum: dict[str, Any] = {"MetricName": metric, "Value": float(value), "Unit": unit}
+        dimensions = instance_dimensions()
+        if dimensions:
+            datum["Dimensions"] = dimensions
         try:
-            self._client.put_metric_data(
-                Namespace=self.namespace,
-                MetricData=[{"MetricName": metric, "Value": float(value), "Unit": unit}],
-            )
+            self._client.put_metric_data(Namespace=self.namespace, MetricData=[datum])
         except Exception as exc:
             self._pause(f"{type(exc).__name__} on {metric}: {exc}")
             return False

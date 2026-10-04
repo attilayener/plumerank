@@ -424,16 +424,22 @@ created from the operator side, because `cloudwatch:PutMetricAlarm` is not -- an
 not be -- in the instance profile:
 
 ```bash
-bash deploy/alarms.sh                                   # uses $AWS_REGION from section 0
-# optional: PR_ALARM_SNS_ARN=arn:aws:sns:us-west-2:<ACCOUNT_ID>:plumerank bash deploy/alarms.sh
+PR_EIP=44.242.91.201 bash deploy/alarms.sh              # uses $AWS_REGION from section 0
+# or PR_INSTANCE_ID=i-... ; optional: PR_ALARM_SNS_ARN=arn:aws:sns:us-west-2:<ACCOUNT_ID>:plumerank
 aws cloudwatch list-metrics --region "$AWS_REGION" --namespace PlumeRank
 aws cloudwatch describe-alarms --region "$AWS_REGION" --alarm-name-prefix PlumeRank \
   --query 'MetricAlarms[].[AlarmName,StateValue]' --output table
 ```
 
-Three alarms: alert-rate drift above 2.30 and below 1.70 alerts per camera-night (the
-2.0 budget +/- `BUDGET_DRIFT_TOLERANCE`, hourly mean, idle hours not breaching), and
-heartbeat silence (no datapoint in 15 minutes, missing data breaching). `list-metrics`
+Three alarms, all on the box's own `InstanceId` dimension (written into the env file by
+`bootstrap.sh` from IMDS, tagged on every datapoint by `telemetry.py`): alert-rate drift
+above 2.30 and below 1.70 alerts per camera-window (the 2.0 budget +/-
+`BUDGET_DRIFT_TOLERANCE`, hourly mean, idle hours not breaching), and heartbeat silence (no
+datapoint in 15 minutes, missing data breaching). `RealisedAlertRate` is computed over the
+wall's fire-free CONFUSE windows only -- the windows the threshold is calibrated on; the
+DEV fire windows on the same wall alert after ignition by design and are excluded. After a
+redeploy that adds the dimension, re-run `alarms.sh`: the old dimensionless alarms watch a
+metric the box no longer publishes. `list-metrics`
 coming back empty a few minutes after a deploy means telemetry is not landing -- check
 `journalctl -u plumerank | grep 'telemetry paused'`, which names the region and the error.
 
