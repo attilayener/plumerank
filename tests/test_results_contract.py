@@ -216,6 +216,7 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Run]:
     patch = pytest.MonkeyPatch()
     patch.setattr(bench, "git_commit", lambda _root: COMMIT)
     patch.setattr(bench, "assert_tree_clean", lambda _root: None)
+    patch.setattr(bench, "assert_frames_match_receipt", lambda _root, _windows: None)
     # The tmp tree is not the checkout bench.py runs from; the root guard is tested in
     # test_bench.py, the rest of the shipped-run guard still runs via its real checks.
     patch.setattr(bench, "repo_root", lambda: root.resolve())

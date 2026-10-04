@@ -260,6 +260,8 @@ def commit(monkeypatch: pytest.MonkeyPatch) -> str:
     # Same reason: the tmp tree is not the checkout bench.py runs from. The root guard is
     # exercised in test_hold_refuses_a_foreign_root.
     monkeypatch.setattr(bench, "repo_root", lambda: _TREE_ROOT[0])
+    # Synthetic frames have no fetch receipt; the receipt check has its own tests below.
+    monkeypatch.setattr(bench, "assert_frames_match_receipt", lambda root, windows: None)
     return SHA
 
 
@@ -1282,3 +1284,21 @@ def test_the_committed_micro_expectation_matches_the_running_constants() -> None
         "plumerank/constants.py changed since results/verify_micro.json was written -- "
         "re-run scripts/bench.py --arm micro --write-expected (and the DEV bench)"
     )
+
+
+def test_hold_frames_must_match_the_fetch_receipt(tmp_path: pathlib.Path) -> None:
+    """A corrupt HOLD frame must stop the run before the access is logged."""
+    data = tmp_path / "data"
+    frame = data / "corpus" / "figlib" / "seq" / "f.jpg"
+    frame.parent.mkdir(parents=True)
+    frame.write_bytes(b"jpeg bytes")
+    import hashlib as _h
+
+    good = _h.sha256(b"jpeg bytes").hexdigest()
+    receipt = data / "fetch_receipt.json"
+    receipt.write_text(json.dumps({"files": {"corpus/figlib/seq/f.jpg": {"sha256": good}}}))
+    window = bench.Window("seq", "cam", 1, (frame,))
+    bench.assert_frames_match_receipt(tmp_path, [window])
+    frame.write_bytes(b"truncated")
+    with pytest.raises(SystemExit, match="do not match"):
+        bench.assert_frames_match_receipt(tmp_path, [window])

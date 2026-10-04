@@ -483,6 +483,32 @@ def assert_hold_is_the_shipped_run(
         raise SystemExit(f"refusing to read HOLD: {existing.name} already exists")
 
 
+def assert_frames_match_receipt(root: pathlib.Path, windows: Sequence[Window]) -> None:
+    """Refuse HOLD unless every frame it will read hashes to what ``make fetch`` recorded.
+
+    Checked BEFORE the access is logged: a truncated or corrupt JPEG found mid-replay would
+    otherwise stop the run after the one logged read of HOLD pixels -- the read is spent and
+    nothing is published. Hashing ~4,800 frames costs seconds; losing HOLD costs the headline.
+    """
+    receipt_path = root / "data" / "fetch_receipt.json"
+    if not receipt_path.is_file():
+        raise SystemExit(f"refusing to read HOLD: {receipt_path} is missing -- run `make fetch`")
+    files = json.loads(receipt_path.read_text(encoding="utf-8")).get("files", {})
+    data = root / "data"
+    bad: list[str] = []
+    for window in windows:
+        for frame in window.frame_paths:
+            key = frame.relative_to(data).as_posix() if frame.is_relative_to(data) else str(frame)
+            want = files.get(key, {}).get("sha256")
+            if want is None or hashlib.sha256(frame.read_bytes()).hexdigest() != want:
+                bad.append(key)
+    if bad:
+        raise SystemExit(
+            f"refusing to read HOLD: {len(bad)} frame(s) are missing from data/fetch_receipt.json "
+            f"or do not match it (first: {bad[0]}). Re-run `make fetch`."
+        )
+
+
 def committed_ablation(root: pathlib.Path) -> tuple[list[dict[str, Any]] | None, str | None]:
     """The newest COMPLETE, shipped-provenance ``results/ablation_<date>.csv``, verbatim.
 
@@ -1972,6 +1998,7 @@ def run_arm(
     _check_calibration(solved, args.budget, alert_step(calibration))
 
     if args.arm == "hold":
+        assert_frames_match_receipt(root, windows)
         log_hold_access(
             root,
             commit,
