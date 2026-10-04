@@ -28,16 +28,21 @@ It is 04:50 on a night shift at a CAL FIRE emergency command centre, and the one
 awake is looking at more than 1,000 camera tiles with no instrument that tells her which four
 to open in the next sixty seconds.
 
-Every published smoke detector optimises **per-frame accuracy** — F1, precision, recall. None
-of that tells her which tile to open, and none of it tells a fire agency whether the system
+Published smoke detectors are scored on **per-frame accuracy** (F1, precision, recall) or on
+time-to-detection with no cap on false alarms. Neither tells her which tile to open, and none of it tells a fire agency whether the system
 will survive contact with a real shift before it gets muted. The number that matters is
 different: **how many minutes after ignition does a human actually look at the right camera,
-given she will only tolerate a fixed number of interruptions per camera per night?**
+given she will only tolerate a fixed number of interruptions per camera?**
 
 **PlumeRank publishes that number.** It watches a camera network and emits, once per frame (one
 minute of footage), a ranked shortlist of which cameras a human should look at now — each entry carrying its own
 cropped evidence tile — calibrated to a fixed budget of **2 alerts per camera-night**. It never
 suppresses a camera and never dispatches an engine. It reorders human attention.
+
+> **The unit.** A *camera-night* in this project is one evaluation window: **81 minutes of
+> footage on one camera**, the length of a FIgLib sequence (`plumerank/constants.py`). So the
+> budget is 2 alerts per camera per 81-minute window — about 18 per camera over a 12-hour
+> shift if run continuously, not 2 per night. The name is the code's; the windows are daytime.
 
 ---
 
@@ -73,14 +78,17 @@ summarised in [`REPORT.md`](REPORT.md) §6.
 
 ## Honest limitations
 
-1. **Daylight only.** HPWREN FIgLib (the ground-truth dataset) is daylight-only and no IR
-   camera exists in this build. A night-shift dispatcher works hours this system cannot cover.
+1. **Daylight only, and a window-sized budget.** HPWREN FIgLib (the ground-truth dataset) is
+   daylight-only and no IR camera exists in this build; a night-shift dispatcher works hours this
+   system cannot cover. The budget is calibrated per 81-minute window (see "The unit" above); a
+   real deployment would set a per-shift budget and re-solve the threshold for it.
 2. **Cloud is the adversary — not the fog this project was designed against — and the
    statistics are weaker than the design assumed.** Measured on 2026-09-06 under the
    *pre-baseline* pipeline (threshold 0.722, not re-measured under the shipped one), low cloud
    cost 4.25 and cloud shadow 3.86 alerts/camera-night against fog's 1.15
-   (`results/class_split_2026-09-06.json`) — and that fog figure is on a contaminated class: of
-   54 frames inspected, roughly 27 show no marine layer at all (`results/fog_class_review.md`).
+   (`results/class_split_2026-09-06.json`) — and the fog windows were chosen by a rule tuned on a fog
+   sample in which, of 54 frames inspected, roughly 27 show no marine layer at all
+   (`results/fog_class_review.md`), so that class is suspect.
    A relabelled fog census is in progress. Per statistic, on DEV frames with a component,
    pre- vs post-ignition: S3 (diffuse boundary) scores AUC 0.44 — anti-predictive — and S1 0.528
    and S2 0.50 are near chance (`results/statistics_confound_2026-09-06.md`). S3 was never tested
@@ -117,9 +125,11 @@ Over a rolling, stabilised window, each foreground component on each camera is m
 | S1 | **Base anchoring** | a fire is tied to the ground; a cloud is not | 0.528 — near chance |
 | S2 | **Vertical growth anisotropy** | a plume rises faster than it spreads | 0.50 — chance |
 | S3 | **Diffuse-boundary contrast** | smoke has a soft edge | 0.44 — anti-predictive (limitations 2 and 3) |
-| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | kept on evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.23%), so the two effects are not separated |
+| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | 0.538 — weak; kept on detection evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.23%), so the two effects are not separated |
 
-None of the four is a good detector alone (`results/statistics_confound_2026-09-06.md`).
+None of the four is a good detector alone, and per frame the fused model beats the single bit
+"a component exists" by only 0.0015 AUC in-sample (`results/statistics_confound_2026-09-06.md`).
+What lifts detection is the per-camera baseline below, not the per-frame score.
 
 Those four fold into a per-camera hazard (a fixed logistic, weights fit on DEV, no presence
 term). Each camera is then scored against **its own trailing 15 minutes** — a camera that runs
@@ -170,7 +180,8 @@ HPWREN FIgLib replay ──▶ stabilise (phaseCorrelate + MAGSAC) ──▶ seg
 ```
 
 One t4g.small (Graviton/ARM) instance, one S3 bucket for the corpus, CloudWatch for the alert
-budget (drift alarms at ±15%) and a heartbeat-silence alarm. No Lambda, no managed vision API, no second instance.
+budget (the rate on the wall's fire-free cameras, with drift alarms at ±15%) and a
+heartbeat-silence alarm. No Lambda, no managed vision API, no second instance.
 
 ---
 
@@ -193,19 +204,19 @@ budget (drift alarms at ±15%) and a heartbeat-silence alarm. No Lambda, no mana
 ## Testing
 
 ```
-664 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
+686 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
 ```
 
 | Layer | Tool | Notes |
 |---|---|---|
 | Unit + integration | `pytest` | `make test` — offline, no network, no credentials, ~95s |
-| Property-based / exhaustive | `hypothesis` | `tests/test_invariants.py` — **1,500 generated cases** (500 each) verifying the fused hazard never leaves `[0, 1]` for any valid input and never silently passes through an invalid one, and that the alert budget can never be overspent under any call sequence |
+| Property-based | `hypothesis` | `tests/test_invariants.py` — **1,500 generated cases** (500 each) property-testing that the fused hazard never leaves `[0, 1]` on valid inputs and never silently passes an invalid one, and that the alert budget is never overspent across generated call sequences |
 | Regression | 630+ example tests, most named after the specific behaviour or defect they pin (e.g. `test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health`) | `tests/` |
 | Claim/code consistency | `scripts/check_claims.py` (runs inside `make test`) | every OpenCV symbol, API route, dependency, Makefile target and file path this document names is mechanically checked against the real source — a document and the code can disagree for at most one test run |
 | Static analysis | `ruff check .`, `mypy plumerank api --ignore-missing-imports` | both clean |
-| Secret scanning | `gitleaks` (full history), GitHub secret scanning + push protection | CI |
+| Secret scanning | `gitleaks` (full history) — run locally, 0 findings; GitHub secret scanning + push protection once the repo is public | CI (configured) |
 | Dependency audit | `pip-audit`, `npm audit` | CI, advisory |
-| SAST | CodeQL (`python`, `javascript-typescript`) | CI |
+| SAST | CodeQL (`python`, `javascript-typescript`) | CI (configured; runs once the repo is on GitHub) |
 | E2E | Playwright, against the **real** FastAPI backend (no mocks) | `web/e2e/` |
 
 ```bash
@@ -250,7 +261,7 @@ plumerank/       # the pipeline: stabilise, segment, statistic, escalate, rank, 
 api/             # FastAPI app — /build-info, /health, /api/watchlist, /api/benchmark
 scripts/         # fetch.py, bench.py, check_claims.py, check_submission_readiness.py
 web/             # Next.js frontend — the Wall ("/"), "/results", "/judge"
-tests/           # 664 tests, 97% coverage on plumerank/
+tests/           # 686 tests, 97% coverage on plumerank/
 deploy/          # EC2 bootstrap (Caddy, systemd, OpenCV 5 build pin)
 results/         # committed run artefacts — every published number lives here
 ```

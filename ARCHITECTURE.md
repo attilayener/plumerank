@@ -23,7 +23,7 @@ flowchart TB
 
     ONNX[("tile_classifier.onnx<br/>96x96, trained on Pyro-SDIS tiles<br/>one model, two uses -- see below")]
 
-    subgraph EVAL["Evaluation -- same box, offline"]
+    subgraph EVAL["Evaluation -- offline, any machine with the corpus"]
         BENCH["scripts/bench.py<br/>time-to-detection vs the ignition clock<br/>p50/p95, +-5 min sensitivity, ablation grid"]
         BASE["Two baselines, same budget on CONFUSE<br/>B1: the SAME onnx over every frame<br/>B2: frame differencing<br/>each also through the per-camera baseline"]
         RES[("results/ -- committed<br/>arm_dev_<date>.json, bench_<date>.json (HOLD), verify_micro.json")]
@@ -35,7 +35,7 @@ flowchart TB
         CADDY["Caddy -- reverse proxy + static files"]
     end
 
-    CW["CloudWatch -- the alert budget as a metric,<br/>drift alarms at +-15% and a heartbeat-silence alarm"]
+    CW["CloudWatch -- alert rate on the fire-free cameras,<br/>drift alarms at +-15% and a heartbeat-silence alarm"]
 
     FIG --> S3B --> STAB --> SEG --> STAT --> RANK
     RANK -->|"rank <= 2 and hazard >= floor, before the baseline"| ESC --> RANK
@@ -61,8 +61,11 @@ flowchart TB
 2. **Baseline B1** -- the *identical* model, run over a full-frame tile grid on **every** frame.
 
 Because the model is the same on both sides, a difference between PlumeRank and B1 cannot be
-explained by model size -- it isolates the value of the classical anchoring statistic and the
-budget calibration. That is the controlled-experiment design the comparison rests on.
+explained by model size. The like-for-like rows go one step further: B1 and B2 are also scored
+through the same per-camera baseline PlumeRank uses, and on DEV that baseline does most of the
+work (B1 rises from 6/29 to 14/29 through it, against PlumeRank's 17/29). What remains between
+PlumeRank and B1-through-the-baseline is the classical pipeline plus targeted escalation versus a
+full-frame CNN at every frame -- at 2 model calls per camera-night instead of 3,645.
 
 ## Data flow, in order
 
@@ -71,12 +74,13 @@ manifest (never the full archive) into `data/` and `s3://<bucket>/corpus/`.
 `scripts/build_confusion_set.py` builds a non-fire confusion set from the same cameras at the
 same time of day. `scripts/train_tile_classifier.py` trains the one ONNX model on Pyro-SDIS
 **only** (a guard test asserts no FIgLib path ever enters the training manifest). `scripts/bench.py`
-runs every arm and writes `results/bench_<date>.json`, which `GET /api/benchmark` then serves
-byte-for-byte.
+runs every arm: the DEV arm writes `results/arm_dev_<date>.json`, and the one held-out run
+writes `results/bench_<date>.json`, which `GET /api/benchmark` then serves byte-for-byte.
 
 **Online, per replay tick** -- stabilise against the previous frame, segment, measure S1-S4,
-fuse into a hazard, rebase that hazard against the camera's own trailing 15 minutes, escalate
-the top-k candidates through the ONNX tile classifier, solve the alert-budget threshold, emit
+fuse into a hazard, escalate the top-2 ranked cameras whose hazard clears the escalation floor
+through the ONNX tile classifier, rebase each hazard against the camera's own trailing 15
+minutes, compare it with the committed threshold (solved offline on the confusion set), emit
 the ranked list with one evidence crop per entry (drawn server-side with `cv2.line` /
 `cv2.rectangle` / `cv2.putText`, written with `cv2.imwrite`), and stream it over SSE.
 

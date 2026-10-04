@@ -2,12 +2,15 @@
 
 **The claim:** PlumeRank ranks which wildfire-camera tiles a dispatcher should open next,
 calibrated to a fixed budget of 2 alerts per camera-night, and measures itself on median
-minutes-after-ignition until the right camera reaches the top of that ranking.
+minutes-after-ignition until the right camera reaches the top of that ranking. (A *camera-night*
+here is one 81-minute window of footage on one camera — the length of a FIgLib sequence — not a
+12-hour night.)
 
 ## 1. Click these, in order
 
-1. **The Wall** — `http://44.242.91.201` — no login. The live ranking, replaying real HPWREN
-   fire footage through the real pipeline. Until the held-out run is committed, its threshold is
+1. **The Wall** — `http://44.242.91.201` — no login. The live ranking: 29 development-set fire
+   sequences and 33 fire-free confusion-set windows (the confusion set is marked on screen),
+   replayed from real HPWREN footage through the real pipeline. Until the held-out run is committed, its threshold is
    the one the development run solved on the fire-free confusion set, and the Wall says so (§4).
 2. **`/build-info`** — `http://44.242.91.201/build-info` — `GET /build-info`. Real
    `cv2.getBuildInformation()` output, the EC2 instance id and AMI id, and the git commit this
@@ -21,8 +24,8 @@ minutes-after-ignition until the right camera reaches the top of that ranking.
 
 | | |
 |---|---|
-| Tests | **664 passed, 2 skipped**, 97% coverage on `plumerank/` |
-| Exhaustive / property-based verification | **1,500 generated cases** (`tests/test_invariants.py`, `hypothesis`) — the fused hazard never leaves `[0, 1]` across 500 valid-input cases and never silently passes an invalid one through another 500; the alert budget can never be overspent under any of 500 generated call sequences |
+| Tests | **686 passed, 2 skipped**, 97% coverage on `plumerank/` |
+| Property-based testing | **1,500 generated cases** (`tests/test_invariants.py`, `hypothesis`) — the fused hazard never leaves `[0, 1]` across 500 valid-input cases and never silently passes an invalid one through another 500; the alert budget can never be overspent under any of 500 generated call sequences |
 | Static analysis | `ruff check .` and `mypy plumerank api --ignore-missing-imports` — both clean |
 | Claim/code consistency | `scripts/check_claims.py`, run inside `make test` — 23 defended OpenCV 5 analysis surfaces across 6 modules, every API route, every dependency, every Makefile target and every file path this document and `README.md` name, checked mechanically against the real source on every test run |
 | DEV arm (orientation only — fit data, never the claim) | 17/29 detected, p50 32.0 min; calibrated to 1.99 alerts/camera-night on the confusion set, 2.37 realised on DEV. Like-for-like baselines (B1/B2 through the same per-camera baseline): 14/29 and 10/29 (`results/arm_dev_2026-10-04.json`) |
@@ -34,7 +37,7 @@ minutes-after-ignition until the right camera reaches the top of that ranking.
 ```bash
 git clone <this repo> && cd <this repo>
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
-make test      # ~95s: the 664-test offline suite + coverage + the claim-consistency check above
+make test      # ~95s: the 686-test offline suite + coverage + the claim-consistency check above
 make verify    # ≤3 min: rebuilds the venv from the lockfile, re-runs the offline suite, then
                # recomputes the micro-corpus metrics and checks them byte-for-byte against the
                # committed results/verify_micro.json. This is the fast sanity check — it does

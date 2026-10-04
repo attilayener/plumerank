@@ -24,6 +24,6 @@ triage. Please give us a reasonable window to patch before public disclosure.
 - The AWS instance profile attached to the live box has read-only access to the
   corpus bucket (it cannot write or delete anything there) plus
   `cloudwatch:PutMetricData` scoped to the `PlumeRank` namespace.
-- Camera imagery is public wildland footage (HPWREN FIgLib); the box writes only
+- Camera imagery is public HPWREN FIgLib footage (long-range landscape views); the box writes only
   small evidence crops and thumbnails of it for the screen, and no personal data
   is processed.

@@ -7,7 +7,7 @@
     "dev": 30,
     "hold": 60,
     "confuse": 0,
-    "note": "CONFUSE is not in this pass because data/manifest_confuse.json did not exist when it ran. Its 45 windows must be added by a second pass before the headline is published, and the count below will move when they are.",
+    "note": "CONFUSE is not in this pass because data/manifest_confuse.json did not exist when it ran. Its 33 windows must be added by a second pass before the headline is published, and the count below will move when they are.",
     "denominator_note": "These are the windows LOOKED AT, which is the manifest count and not the measured-on count. What each arm is actually measured on is in denominator below, and neither number is ever published without the other."
   },
   "hold_note": "This pass looked at the FIRST FRAME of the HOLD windows, and that is stated here rather than left to be discovered. It is the pass the corpus design specifies, it reads one frame 40 minutes BEFORE each ignition, and nothing fitted in plumerank/constants.py was chosen from it. results/hold_access.log records detector reads of HOLD pixels, which is a different act and still has not happened. This sentence is repeated wherever the exclusion count is published -- data/wall.json, data/micro/PROVENANCE.md, data/micro/manifest_micro.json and every scripts/bench.py payload -- because a disclosure that lives only in the file nobody opens is a disclosure a hostile judge gets to announce.",
@@ -44,7 +44,7 @@
       "manifest_windows": null,
       "excluded": null,
       "measured_on": null,
-      "statement": "not yet inspected -- the CONFUSE manifest did not exist when this pass ran, and its 45 windows need a second pass before the headline is published"
+      "statement": "not yet inspected -- the CONFUSE manifest did not exist when this pass ran, and its 33 windows need a second pass before the headline is published"
     },
     "disclosure": "Producing this list required a human to look at the FIRST FRAME of every HOLD window. That is a pre-freeze read of HOLD imagery and it is stated wherever the exclusion count is published -- here, in data/wall.json, in data/micro/PROVENANCE.md and in every bench payload -- rather than left to be discovered. See hold_note above for why it is defensible."
   },

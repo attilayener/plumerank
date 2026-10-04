@@ -8,16 +8,22 @@ competition's required deliverables list asks for, in one place.
 ## 1. Problem
 
 Wildfire camera networks (ALERTWildfire, HPWREN, Pyronear) now carry thousands of live tiles,
-watched by one or two people per shift. Every published smoke detector optimises **per-frame
-accuracy** — F1, precision, recall. None of that number tells a dispatcher which of a thousand
+watched by one or two people per shift. Published smoke detectors are scored on **per-frame
+accuracy** (F1, precision, recall) or on time-to-detection with no cap on false alarms. Neither
+number tells a dispatcher which of a thousand
 tiles to open next, and none of it tells a procurement officer whether the system will survive
 contact with a real shift before it gets muted for crying wolf.
 
 The number that matters is different: **how many minutes after ignition does a human actually
 look at the right camera, given she will tolerate only a fixed number of interruptions per
-camera per night?** Raise sensitivity and you buy minutes at the cost of alarm fatigue; lower
+camera?** Raise sensitivity and you buy minutes at the cost of alarm fatigue; lower
 it and the network goes quiet and late. Every deployed system lives somewhere on that curve.
 Nobody publishes it. PlumeRank does.
+
+**The unit.** The budget is expressed per *camera-night*, which in this project means one
+evaluation window — 81 minutes of footage on one camera, the length of a FIgLib sequence — not a
+12-hour night: 2 alerts per 81-minute window is about 18 per camera over a continuous 12-hour
+shift. A deployment would set a per-shift budget and re-solve the threshold for it.
 
 ## 2. Users
 
@@ -67,8 +73,10 @@ both sides of it.
 
 One `t4g.small` (Graviton/ARM, burstable, `unlimited` credit mode) EC2 instance, one S3 bucket
 holding the corpus and a git bundle of the source, CloudWatch carrying the realised alert rate
-and escalation fraction as metrics with drift alarms (±15% of the budget) and a heartbeat-silence
-alarm (`deploy/alarms.sh`), and an IAM instance profile with read-only S3 access to the corpus
+and escalation fraction as metrics — the alert rate measured on the wall's fire-free
+confusion-set cameras only, the same population the threshold was solved on — with drift
+alarms (±15% of the budget) and a heartbeat-silence alarm (`deploy/alarms.sh`, per-instance
+dimension; no notification target is configured yet), and an IAM instance profile with read-only S3 access to the corpus
 plus `cloudwatch:PutMetricData` scoped to the `PlumeRank` namespace. `deploy/bootstrap.sh` provisions the box from the S3
 git bundle; `deploy/Caddyfile` reverse-proxies `/api/*`, `/health` and `/build-info` to Uvicorn
 on the **same origin** as the static frontend, so production never makes a cross-origin
@@ -168,10 +176,10 @@ designed to be re-scored at every offset from −5 to +5 minutes from the same c
 matrix in the same run, so the sensitivity curve cannot drift from the headline it describes
 (`scripts/bench.py --sensitivity`).
 
-**Testing, as a form of evaluation in its own right.** 664 tests passed, 2 skipped, 97%
+**Testing, as a form of evaluation in its own right.** 686 tests passed, 2 skipped, 97%
 coverage on `plumerank/`; 1,500 hypothesis-generated cases (`tests/test_invariants.py`)
-verifying the fused hazard never leaves `[0, 1]` and the alert budget can never be overspent
-under any input or call sequence; `scripts/check_claims.py` mechanically checks every route,
+property-testing that the fused hazard never leaves `[0, 1]` and the alert budget is never overspent
+across 500 generated inputs or call sequences each; `scripts/check_claims.py` mechanically checks every route,
 OpenCV symbol, dependency, Makefile target and file path every document names against the
 real source, on every test run.
 
@@ -180,7 +188,8 @@ real source, on every test run.
 See `README.md`'s "Honest limitations" section for the full list with evidence citations —
 summarised: daylight-only (no IR hardware); **cloud, not fog, turned out to be the real
 adversary**, and none of the four statistics is a good detector on its own (AUC 0.528 / 0.50 /
-0.44 / — pre- vs post-ignition on DEV; S3, the one the project was built around, is
+0.44 / 0.538 for S1–S4, pre- vs post-ignition on DEV, and the fused per-frame model beats the
+single bit "a component exists" by only 0.0015 AUC in-sample; S3, the one the project was built around, is
 anti-predictive yet carries the largest fusion weight, and no S3-off ablation has run yet);
 the per-camera baseline is what carries the ranking; the novelty is a metric reframe rather than a new sensor;
 one instance with no HA; no managed-cloud-vision-API baseline; and no dispatch, suppression,
@@ -200,7 +209,8 @@ Safeguards, each a build item rather than a paragraph (verified by `tests/test_a
    reorders it.
 3. The **alert budget is published, logged and tunable**, with CloudWatch drift alarms.
 4. Every ranked entry ships its **evidence crop**, so a human can overrule in one glance.
-5. **No new imagery is collected** — the wall replays public HPWREN footage of wildland; the
+5. **No new imagery is collected** — the wall replays public HPWREN camera footage (wildland and
+   some developed areas at long range); the
    only frames written are small evidence crops and thumbnails of it, overwritten per replay.
 6. A **persistent, non-dismissible limits strip** on every screen: daylight only; ranking aid,
    not dispatch; never suppresses a camera.

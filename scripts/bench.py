@@ -1013,7 +1013,7 @@ def replay_arm(
     Lockstep -- one tick across all windows, then the next -- rather than one window at a
     time, because escalation is decided by *rank*, and a rank does not exist until every
     camera in the tick has a hazard. Replaying window by window would force the escalation
-    decision onto a per-window rule, which is precisely the structural cost bound the ~1%
+    decision onto a per-window rule, which is precisely the structural cost bound the ~2%
     claim rests on.
 
     ``systems`` exists for the ablation grid, which varies only PlumeRank's configuration:
@@ -2504,7 +2504,7 @@ def run_micro(
     # The roster size is named because ESCALATION_TOP_K is a per-tick cap on a roster, so
     # the realised fraction scales with how many cameras are in the tick: at most 2 of the
     # micro corpus's handful, against 2 of the HOLD arm's sixty. Printing the bare
-    # percentage here would put a number an order of magnitude above the project's ~1%
+    # percentage here would put a number an order of magnitude above the project's ~2%
     # claim directly under the word REPRODUCED, and a judge would be right to read that as
     # the submission contradicting itself.
     print(
