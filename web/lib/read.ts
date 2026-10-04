@@ -11,7 +11,7 @@
  * under the name that says which quantity it is, and the spelling below is that name --
  * not a plausible one. Where bench.py's spelling was more specific than the frontend's
  * wish (`calibration_realised_rate_uncapped` against a bare `alerts_per_camera_night`)
- * the reader moved, because the specific one is what build-contract.md requires of a
+ * the reader moved, because the specific one is what the contract requires of a
  * document that publishes two different rates. Where bench.py had no addressable name at
  * all (a per-system map called `headline`, a solved threshold with no top-level home)
  * bench.py moved, because api/main.py and check_submission_readiness.py address those the
@@ -86,25 +86,31 @@ function list(doc: unknown, ...paths: string[]): unknown[] | null {
 /* -------------------------------------------------------------------------------- */
 
 /** Fallback display names, used only when a row carries no `label` of its own.
- *  bench.py publishes one on every row -- these are the spellings production-plan.md
- *  section 7 prints -- so this map exists for a document written by an older commit. */
+ *  bench.py publishes one on every row -- these are the spellings the published output
+ *  block prints -- so this map exists for a document written by an older commit. */
 const SYSTEM_LABELS: Record<string, string> = {
   plumerank: "PlumeRank",
-  b1_cnn_grid: "B1 CNN grid -- the same ONNX on every frame",
-  b2_frame_diff: "B2 frame-diff",
+  b1_cnn_grid: "B1 as deployed — the same CNN on every frame",
+  b2_frame_diff: "B2 as deployed — frame differencing",
+  b1_cnn_grid_rebased: "B1 through the per-camera baseline",
+  b2_frame_diff_rebased: "B2 through the per-camera baseline",
 };
+
+/** The page's own wording wins over bench.py's terse row labels for the systems it
+ *  knows: "B1 rebased" is a fine column name and a poor sentence for a judge. */
+const DISPLAY_FIRST = new Set(Object.keys(SYSTEM_LABELS));
 
 /** The system `headline` is about when the file does not name one. bench.py publishes
  *  `headline_system`, and that is read first: which system carries the headline is the
  *  benchmark's decision to record, never the frontend's to assume. */
 const DEFAULT_HEADLINE_SYSTEM = "plumerank";
 
-function readSystems(doc: unknown): SystemResult[] {
+function readSystems(doc: unknown, ...paths: string[]): SystemResult[] {
   // `baselines` is what bench.py writes -- one record per system, PlumeRank included.
   // `systems` is accepted beside it because the list is not only baselines and the file
   // may yet be renamed; neither name is guessed at, and a document carrying neither
   // yields an empty list and the table says so.
-  const raw = list(doc, "baselines", "systems") ?? [];
+  const raw = list(doc, ...(paths.length ? paths : ["baselines", "systems"])) ?? [];
 
   return raw
     .map((r) => ({
@@ -115,7 +121,7 @@ function readSystems(doc: unknown): SystemResult[] {
     .filter((e) => e.key !== "")
     .map(({ key, label, r }) => ({
       key,
-      label: label || SYSTEM_LABELS[key] || key,
+      label: (DISPLAY_FIRST.has(key) ? SYSTEM_LABELS[key] : label) || SYSTEM_LABELS[key] || key,
       // The percentiles live in the row's `ttd` object -- metrics.py's TTDSummary.to_json
       // -- and it is `null` on an arm with no ignition clock, which num() reads as absent.
       p50_minutes: num(r, "ttd.p50_minutes"),
@@ -131,6 +137,7 @@ function readSystems(doc: unknown): SystemResult[] {
       // not check which arm it came from. Both are in the file; this is the one the
       // printed block quotes, so page and block agree.
       alerts_per_camera_night: num(r, "calibration_realised_rate_uncapped"),
+      arm_alerts_per_camera_night: num(r, "arm_realised_rate_uncapped"),
       model_invocations_per_camera_night: num(r, "model_calls_per_camera_night"),
     }));
 }
@@ -287,6 +294,7 @@ export function readBenchmark(doc: unknown): Benchmark {
       drift_tolerance: num(doc, "calibration.drift_tolerance"),
     },
     systems,
+    rebased: readSystems(doc, "baselines_rebased.rows"),
     operating: {
       series: readOperating(doc, systems),
       // The annotated rule on the curve is the operating point the project is calibrated

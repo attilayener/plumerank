@@ -26,6 +26,13 @@ import type { StreamState, WatchMeta, WatchRow } from "./types";
  *  wall that keeps showing the last minute as though it were this one. */
 const SILENCE_MS = 15_000;
 
+/** Reconnect backoff for a stream the browser has given up on. EventSource retries a
+ *  dropped connection by itself, but an HTTP error answer -- the 503 the box returns at
+ *  its viewer cap -- closes it for good, and the page would sit on "stream down" until a
+ *  reload. The hook reopens it: 1 s, doubling, capped at 30 s, reset on the next meta. */
+const RECONNECT_MIN_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+
 export interface WatchlistState {
   meta: WatchMeta | null;
   rows: WatchRow[];
@@ -96,69 +103,92 @@ export function useWatchlist(): WatchlistState {
   const previousIndex = useRef<number | null>(null);
 
   useEffect(() => {
-    const source = new EventSource(apiUrl(ROUTES.watchlist));
+    let source: EventSource | null = null;
+    let retryTimer: number | null = null;
+    let backoff = RECONNECT_MIN_MS;
+    let disposed = false;
 
-    source.addEventListener("meta", (ev) => {
-      try {
-        const parsed = JSON.parse((ev as MessageEvent<string>).data) as WatchMeta;
-        setMeta(parsed);
-        setError(null);
-        // The stream answered, so "connecting" is over either way. A meta carrying the
-        // degraded flag will never be followed by a tick: that is its own state, and the
-        // top bar must not keep saying "connecting" under a banner that says why not.
-        if (parsed.live_pipeline?.available === false) setState("unavailable");
-        else setState((prev) => (prev === "connecting" || prev === "down" || prev === "unavailable" ? "connected" : prev));
-        // The silence clock starts at `meta`, not at the first tick. A stream that
-        // hands over a camera roster and then never ticks is exactly the stopped-loop
-        // case the idle state was designed for, and starting the clock at the first
-        // tick would make that the one shape of silence the page cannot report.
-        if (lastTick.current === 0) lastTick.current = Date.now();
-      } catch (e) {
-        // A meta event the page cannot parse is a broken contract, and it is shown as
-        // one. Guessing a camera roster would put 40 invented tiles on a judge's screen.
-        setError(`meta event was not JSON: ${String(e)}`);
-        setState("down");
-      }
-    });
+    const connect = () => {
+      if (disposed) return;
+      source = new EventSource(apiUrl(ROUTES.watchlist));
+      const current = source;
 
-    const onTick = (ev: Event) => {
-      try {
-        const tick = parseRows(JSON.parse((ev as MessageEvent<string>).data));
-        setRows(tick.rows);
-        if (tick.frameIndex !== null) setFrameIndex(tick.frameIndex);
-        setWarm(tick.warm);
-        if (tick.frameIndex !== null) {
-          if (joinedAtStart.current === null) joinedAtStart.current = tick.frameIndex === 0;
-          if (previousIndex.current !== null && tick.frameIndex < previousIndex.current) {
-            wrapped.current = true;
-          }
-          previousIndex.current = tick.frameIndex;
+      current.addEventListener("meta", (ev) => {
+        try {
+          const parsed = JSON.parse((ev as MessageEvent<string>).data) as WatchMeta;
+          setMeta(parsed);
+          setError(null);
+          // The stream answered, so "connecting" is over either way. A meta carrying the
+          // degraded flag will never be followed by a tick: that is its own state, and the
+          // top bar must not keep saying "connecting" under a banner that says why not.
+          if (parsed.live_pipeline?.available === false) setState("unavailable");
+          else setState((prev) => (prev === "connecting" || prev === "down" || prev === "unavailable" ? "connected" : prev));
+          // The silence clock starts at `meta`, not at the first tick. A stream that
+          // hands over a camera roster and then never ticks is exactly the stopped-loop
+          // case the idle state was designed for, and starting the clock at the first
+          // tick would make that the one shape of silence the page cannot report.
+          if (lastTick.current === 0) lastTick.current = Date.now();
+          backoff = RECONNECT_MIN_MS;
+        } catch (e) {
+          // A meta event the page cannot parse is a broken contract, and it is shown as
+          // one. Guessing a camera roster would put 40 invented tiles on a judge's screen.
+          setError(`meta event was not JSON: ${String(e)}`);
+          setState("down");
         }
-        const countable = joinedAtStart.current === true && !wrapped.current;
-        setFramesSeen(
-          tick.framesSeen ?? (countable ? previousIndex.current : null),
-        );
-        lastTick.current = Date.now();
-        setState("live");
-        setError(null);
-      } catch (e) {
-        setError(`tick event was not JSON: ${String(e)}`);
-        setState("down");
-      }
-    };
-    source.addEventListener("tick", onTick);
-    // A server that names nothing sends `message`. Accepted so a working stream is
-    // never rendered as a dead one over an event-name disagreement.
-    source.addEventListener("message", onTick);
+      });
 
-    source.addEventListener("error", () => {
-      // EventSource retries on its own, so this is not fatal -- but it is also not
-      // silent. The page says the stream is down and keeps saying so until a tick
-      // arrives, because "showing the last minute as though it were this one" is the
-      // exact failure the degraded state exists to prevent.
-      setState("down");
-      setError(`no data from ${ROUTES.watchlist}`);
-    });
+      const onTick = (ev: Event) => {
+        try {
+          const tick = parseRows(JSON.parse((ev as MessageEvent<string>).data));
+          setRows(tick.rows);
+          if (tick.frameIndex !== null) setFrameIndex(tick.frameIndex);
+          setWarm(tick.warm);
+          if (tick.frameIndex !== null) {
+            if (joinedAtStart.current === null) joinedAtStart.current = tick.frameIndex === 0;
+            if (previousIndex.current !== null && tick.frameIndex < previousIndex.current) {
+              wrapped.current = true;
+            }
+            previousIndex.current = tick.frameIndex;
+          }
+          const countable = joinedAtStart.current === true && !wrapped.current;
+          setFramesSeen(
+            tick.framesSeen ?? (countable ? previousIndex.current : null),
+          );
+          lastTick.current = Date.now();
+          setState("live");
+          setError(null);
+        } catch (e) {
+          setError(`tick event was not JSON: ${String(e)}`);
+          setState("down");
+        }
+      };
+      current.addEventListener("tick", onTick);
+      // A server that names nothing sends `message`. Accepted so a working stream is
+      // never rendered as a dead one over an event-name disagreement.
+      current.addEventListener("message", onTick);
+
+      current.addEventListener("error", () => {
+        // EventSource retries a dropped connection on its own, so this is not fatal -- but
+        // it is also not silent. The page says the stream is down and keeps saying so until
+        // a tick arrives, because "showing the last minute as though it were this one" is
+        // the exact failure the degraded state exists to prevent.
+        setState("down");
+        setError(`no data from ${ROUTES.watchlist}`);
+        // CLOSED means the browser will not retry (an HTTP error answer, e.g. the 503 at
+        // the viewer cap). Reopen it ourselves, with backoff.
+        if (current.readyState === EventSource.CLOSED && !disposed && retryTimer === null) {
+          current.close();
+          const wait = backoff;
+          backoff = Math.min(RECONNECT_MAX_MS, backoff * 2);
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            connect();
+          }, wait);
+        }
+      });
+    };
+
+    connect();
 
     const silence = window.setInterval(() => {
       if (lastTick.current === 0) return;
@@ -169,8 +199,10 @@ export function useWatchlist(): WatchlistState {
     }, 2_000);
 
     return () => {
+      disposed = true;
       window.clearInterval(silence);
-      source.close();
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      source?.close();
     };
   }, []);
 

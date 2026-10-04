@@ -7,8 +7,8 @@ import { DegradedStrip } from "@/components/DegradedStrip";
 import { OperatingCurve } from "@/components/OperatingCurve";
 import { ReproduceBlock } from "@/components/ReproduceBlock";
 import { SensitivityStrip } from "@/components/SensitivityStrip";
-import { ThemeNote } from "@/components/ThemeNote";
 import { TopBar } from "@/components/TopBar";
+import { DEV_RUN, DEV_RUN_FILE, DEV_SUMMARY } from "@/lib/devRun";
 import { ABSENT, count, minutes, percent, rate } from "@/lib/format";
 import { useBenchmark } from "@/lib/useBenchmark";
 
@@ -49,9 +49,85 @@ function Section({
   );
 }
 
-/** Development-set orientation numbers, from results/arm_dev_2026-10-04.json (shipped
- *  configuration). Shown only in the pending state and always labelled in-sample. */
-const DEV = { detected: 17, n: 29, p50: 32.0, rate: 1.99, file: "results/arm_dev_2026-10-04.json" };
+/** The development-set evidence, shown only while /api/benchmark answers 404. Every
+ *  number here is read from the committed DEV payload (lib/devRun.ts) and the whole
+ *  block is labelled in-sample: the constants were fit on these fires. */
+function DevelopmentEvidence() {
+  const d = DEV_SUMMARY;
+  return (
+    <>
+      <p className="label" style={{ margin: "26px 0 6px", color: "var(--fog)" }}>
+        development set — in-sample, not the headline
+      </p>
+      <p style={{ color: "var(--ink-1)", margin: "0 0 4px", maxWidth: 760 }}>
+        {count(d.detected)} of {count(d.n)} development fires detected, median{" "}
+        {minutes(d.p50)} min after ignition. The threshold was solved to{" "}
+        {rate(d.calibrationRate)} alerts per camera-night on the fire-free confusion set;
+        on the development fires PlumeRank realised {rate(d.devRate)} (uncapped), because a
+        fire should alert. Source: <span className="mono">{DEV_RUN_FILE}</span>.
+      </p>
+
+      <Section
+        id="race"
+        title="Systems on one clock (development set)"
+        note="PlumeRank against B1 and B2, first through the same per-camera baseline, then as deployed. In-sample."
+      >
+        <BaselineRace data={DEV_RUN} />
+      </Section>
+
+      <Section
+        id="operating"
+        title="Operating curve (development set)"
+        note="Budget against median time-to-detection for every system, from the same development run."
+      >
+        <OperatingCurve data={DEV_RUN} />
+      </Section>
+
+      <Section
+        title="Sensitivity to the ignition clock (development set)"
+        note="Eleven offsets across ±5 min. The offset moves the ground-truth clock, not the detector."
+      >
+        <SensitivityStrip data={DEV_RUN} />
+      </Section>
+
+      <Section
+        id="budget"
+        title="Budget calibration"
+        note="Solved on the fire-free confusion set, which is the only arm the threshold depends on — the held-out run will solve it on the same nights with the same code."
+      >
+        <div className="scroll-x card">
+          <table>
+            <tbody>
+              <tr>
+                <th scope="row">target</th>
+                <td className="mono" style={{ fontWeight: 400 }}>
+                  {rate(DEV_RUN.budget.target)} alerts / camera-night
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">realised on the confusion set (uncapped)</th>
+                <td className="mono" style={{ fontWeight: 400 }}>
+                  {rate(DEV_RUN.budget.realised_uncapped)} alerts / camera-night
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">solved threshold</th>
+                <td className="mono" style={{ fontWeight: 400 }}>{rate(DEV_RUN.budget.threshold, 4)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", marginTop: 8 }}>
+          This is the threshold the live wall runs on until the held-out file exists.
+        </p>
+      </Section>
+
+      <div style={{ marginTop: 34 }}>
+        <ReproduceBlock data={null} />
+      </div>
+    </>
+  );
+}
 
 export default function ResultsPage() {
   const { data, loading, error } = useBenchmark();
@@ -80,16 +156,10 @@ export default function ResultsPage() {
             <p style={{ color: "var(--ink-1)", margin: "0 0 10px", maxWidth: 760 }}>
               The headline is measured once, on held-out fires the system has never seen,
               after every constant is frozen. That run has not happened, so this page shows
-              no headline rather than a stand-in. The baseline race, operating curve,
-              sensitivity strip and ablation grid all come out of the same run and appear
-              here when it is published.
+              no headline rather than a stand-in. Below is the development run the
+              constants were fit on — real, committed, and in-sample.
             </p>
-            <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", margin: 0, maxWidth: 760 }}>
-              For orientation only, on the development set the constants were fit on
-              (in-sample): {DEV.detected} of {DEV.n} fires detected, median {DEV.p50.toFixed(1)}{" "}
-              min after ignition, at {DEV.rate.toFixed(2)} alerts per camera-night on the
-              confusion set. Source: <span className="mono">{DEV.file}</span> in the repository.
-            </p>
+            <DevelopmentEvidence />
           </section>
         ) : error ? (
           <DegradedStrip
@@ -109,7 +179,7 @@ export default function ResultsPage() {
               <p className="label">
                 median time-to-detection, {data.run.arm ?? ABSENT} arm,{" "}
                 {count(measuredOn)} of the {count(manifestWindows)} sequences the manifest
-                names, read exactly once after the constants were frozen --{" "}
+                names, read exactly once after the constants were frozen —{" "}
                 {count(excluded)} excluded by the pre-stated criteria below
               </p>
               <div style={{ display: "flex", gap: 34, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -141,15 +211,15 @@ export default function ResultsPage() {
 
             <Section
               title="Sensitivity to the ignition clock"
-              note="Eleven offsets across +/-5 min. The offset moves the ground-truth clock, not the detector."
+              note="Eleven offsets across ±5 min. The offset moves the ground-truth clock, not the detector."
             >
               <SensitivityStrip data={data} />
             </Section>
 
             <Section
               id="race"
-              title="Three systems, one clock"
-              note="PlumeRank, B1 (the same CNN on every frame) and B2 (frame differencing), each with its threshold solved to the same budget on the same confusion set. The per-camera baseline is part of PlumeRank's pipeline only."
+              title="Systems on one clock"
+              note="PlumeRank against B1 (the same CNN on every frame) and B2 (frame differencing), first through the same per-camera baseline, then as deployed. Every threshold is solved to the same budget on the same confusion set."
             >
               <BaselineRace data={data} />
             </Section>
@@ -158,9 +228,9 @@ export default function ResultsPage() {
               id="operating"
               title="Operating curve"
               note={
-                "Budget against median TTD for every system. The operating point the " +
-                "project is calibrated to is the only annotated point -- it replaced " +
-                "the budget slider. Its value is drawn from the results file, not typed here."
+                "Budget against median time-to-detection for every system. The operating " +
+                "point the project is calibrated to is the only annotated point; its value " +
+                "is drawn from the results file, not typed here."
               }
             >
               <OperatingCurve data={data} />
@@ -175,14 +245,15 @@ export default function ResultsPage() {
                       <th>p50 (min)</th>
                       <th>p95 (min)</th>
                       <th>missed</th>
-                      <th>alerts / camera-night</th>
+                      <th>alerts / camera-night (confusion set)</th>
+                      <th>realised on this arm</th>
                       <th>model calls / camera-night</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.systems.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ color: "var(--ink-3)" }}>
+                        <td colSpan={7} style={{ color: "var(--ink-3)" }}>
                           per-system results not published yet — it appears here after the held-out run
                         </td>
                       </tr>
@@ -194,6 +265,7 @@ export default function ResultsPage() {
                           <td className="mono" style={{ fontWeight: 400 }}>{minutes(s.p95_minutes)}</td>
                           <td className="mono" style={{ fontWeight: 400 }}>{count(s.n_missed)}</td>
                           <td className="mono" style={{ fontWeight: 400 }}>{rate(s.alerts_per_camera_night)}</td>
+                          <td className="mono" style={{ fontWeight: 400 }}>{rate(s.arm_alerts_per_camera_night)}</td>
                           <td className="mono" style={{ fontWeight: 400 }}>
                             {rate(s.model_invocations_per_camera_night, 1)}
                           </td>
@@ -235,7 +307,7 @@ export default function ResultsPage() {
               <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", marginTop: 8 }}>
                 Uncapped, and labelled: the realised rate counts threshold crossings without
                 the per-camera budget cap, because that is the quantity the threshold was
-                solved on -- a capped count makes every threshold satisfy the target and the
+                solved on — a capped count makes every threshold satisfy the target and the
                 solver degenerates. The budget meter on the wall shows the capped one, and
                 says so there too.
               </p>
@@ -273,7 +345,7 @@ export default function ResultsPage() {
 
             <Section
               title="Ablation"
-              note="{MOG2, LSBP, GSOC} x {S4 on/off} x {escalation on/off}, on the DEV arm."
+              note="{MOG2, LSBP, GSOC} × {S4 on/off} × {escalation on/off}, on the development arm — a separate run, quoted verbatim by the held-out file."
             >
               <AblationTable data={data} />
             </Section>
@@ -335,9 +407,7 @@ export default function ResultsPage() {
               <BuildInfoSection />
             </div>
 
-            <div style={{ marginTop: 26, marginBottom: 12 }}>
-              <ThemeNote />
-            </div>
+            <div style={{ marginBottom: 12 }} />
           </>
         ) : null}
       </main>

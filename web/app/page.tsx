@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BudgetMeter } from "@/components/BudgetMeter";
+import { CalibrationNote, calibrationKindOf } from "@/components/CalibrationNote";
 import { Clock } from "@/components/Clock";
 import { DegradedStrip, humaneReason } from "@/components/DegradedStrip";
 import { EvidenceCard } from "@/components/EvidenceCard";
-import { ThemeNote } from "@/components/ThemeNote";
 import { TopBar } from "@/components/TopBar";
 import { Wall } from "@/components/Wall";
 import { WatchList, confusionCamerasOf } from "@/components/WatchList";
-import { minutes } from "@/lib/format";
+import { DEV_RUN_FILE, DEV_SUMMARY } from "@/lib/devRun";
+import { count, minutes, rate } from "@/lib/format";
 import { useBenchmark } from "@/lib/useBenchmark";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useWatchlist } from "@/lib/useWatchlist";
@@ -27,17 +28,32 @@ function str(v: unknown): string | null {
  * the crops, the budget slots. There is no pre-rendered ranking anywhere on the judged
  * path -- the replay loop starts when you connect and the background model warms from
  * the pre-ignition frames FIgLib supplies, on screen. Until the held-out run publishes
- * the calibrated threshold, the wall shows its designed "unavailable" state instead.
+ * its threshold the wall runs on the one the development run solved on the same
+ * fire-free confusion set, and says so (CalibrationNote).
  */
 
 /** Slots per camera when the stream does not publish its own. The operating design is
  *  2 (constants.ALERTS_PER_CAMERA_PER_NIGHT); it decides a badge, never a measurement. */
 const DEFAULT_SLOTS_PER_CAMERA = 2;
 
-/** The development-set orientation numbers, shown only while no held-out result is
- *  published. Copied from results/arm_dev_2026-10-04.json (shipped configuration) and
- *  labelled in-sample on screen -- they are never presented as the headline. */
-const DEV = { detected: 17, n: 29, p50: 32.0, rate: 1.99, file: "results/arm_dev_2026-10-04.json" };
+/** One designed panel for the unavailable pipeline, in place of the wall, clock and
+ *  budget -- three empty panels each promising "once it is running" read as a demo about
+ *  to start, which it is not. */
+function UnavailablePanel({ reason }: { reason: string }) {
+  return (
+    <section className="card" style={{ padding: "18px 20px", marginTop: 16 }} role="status">
+      <p className="label" style={{ margin: "0 0 6px", color: "var(--alert)" }}>
+        live pipeline unavailable on this box
+      </p>
+      <p style={{ color: "var(--ink-1)", margin: "0 0 8px", maxWidth: 760 }}>{reason}</p>
+      <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", margin: 0, maxWidth: 760 }}>
+        Nothing is drawn in its place — no placeholder tiles, no cached rows. The committed
+        development run is on <Link href="/results">/results</Link>, and the build this box
+        is running is at <a href="/build-info">/build-info</a>.
+      </p>
+    </section>
+  );
+}
 
 export default function WallPage() {
   const { meta, rows, frameIndex, warm, framesSeen, state, stale, error } = useWatchlist();
@@ -68,6 +84,8 @@ export default function WallPage() {
   const holdExcluded = publishedHold && benchmark !== null ? benchmark.exclusions.count : null;
   const holdP50 = publishedHold ? (benchmark?.headline.p50_minutes ?? null) : null;
   const confusionCameras = confusionCamerasOf(meta);
+  const calibration = calibrationKindOf(meta);
+  const dev = DEV_SUMMARY;
 
   return (
     <>
@@ -78,8 +96,7 @@ export default function WallPage() {
             demo, so the wall and the rank digit have to be on the first screen at
             1280 px: a hook that pushed them under the fold would be a landing page
             wearing the product as a footer. The two long-form notes -- the declined
-            awards and the one-theme refusal -- are real content and they are kept, at
-            the bottom, where a reader who wants them will look. */}
+            awards and the one-theme refusal -- were developer notes and are gone. */}
         <section className="landing">
           <div>
             <h1 className="display">
@@ -87,10 +104,11 @@ export default function WallPage() {
             </h1>
             <p style={{ color: "var(--ink-1)", margin: 0 }}>
               PlumeRank ranks a wildfire-camera network so the camera most likely showing a
-              new plume reaches the top of a dispatcher&apos;s watch list -- under a hard
+              new plume reaches the top of a dispatcher&apos;s watch list — under a hard
               budget of two alerts per camera-night, with the threshold solved on fire-free
-              days rather than picked by hand. OpenCV 5 does the per-frame work: background
-              modelling, optical flow and plume geometry, fused into one ranked hazard.
+              nights rather than picked by hand. OpenCV 5 does the per-frame work: background
+              modelling, optical flow and plume geometry, fused into one hazard and scored
+              against each camera&apos;s own recent history.
             </p>
           </div>
 
@@ -113,20 +131,22 @@ export default function WallPage() {
             ) : (
               <p style={{ margin: "0 0 8px" }}>
                 <span className="mono num" style={{ fontSize: "var(--size-metric-s)", color: "var(--ink-0)" }}>
-                  {DEV.p50.toFixed(1)}
+                  {minutes(dev.p50)}
                 </span>{" "}
                 <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-                  min median time-to-detection on the development set: {DEV.detected} of{" "}
-                  {DEV.n} fires detected at {DEV.rate.toFixed(2)} alerts per camera-night.
-                  In-sample -- the constants were fit on these fires. The held-out result has
-                  not been run yet and is the only number this project will call its headline.
+                  min median time-to-detection on the development set: {count(dev.detected)} of{" "}
+                  {count(dev.n)} fires detected. Threshold solved to {rate(dev.calibrationRate)}{" "}
+                  alerts per camera-night on the confusion set; {rate(dev.devRate)} realised on the
+                  development set. In-sample — the constants were fit on these fires (
+                  <span className="mono">{DEV_RUN_FILE}</span>). The held-out result has not been
+                  run yet and is the only number this project will call its headline.
                 </span>
               </p>
             )}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <code className="code">make verify</code>
               <span className="label" style={{ textTransform: "none", letterSpacing: 0, flex: "1 1 200px" }}>
-                about 3 min -- re-runs the tests and recomputes a small committed sample.
+                about 3 min — re-runs the tests and recomputes a small committed sample.
                 The full held-out run is <Link href="/results#reproduce">a separate pair of commands</Link>.
               </span>
             </div>
@@ -137,6 +157,14 @@ export default function WallPage() {
           </div>
         </section>
 
+        {pipelineDown ? (
+          <UnavailablePanel
+            reason={
+              humaneReason(meta?.live_pipeline?.detail) ??
+              "the box reports it cannot run the pipeline."
+            }
+          />
+        ) : (
         <div className="wall-page" style={{ padding: "16px 0 0" }}>
           <div className="area-wall">
             <Wall
@@ -150,6 +178,7 @@ export default function WallPage() {
               holdSequences={holdSequences}
               holdExcluded={holdExcluded}
             />
+            <CalibrationNote kind={calibration} />
           </div>
 
           <div className="area-rail rail">
@@ -173,45 +202,30 @@ export default function WallPage() {
             <BudgetMeter meta={meta} rows={rows} benchmark={benchmark} />
           </div>
         </div>
+        )}
 
         {/* BELOW the wall, not above it. The stream's verdict arrives after first paint,
             and a strip inserted above the wall pushed the whole wall 107 px down the
             screen (CLS 0.15 on this route). The wall's own header already says "live
             pipeline unavailable" in place, so the notice is not lost by moving the
             committed-results strip under it. */}
-        {state === "down" || pipelineDown ? (
+        {state === "down" && !pipelineDown ? (
           <div style={{ marginTop: 16 }}>
             <DegradedStrip
               commit={benchmark?.run.commit ?? null}
               file={benchmark ? str(benchmark.raw.results_file) : null}
-              title={pipelineDown ? "live pipeline unavailable" : "live stream not delivering"}
+              title="live stream not delivering"
               detail={
-                pipelineDown
-                  ? (humaneReason(meta?.live_pipeline?.detail) ??
-                      "the box reports it cannot run the pipeline.")
-                  : (error ?? "the live stream is not delivering") +
-                    (stale
-                      ? ". The rows shown are the last ones received and are NOT current."
-                      : ". No rows are being drawn.")
+                (error ?? "the live stream is not delivering") +
+                (stale
+                  ? ". The rows shown are the last ones received and are NOT current. Reconnecting."
+                  : ". Reconnecting.")
               }
             />
           </div>
         ) : null}
 
-        <footer style={{ marginTop: 22, display: "grid", gap: 10, maxWidth: 900 }}>
-          <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", margin: 0 }}>
-            Two special awards are deliberately declined and neither box is ticked. Best
-            Use of COOL: this hot loop is background modelling and optical flow, not
-            resize / adaptive threshold / contours, so a COOL lane would benchmark flat
-            against that award&apos;s own measured-performance criterion. Agentic Vision:
-            there is no orchestration loop, because the dispatcher being human-in-command
-            IS the safety argument.
-          </p>
-          <ThemeNote />
-          <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", margin: 0 }}>
-            {meta?.credit ?? "Imagery: HPWREN, http://hpwren.ucsd.edu/"}
-          </p>
-        </footer>
+        <div style={{ height: 22 }} />
       </main>
 
       {selected ? <EvidenceCard row={selected} onClose={() => setSelected(null)} /> : null}

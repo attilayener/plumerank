@@ -25,7 +25,7 @@ import type { Benchmark } from "@/lib/types";
  * composes them at runtime.
  */
 
-const VERIFY = "git clone <repo> && cd plumerank\nmake verify";
+const VERIFY = "make verify";
 const HEADLINE = "make fetch     # the corpus, sha256-verified, resumable\nmake bench     # the full held-out evaluation";
 
 function Command({
@@ -71,7 +71,7 @@ export function ReproduceBlock({ data }: { data: Benchmark | null }) {
         claim={
           "Recomputes the micro-corpus metrics with the real OpenCV 5 pipeline and asserts them " +
           "byte-for-byte against the committed results/verify_micro.json. Non-zero exit on any " +
-          "mismatch. This does NOT reproduce the published headline -- a 3-minute command cannot " +
+          "mismatch. This does NOT reproduce the published headline — a 3-minute command cannot " +
           "recompute the held-out evaluation the numbers above come from, and it does not claim to."
         }
         command={VERIFY}
@@ -82,11 +82,18 @@ export function ReproduceBlock({ data }: { data: Benchmark | null }) {
         cost="about 95 min"
         claim={
           "THIS is the one that reproduces the published headline: the whole corpus, then the full " +
-          "held-out evaluation on the same t4g.small the numbers above were measured on."
+          "held-out evaluation, on the same t4g.small the held-out numbers are measured on."
         }
         command={HEADLINE}
       />
 
+      {run === null ? (
+        <p style={{ fontSize: "var(--size-label)", color: "var(--ink-3)", marginTop: 8 }}>
+          The commit, instance, date and wall clock of the held-out run appear here once its
+          results file is published.
+        </p>
+      ) : (
+      <>
       <div className="scroll-x card">
         <table>
           <tbody>
@@ -121,9 +128,11 @@ export function ReproduceBlock({ data }: { data: Benchmark | null }) {
       </div>
       <p style={{ fontSize: "var(--size-label)", color: "var(--ink-3)", marginTop: 8 }}>
         Run metadata as published by /api/benchmark, which serves the committed results
-        file verbatim from disk -- so this page, the endpoint and the repository cannot disagree
+        file verbatim from disk — so this page, the endpoint and the repository cannot disagree
         about which run produced the numbers above.
       </p>
+      </>
+      )}
     </section>
   );
 }

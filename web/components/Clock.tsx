@@ -60,7 +60,7 @@ export function Clock({
       <div className="card" style={{ padding: "14px 16px" }}>
         <div className="label">since ignition</div>
         <p style={{ color: "var(--ink-2)", margin: "6px 0 0" }}>
-          the clock starts with the first replayed frame.
+          waiting for the first replayed frame.
         </p>
       </div>
     );
@@ -88,12 +88,12 @@ export function Clock({
         </div>
       )}
       <div className="label" style={{ marginTop: 2, textTransform: "none", letterSpacing: 0 }}>
-        ground truth -- not visible to the system
+        ground truth — not visible to the system
       </div>
       <div className="label" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
         frame {frameIndex === null ? ABSENT : frameIndex}
         {meta?.frame_count ? ` of ${meta.frame_count}` : ""}
-        {leadIsOffset ? " - replay time, not wall-clock time" : ""}
+        {leadIsOffset ? " · replay time, not wall-clock time" : ""}
       </div>
     </div>
   );

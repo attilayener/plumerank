@@ -112,16 +112,18 @@ export function EvidenceCard({ row, onClose }: { row: WatchRow; onClose: () => v
           >
             <dt style={{ color: "var(--overlay-anchor)" }}>solid line</dt>
             <dd style={{ margin: 0, color: "var(--ink-1)" }}>
-              S1 -- the pinned foot. A fire is tied to the ground; a cloud is not.
+              S1 — base anchoring: how tied the component&apos;s foot is to the ground.
             </dd>
             <dt style={{ color: "var(--overlay-growth)" }}>dashed line</dt>
             <dd style={{ margin: 0, color: "var(--ink-1)" }}>
-              S2 -- the climbing top. A plume rises faster than it spreads.
+              S2 — growth anisotropy: whether the top climbs faster than the sides spread.
             </dd>
             <dt style={{ color: "var(--ink-3)" }}>S3</dt>
             <dd style={{ margin: 0, color: "var(--ink-1)" }}>
-              diffuse-boundary contrast, {row.s3.toFixed(3)} -- smoke has a soft edge and
-              a cloud shadow does not. This is the statistic that separates smoke from fog.
+              diffuse-boundary contrast, {row.s3.toFixed(3)}. Measured on the development
+              set, none of the three separates fire on its own (AUC 0.53, 0.50 and 0.44);
+              the ranking comes from fusing them and scoring each camera against its own
+              recent history.
             </dd>
           </dl>
         </div>

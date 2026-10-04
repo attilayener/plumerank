@@ -97,6 +97,14 @@ a:hover { text-decoration: underline; }
 .scroll-x {
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  /* Scroll hint: a soft edge shadow appears on whichever side still has content, and
+   * vanishes at the ends (background-attachment: local covers it there). Pure CSS, no
+   * listener, so a clipped table on a phone says "there is more to the right". */
+  background:
+    linear-gradient(to right, var(--surface), var(--surface)) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--surface), var(--surface)) right / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.55), transparent) left / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.55), transparent) right / 12px 100% no-repeat scroll;
 }
 
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
@@ -426,12 +434,9 @@ tbody tr:last-child td { border-bottom: 0; }
     padding-bottom: 6px;
   }
   .wall-strip .tile { flex: 0 0 200px; }
-  .area-budget {
-    position: sticky;
-    bottom: 44px;                  /* clears the LimitsBanner, never covers it */
-    background: var(--canvas);
-    z-index: 5;
-  }
+  /* In the flow, not docked: a sticky meter at tablet width sat over the watch list,
+   * which is the thing a dispatcher reads. */
+  .area-budget { position: static; }
 }
 
 /* >= 1280 px (projector, judging desk): the wall fills the left, the watch list is a
@@ -477,7 +482,6 @@ tbody tr:last-child td { border-bottom: 0; }
    * phone width, and a 270 px bar docked over an 820 px screen would cover the watch
    * list -- which at this width IS the product. It goes back into the flow instead:
    * still countable, still 80, just not in the way. */
-  .area-budget { position: static; bottom: auto; }
   .slot { width: 8px; height: 16px; }
   .row { grid-template-columns: 56px 96px minmax(0, 1fr); }
   .evidence-thumb { width: 96px; height: 54px; }
@@ -500,7 +504,10 @@ tbody tr:last-child td { border-bottom: 0; }
  * stays (with its title), the words go. */
 @media (max-width: 479px) {
   .topbar { gap: 14px; }
-  .topbar-status { display: none; }
+  .topbar-status {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
 }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -561,7 +568,10 @@ tbody tr:last-child td { border-bottom: 0; }
   border-radius: 2px;
   padding: 4px 10px;
   cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
+.btn:hover { border-color: var(--signal); background: var(--surface-raised); }
+.btn:active { transform: translateY(1px); }
 
 .code {
   font-family: var(--font-mono);
@@ -574,6 +584,30 @@ tbody tr:last-child td { border-bottom: 0; }
   padding: 10px 12px;
   white-space: pre;
   overflow-x: auto;
+}
+
+/* Inline code inside running text: the .code block style (10px padding, no wrap) made
+ * neighbouring lines collide on /judge. */
+.code-inline {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--ink-1);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+
+/* The global reset strips list markers; ordered steps a judge follows keep them. */
+ol.steps { list-style: decimal; padding-left: 22px; }
+ol.steps > li::marker { color: var(--signal); font-weight: 600; }
+ul.bullets { list-style: disc; padding-left: 22px; }
+
+/* Text for screen readers only (the status word beside the dot at phone width). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
 .display {

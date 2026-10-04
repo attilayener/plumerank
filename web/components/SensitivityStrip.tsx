@@ -29,7 +29,7 @@ export function SensitivityStrip({ data }: { data: Benchmark }) {
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)" }}>
         {all.length === 0
           ? "sensitivity curve not published yet \u2014 it appears here after the held-out run"
-          : `no median at ${gaps.length} of ${all.length} ignition-clock offsets -- fewer than half the fires were detected there, so there is no curve to draw`}
+          : `no median at ${gaps.length} of ${all.length} ignition-clock offsets — fewer than half the fires were detected there, so there is no curve to draw`}
       </p>
     );
   }
@@ -106,7 +106,7 @@ export function SensitivityStrip({ data }: { data: Benchmark }) {
               .map((g) => `${g.offset_minutes > 0 ? "+" : ""}${g.offset_minutes}`)
               .join(", ")} min, marked \u00d7): fewer than half the fires were detected there, so the band understates the spread`
           : ""}
-        . The offset moves the ground-truth clock, not the detector -- the band is how much of the headline is the label.
+        . The offset moves the ground-truth clock, not the detector — the band is how much of the headline is the label.
       </figcaption>
     </figure>
   );

@@ -8,17 +8,16 @@ import "../styles/globals.css";
  * thing two pages both happen to remember to do.
  */
 
-const TITLE = "PlumeRank -- wildfire camera attention ranking";
-// No figures in the description. This string is compiled into the export and cannot
-// be refetched, so any number in it is a number that outlives the run it came from --
-// and the one place the headline is allowed to live is results/bench_<date>.json,
-// served verbatim by /api/benchmark and rendered at runtime.
-// <=125 chars: og:description clips on mobile earlier than a plain meta description does
-// (shipcheck's static.og:description.maxLength), so one string serves both constraints
-// rather than carrying a second, longer description that would only pass the laxer one.
+const TITLE = "PlumeRank — which wildfire camera to look at first";
+// No measured figures in the description. This string is compiled into the export and
+// cannot be refetched, so any result in it would outlive the run it came from -- and the
+// one place the headline is allowed to live is results/bench_<date>.json, served
+// verbatim by /api/benchmark. The budget is a design constant, not a result.
+// <=125 chars: og:description clips on mobile earlier than a plain meta description does,
+// so one string serves both constraints. It says what the page headline says.
 const DESCRIPTION =
-  "Ranks a wildfire camera network by an anchored plume-growth statistic, calibrated " +
-  "to a budget of 2 alerts per camera-night.";
+  "Two alerts per camera a night. PlumeRank ranks a wildfire camera network so the " +
+  "camera most likely showing smoke comes first.";
 const SITE_URL = "http://44.242.91.201";
 const AUTHOR = "Edy Cu";
 

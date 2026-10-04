@@ -3,32 +3,74 @@
 import { useState } from "react";
 
 /**
- * Copy one exact string. The entire interactive surface of this product is the
- * evidence modal, these buttons and scrolling, so the few surviving interactions have
- * to be flawless -- which here means failing visibly.
+ * Copy one exact string, and fail visibly if it cannot.
  *
- * navigator.clipboard is unavailable on a plain-HTTP origin, and the box serves plain
- * HTTP until the A record exists and bootstrap.sh is re-run with a domain. A silent
- * no-op there would be the worst outcome: a judge presses copy, pastes yesterday's
- * clipboard into a terminal and blames the command. So the failure is stated on the
- * button itself and the command stays selectable above it.
+ * navigator.clipboard only exists on a secure origin, and the box serves plain HTTP until
+ * a domain and TLS exist. So the async API is tried first, then the legacy
+ * execCommand("copy") on a hidden textarea -- which still works on plain HTTP inside a
+ * user gesture -- and only if both fail does the button say so, with the command text
+ * selected for the judge to copy by hand. A silent no-op would be the worst outcome: a
+ * judge pastes yesterday's clipboard into a terminal and blames the command.
  */
-export function CopyButton({ text, label = "copy" }: { text: string; label?: string }) {
+
+function legacyCopy(text: string): boolean {
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.top = "-1000px";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(area);
+  return ok;
+}
+
+export function CopyButton({
+  text,
+  label = "copy",
+  targetId,
+}: {
+  text: string;
+  label?: string;
+  /** Element whose text is selected when every copy route is blocked. */
+  targetId?: string;
+}) {
   const [note, setNote] = useState<string | null>(null);
 
   async function copy() {
-    try {
-      if (!navigator.clipboard) throw new Error("clipboard unavailable on this origin");
-      await navigator.clipboard.writeText(text);
-      setNote("copied");
-    } catch {
-      setNote("copy blocked -- select the text");
+    let ok = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      } catch {
+        ok = false;
+      }
     }
+    if (!ok) ok = legacyCopy(text);
+    if (!ok && targetId) {
+      const el = document.getElementById(targetId);
+      const sel = window.getSelection();
+      if (el && sel) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+    setNote(ok ? "copied" : "selected — press Ctrl/⌘+C");
     window.setTimeout(() => setNote(null), 2500);
   }
 
   return (
-    <button className="btn" onClick={copy} type="button">
+    <button className="btn" onClick={copy} type="button" aria-live="polite">
       {note ?? label}
     </button>
   );

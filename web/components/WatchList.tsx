@@ -101,9 +101,9 @@ export function WatchList({
       {rows.length === 0 ? (
         <p style={{ color: "var(--ink-2)", padding: "16px 14px", margin: 0 }}>
           {stream === "down"
-            ? "the watch list is empty because the stream is not delivering. No rows are drawn from cache, and none are invented."
+            ? "the watch list is empty because the live stream is not delivering."
             : stream === "unavailable"
-              ? "no ranking yet: the live pipeline is unavailable on this box (the reason is below the wall). No rows are invented."
+              ? "no ranking: the live pipeline is unavailable on this box."
               : "waiting for the first ranking."}
         </p>
       ) : (

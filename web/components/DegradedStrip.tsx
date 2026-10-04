@@ -9,8 +9,8 @@ export function humaneReason(detail: string | null | undefined): string | null {
   const reason = detail.replace(/^live pipeline unavailable\s*-+\s*/i, "");
   if (/no calibrated threshold/i.test(reason)) {
     return (
-      "the live ranking needs the alert threshold solved by the held-out benchmark run, " +
-      "and that run has not been published yet. Nothing is shown in its place."
+      "the live ranking needs an alert threshold solved on the fire-free confusion set, " +
+      "and no committed run on this box carries one yet."
     );
   }
   return reason;
@@ -42,7 +42,7 @@ export function DegradedStrip({
       {title}
       {file ? (
         <>
-          {" "}-- showing the committed results from{" "}
+          {" "}— showing the committed results from{" "}
           <span className="mono" style={{ fontWeight: 400 }}>results/{file}</span>
           {commit ? (
             <>

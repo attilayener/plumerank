@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { TopBar } from "@/components/TopBar";
+import { DEV_RUN_FILE, DEV_SUMMARY } from "@/lib/devRun";
+import { count, minutes, rate } from "@/lib/format";
 
 /**
  * "/judge" -- built for exactly one reader. No auth, no cookies, no rate limit, no
@@ -40,55 +42,59 @@ export default function JudgePage() {
       <p style={{ color: "var(--ink-1)", fontSize: "var(--size-lead)", margin: 0 }}>{CLAIM}</p>
 
       <Section title="1. Click these, in order">
-        <ol style={{ color: "var(--ink-1)", lineHeight: 1.7, paddingLeft: 20 }}>
+        <ol className="steps" style={{ color: "var(--ink-1)", lineHeight: 1.7 }}>
           <li>
             <Link href="/" style={{ textDecoration: "underline" }}>
               The Wall
             </Link>{" "}
-            — the live ranking, no login. It starts once the held-out run has published the
-            calibrated alert threshold; until then it shows its own &ldquo;live pipeline
-            unavailable&rdquo; state rather than a made-up ranking.
+            — the live ranking, no login, replaying development fires. Until the held-out run
+            is published it runs on the threshold the development run solved on the
+            fire-free confusion set, and says so on screen.
           </li>
           <li>
-            <code className="code">GET /build-info</code> — real <code className="code">cv2.getBuildInformation()</code>{" "}
-            output, the instance id, the AMI id and the git commit this box is running, read
-            live off the box.
+            <a href="/build-info" style={{ textDecoration: "underline" }}>
+              /build-info
+            </a>{" "}
+            — real <code className="code-inline">cv2.getBuildInformation()</code> output, the
+            instance id, the AMI id and the git commit this box is running, read live off the box.
           </li>
           <li>
             <Link href="/results" style={{ textDecoration: "underline" }}>
               /results
             </Link>{" "}
-            — the build-info block in-page and, after the held-out run, the headline, the
-            baseline race, the operating curve, the sensitivity strip and the ablation grid.
-            Until then it says &ldquo;not run yet&rdquo; and shows the development-set
-            numbers, labelled in-sample.
+            — the build-info block in-page and, after the held-out run, the headline. Until
+            then it says &ldquo;not run yet&rdquo; and shows the development run — systems on
+            one clock, operating curve, sensitivity strip — labelled in-sample.
           </li>
         </ol>
       </Section>
 
       <Section title="2. The receipt">
-        <ul style={{ color: "var(--ink-1)", lineHeight: 1.8, paddingLeft: 20 }}>
+        <ul className="bullets" style={{ color: "var(--ink-1)", lineHeight: 1.8 }}>
           <li>
-            <strong>664 passed, 2 skipped</strong>, 97% coverage on <code className="code">plumerank/</code>
+            <strong>664 passed, 2 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
           </li>
           <li>
-            <strong>1,500 generated cases</strong> (<code className="code">tests/test_invariants.py</code>,
-            hypothesis) verifying the fused hazard never leaves <code className="code">[0, 1]</code> and the
+            <strong>1,500 generated cases</strong> (<code className="code-inline">tests/test_invariants.py</code>,
+            hypothesis) verifying the fused hazard never leaves <code className="code-inline">[0, 1]</code> and the
             alert budget can never be overspent, under any input or call sequence
           </li>
           <li>
-            <code className="code">ruff check .</code> and <code className="code">mypy</code> both clean;{" "}
-            <code className="code">scripts/check_claims.py</code> (inside <code className="code">make test</code>)
+            <code className="code-inline">ruff check .</code> and <code className="code-inline">mypy</code> both clean;{" "}
+            <code className="code-inline">scripts/check_claims.py</code> (inside <code className="code-inline">make test</code>)
             mechanically checks every route, dependency, Makefile target and OpenCV symbol this
             page and the README name against the real source
           </li>
           <li>
-            DEV arm (orientation only, never the claim): 17/29 detected, p50 32.0 min at 1.99
-            alerts/camera-night
+            Development arm (orientation only, never the claim): {count(DEV_SUMMARY.detected)}/
+            {count(DEV_SUMMARY.n)} detected, p50 {minutes(DEV_SUMMARY.p50)} min; threshold
+            solved to {rate(DEV_SUMMARY.calibrationRate)} alerts/camera-night on the confusion
+            set, {rate(DEV_SUMMARY.devRate)} realised on the development fires (
+            <span className="mono">{DEV_RUN_FILE}</span>)
           </li>
-          <li>HOLD arm (the only number allowed to be the headline): not yet run — see §4 below</li>
+          <li>Held-out arm (the only number allowed to be the headline): not yet run — see §4 below</li>
           <li>
-            One AWS <code className="code">t4g.small</code> (Graviton) and one S3 bucket. No
+            One AWS <code className="code-inline">t4g.small</code> (Graviton) and one S3 bucket. No
             Lambda, no managed vision API.
           </li>
         </ul>
@@ -96,7 +102,7 @@ export default function JudgePage() {
 
       <Section title="3. Reproduce it yourself">
         <pre className="code" style={{ padding: 12, overflowX: "auto", whiteSpace: "pre" }}>
-{`python3 -m venv .venv && .venv/bin/pip install -r requirements.lock
+{`python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
 make test      # ~95s: 664-test offline suite + coverage + the claim-consistency check
 make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
                # micro-corpus metrics against the committed results. Does NOT
@@ -104,22 +110,24 @@ make verify    # <=3 min: rebuilds the venv, re-runs the suite, recomputes the
         </pre>
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)" }}>
           The pair that reproduces the held-out headline itself, once it exists:{" "}
-          <code className="code">make fetch</code> then <code className="code">make bench</code>, ≈95
+          <code className="code-inline">make fetch</code> then <code className="code-inline">make bench</code>, ≈95
           minutes. Nobody needs to run that to evaluate this submission.
         </p>
       </Section>
 
       <Section title="4. What is not measured yet">
         <p style={{ color: "var(--ink-1)" }}>
-          The HOLD run has not happened. Until its results file is committed, <code className="code">GET /api/benchmark</code> returns 404 with an explicit message
-          instead of a fabricated number, and the Wall reports its own degraded state rather than a
-          fake ranking. That is a deliberate design decision, not an outage — if the box is showing
-          a live ranking when you read this, the run has completed since this page was written.
+          The held-out run has not happened. Until its results file is committed,{" "}
+          <code className="code-inline">GET /api/benchmark</code> returns 404 with an explicit
+          message instead of a fabricated number, and the Wall labels its threshold as the
+          development run&apos;s. The threshold depends only on the fire-free confusion set,
+          which the held-out run reuses, so the Wall&apos;s operating point will not move when
+          it lands — only the headline will appear.
         </p>
       </Section>
 
       <Section title="5. Honest limitations">
-        <ul style={{ color: "var(--ink-1)", lineHeight: 1.8, paddingLeft: 20 }}>
+        <ul className="bullets" style={{ color: "var(--ink-1)", lineHeight: 1.8 }}>
           <li>Daylight only — no IR hardware, no night detection.</li>
           <li>
             Cloud, not fog, produced the most false alarms on the confusion set (measured

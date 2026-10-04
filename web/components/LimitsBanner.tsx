@@ -10,7 +10,7 @@
 export function LimitsBanner() {
   return (
     <div className="limits-banner" role="note">
-      Daylight only - ranking aid, not dispatch - never suppresses a camera - imagery:{" "}
+      Daylight only · ranking aid, not dispatch · never suppresses a camera · imagery:{" "}
       <a href="https://hpwren.ucsd.edu" rel="noreferrer noopener" target="_blank">
         HPWREN, hpwren.ucsd.edu
       </a>

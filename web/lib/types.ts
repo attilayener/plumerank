@@ -73,7 +73,11 @@ export interface WatchMeta {
     cameras?: number;
     threshold?: number | null;
     threshold_source?: string | null;
+    calibration_kind?: CalibrationKind;
   } | null;
+  /** Which committed run the wall's threshold came from -- see CalibrationKind. */
+  calibration_kind?: CalibrationKind;
+  threshold_source?: string | null;
   /** The watch list a human actually reads (plumerank/constants.py TOP_K). The wall
    *  dims every tile outside it and NEVER guesses the cutoff -- see Wall.tsx. */
   top_k?: number;
@@ -83,6 +87,11 @@ export interface WatchMeta {
    *  and that manifest label -- never a statistic -- is what styles a row as --fog. */
   sequences?: { camera_id: string; sequence_id?: string; arm?: string }[];
 }
+
+/** `held-out`: the threshold in results/bench_<date>.json. `development`: before that
+ *  run exists, the threshold in the newest shipped results/arm_dev_<date>.json -- solved
+ *  on the same fire-free confusion set by the same code. `null`: no threshold at all. */
+export type CalibrationKind = "held-out" | "development" | null;
 
 /** The `tick` event. Either a bare array of rows or an object carrying them. */
 export interface WatchTick {
@@ -114,6 +123,10 @@ export interface SystemResult {
   n: number | null;
   n_missed: number | null;
   alerts_per_camera_night: number | null;
+  /** The rate realised on the arm itself (uncapped). On a fire arm this is legitimately
+   *  above the calibration rate -- a fire SHOULD alert -- and it is published beside it,
+   *  labelled, never in its place. */
+  arm_alerts_per_camera_night: number | null;
   model_invocations_per_camera_night: number | null;
 }
 
@@ -169,6 +182,9 @@ export interface Benchmark {
     drift_tolerance: number | null;
   };
   systems: SystemResult[];
+  /** B1 and B2 through PlumeRank's own per-camera baseline (bench.py baselines_rebased):
+   *  the like-for-like comparison. Empty when the file predates them. */
+  rebased: SystemResult[];
   operating: { series: CurveSeries[]; operating_point: number | null };
   sensitivity: SensitivityPoint[];
   ablation: AblationGrid | null;

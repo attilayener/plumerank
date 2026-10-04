@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { calibrationKindOf } from "@/components/CalibrationNote";
+import { DEV_RUN } from "@/lib/devRun";
 import { rate, ABSENT } from "@/lib/format";
 import type { Benchmark, WatchMeta, WatchRow } from "@/lib/types";
 
@@ -80,7 +82,14 @@ export function BudgetMeter({
   const totalSpent = cameras.reduce((acc, c) => acc + (spentByCamera.get(c) ?? 0), 0);
 
   const target = benchmark?.budget.target ?? meta?.budget_target ?? null;
-  const realised = benchmark?.budget.realised_uncapped ?? null;
+  // Before the held-out file exists the wall runs on the development run's threshold
+  // (calibration_kind "development"), so the calibration figure is that run's -- the same
+  // compiled-in DEV payload /results shows, never a typed number.
+  const kind = calibrationKindOf(meta);
+  const realised =
+    benchmark?.budget.realised_uncapped ??
+    (kind === "development" ? DEV_RUN.budget.realised_uncapped : null);
+  const source = benchmark ? "held-out run" : kind === "development" ? "development run" : null;
   const tolerance = benchmark?.budget.drift_tolerance ?? meta?.drift_tolerance ?? null;
 
   // What this pill can honestly say. `realised` is the OFFLINE calibration rate from the
@@ -96,12 +105,12 @@ export function BudgetMeter({
     off === null || band === null ? "badge--spent" : off <= band ? "badge--ok" : "badge--alert";
   const driftText =
     realised === null
-      ? `calibration: after the held-out run${bandText}`
+      ? `calibration: not published yet${bandText}`
       : band === null
         ? "calibration band not published"
         : off !== null && off <= band
-          ? `calibration within band${bandText}`
-          : `calibration outside band${bandText}`;
+          ? `calibration within band${bandText}${source ? `, ${source}` : ""}`
+          : `calibration outside band${bandText}${source ? `, ${source}` : ""}`;
 
   return (
     <section className="card" id="budget" style={{ padding: "14px 16px" }}>
@@ -125,8 +134,7 @@ export function BudgetMeter({
       >
         {cameras.length === 0 ? (
           <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-            no camera roster yet -- one pair of slots appears per camera once the
-            live ranking is running.
+            waiting for the camera roster — one pair of slots per camera.
           </span>
         ) : (
           cameras.map((cam) => {
@@ -165,9 +173,9 @@ export function BudgetMeter({
         <span className="num">
           {realised === null
             ? `target ${target === null ? ABSENT : rate(target)} alerts per camera-night`
-            : `offline calibration (uncapped) ${rate(realised)} / target ${
+            : `${rate(realised)} alerts per camera-night on the fire-free confusion set (uncapped) / target ${
                 target === null ? ABSENT : rate(target)
-              } alerts per camera-night`}
+              }`}
         </span>
         <a href="/results#budget" className={`pill ${driftClass}`}>
           {driftText}

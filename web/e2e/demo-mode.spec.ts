@@ -17,7 +17,7 @@ test.describe("demo mode", () => {
     await expect(page).toHaveTitle(/PlumeRank/);
     expect(
       await page.locator('meta[name="description"]').getAttribute("content")
-    ).toMatch(/budget of \d+ alerts per camera-night/i);
+    ).toMatch(/two alerts per camera a night/i);
 
     expect(errors).toEqual([]);
   });
@@ -38,10 +38,23 @@ test.describe("demo mode", () => {
     // Visible matches only: on narrow viewports the wall's area is display:none, and its
     // own inline notice comes first in DOM order, ahead of the DegradedStrip below it.
     const honestState = page
-      .getByText(/unavailable|not delivering|none are invented/i)
+      .getByText(/unavailable|not delivering/i)
       .filter({ visible: true })
       .first();
     const rankedRow = page.locator(".watchlist-scroll .row").first();
     await expect(honestState.or(rankedRow).first()).toBeVisible({ timeout: 15_000 });
   });
+});
+
+test("a running wall names the run its threshold came from", async ({ page }) => {
+  await page.goto("/");
+  const ranked = page.locator(".watchlist-scroll .row").first();
+  const honest = page.getByText(/unavailable|not delivering/i).filter({ visible: true }).first();
+  await expect(honest.or(ranked).first()).toBeVisible({ timeout: 20_000 });
+  if (await ranked.isVisible()) {
+    // Whenever the wall is ranking, the provenance of its threshold is on screen.
+    await expect(
+      page.getByText(/Threshold solved on the fire-free confusion set/).first(),
+    ).toBeAttached();
+  }
 });

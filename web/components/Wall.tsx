@@ -98,18 +98,17 @@ export function Wall({
       >
         <span className="label">the wall</span>
         <span className="label" style={{ textTransform: "none", letterSpacing: 0 }}>
-          {roster.length === 0 ? "every camera, always, once it is running" : `${roster.length} cameras, all of them, always`}
+          {roster.length === 0 ? "every camera on the roster, none removed" : `${roster.length} cameras, all of them, always`}
         </span>
       </div>
 
       {roster.length === 0 ? (
         <p style={{ color: "var(--ink-2)", margin: 0 }}>
           {pipelineDown
-            ? "No live ranking on this box yet -- the reason is given below the wall."
+            ? "No live ranking on this box."
             : meta === null
-              ? "connecting to the live stream..."
-              : "the stream arrived carrying no cameras."}{" "}
-          No placeholder tiles are drawn.
+              ? "connecting to the live stream…"
+              : "the stream arrived carrying no cameras."}
         </p>
       ) : (
         <div
@@ -146,13 +145,13 @@ export function Wall({
       {paused ? (
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", marginTop: 8 }}>
           replay paused. The replay runs only while someone is watching and restarts on
-          its own -- reload the page if it does not resume within a few seconds.
+          its own — reload the page if it does not resume within a few seconds.
         </p>
       ) : null}
 
       {warming ? (
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)", marginTop: 8 }}>
-          warming background model -- this is what a real camera start looks like
+          warming background model — this is what a real camera start looks like
           {warmupFrames !== null && seen !== null ? ` (${seen} of ${warmupFrames} frames)` : ""}
         </p>
       ) : null}
@@ -168,7 +167,8 @@ export function Wall({
           "you demoed on the fire you tuned on", and answering it before it is asked is
           cheaper than answering it afterwards. The wall never reads HOLD. */}
       <p style={{ color: "var(--ink-3)", fontSize: "var(--size-label)", marginTop: 10 }}>
-        demo sequence: development set -- the constants were fit on these fires. The
+        Replaying the development set — the constants were fit on these fires, one frame
+        per minute of footage, about one frame per second on screen. The
         headline {holdSequences === null ? "will be" : "is"} measured on{" "}
         {holdSequences === null || holdExcluded === null
           ? "the"
@@ -176,7 +176,7 @@ export function Wall({
         held-out sequences the system has never seen
         {holdExcluded === null
           ? ""
-          : ` -- ${holdExcluded} excluded by the pre-stated criteria in data/excluded.json, listed with their reasons on /results`}
+          : ` — ${holdExcluded} excluded by the pre-stated criteria in data/excluded.json, listed with their reasons on /results`}
         .
       </p>
     </section>
