@@ -97,7 +97,7 @@ publish any threshold it could not calibrate to the budget (`_check_calibration`
 |---|---|
 | `GET /build-info` | `cv2.getBuildInformation()` verbatim, `cv2.__version__`, a module-availability probe, the instance id and AMI id, the git commit sha |
 | `GET /health` | liveness, uptime, replay state, the live-pipeline availability flag and reason |
-| `GET /api/watchlist` | Server-Sent Events: a `meta` event (camera roster, budget, threshold), then one tick per replayed frame (one minute of footage, replayed at about one tick per second) |
+| `GET /api/watchlist` | Server-Sent Events: a `meta` event (camera roster, budget, threshold), then one tick per replayed frame (one minute of footage; the box replays a tick every 1–3 s with 62 cameras, and /health publishes the measured period) |
 | `GET /api/benchmark` | `results/bench_<date>.json` served verbatim, or `404` with an explicit message if it does not exist yet |
 
 Evidence crops are static files served by Caddy directly -- image serving never touches the

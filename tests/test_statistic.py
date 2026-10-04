@@ -651,3 +651,25 @@ def test_gate_scores_at_the_resolution_production_computes_at():
         "the gate must default to production resolution; 'full' measures a statistic the "
         "product does not compute"
     )
+
+
+def test_the_dis_cache_is_bounded_and_eviction_does_not_change_the_flow() -> None:
+    """The per-shape DIS cache grew without bound on the live box (OOM). It is an LRU now,
+    and a shape that was evicted must compute the same flow as one that never was."""
+    import cv2
+
+    from plumerank import statistic as st
+
+    rng = np.random.default_rng(5)
+    a = rng.integers(0, 255, (60, 90), dtype=np.uint8)
+    b = np.roll(a, -1, axis=0)
+    st._DIS_BY_SHAPE.clear()
+    first = st._dis((60, 90)).calc(a, b, None)
+    for h in range(32, 32 + st.DIS_CACHE_SIZE + 10):  # flood the cache past its size
+        st._dis((h, 100))
+    assert len(st._DIS_BY_SHAPE) <= st.DIS_CACHE_SIZE
+    assert (60, 90) not in st._DIS_BY_SHAPE
+    again = st._dis((60, 90)).calc(a, b, None)
+    fresh = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST).calc(a, b, None)
+    assert np.array_equal(first, again)
+    assert np.array_equal(first, fresh)

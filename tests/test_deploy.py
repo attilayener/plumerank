@@ -621,3 +621,12 @@ def test_caddy_serves_the_designed_404_and_strips_trailing_slashes() -> None:
     assert "redir @slash /{http.request.uri.path.0} 308" in text
     assert "redir @slash_query /{http.request.uri.path.0}?{query} 308" in text
     assert "path_regexp" not in text
+
+
+def test_the_service_has_a_memory_ceiling_and_the_box_has_swap() -> None:
+    """2026-10-04: a global OOM with no swap wedged the whole box until a reboot. The unit
+    must be the thing that dies (and restarts), not Caddy and sshd with it."""
+    unit = _read(DEPLOY / "plumerank.service")
+    assert "MemoryMax=" in unit and "MemoryHigh=" in unit
+    text = _read(BOOTSTRAP)
+    assert "mkswap /swapfile" in text and "swapon /swapfile" in text

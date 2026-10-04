@@ -62,6 +62,7 @@ OpenCV surfaces used here:
 from __future__ import annotations
 
 import math
+from collections import OrderedDict
 
 import cv2
 import numpy as np
@@ -347,15 +348,18 @@ def s3_diffuse_boundary(grey: np.ndarray, component: Component) -> tuple[float, 
 #: same number twice. Keying the cache by shape removes it: every ROI size gets an
 #: instance that has only ever seen that size.
 #:
-#: The cache is bounded because the pipeline emits at most MAX_COMPONENTS_PER_FRAME
-#: components per frame at a working resolution of 480x270; if it ever grows unbounded,
-#: that is a symptom worth seeing rather than a leak worth hiding.
+#: The cache is an LRU of DIS_CACHE_SIZE shapes. Keyed by every (h, w) ever seen it was
+#: NOT bounded -- a component's box takes a new shape almost every frame -- and on the
+#: live box it grew until the kernel OOM-killed the service. Eviction is free of
+#: consequence for the numbers: an evicted shape gets a fresh instance on its next use,
+#: which is exactly "an instance that has only ever seen that size".
 #:
 #: Filed upstream with this minimal repro:
 #:     a = np.random.randint(0, 255, (30, 195), np.uint8); b = np.roll(a, -1, 0)
 #:     cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST).calc(a, b, None)
 #:     -> field of nan, no exception raised
-_DIS_BY_SHAPE: dict[tuple[int, int], cv2.DISOpticalFlow] = {}
+_DIS_BY_SHAPE: OrderedDict[tuple[int, int], cv2.DISOpticalFlow] = OrderedDict()
+DIS_CACHE_SIZE = 64
 
 
 def _dis(shape: tuple[int, int]) -> cv2.DISOpticalFlow:
@@ -363,6 +367,10 @@ def _dis(shape: tuple[int, int]) -> cv2.DISOpticalFlow:
     if dis is None:
         dis = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST)  # type: ignore[attr-defined]
         _DIS_BY_SHAPE[shape] = dis
+        while len(_DIS_BY_SHAPE) > DIS_CACHE_SIZE:
+            _DIS_BY_SHAPE.popitem(last=False)
+    else:
+        _DIS_BY_SHAPE.move_to_end(shape)
     return dis
 
 

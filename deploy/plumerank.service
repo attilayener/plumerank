@@ -86,9 +86,13 @@ ReadWritePaths=/opt/plumerank/web/evidence
 # under ProtectSystem=strict. ~2 GB of .npy for the ~5,000 wall frames; disposable.
 CacheDirectory=plumerank
 
-# Deliberately no MemoryMax. 40 warm background models are the product's state; having
-# the cgroup kill the process mid-replay would look exactly like a crash to a judge and
-# would lose the warm-up the UI has already paid for on screen.
+# A memory ceiling, learned the hard way: on 2026-10-04 an unbounded per-shape DIS
+# cache drove the process to 1.6 GB and, with no swap, a global OOM left the whole box
+# unresponsive (TCP open, no HTTP, no SSH) until a reboot. 62 warm background models sit
+# near 0.8 GB. MemoryHigh throttles and reclaims first; MemoryMax lets the kernel kill
+# THIS unit, which Restart= brings back in seconds, instead of wedging Caddy and sshd too.
+MemoryHigh=1200M
+MemoryMax=1450M
 
 [Install]
 WantedBy=multi-user.target

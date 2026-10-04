@@ -202,6 +202,14 @@ step "OS packages (python3.11, pip, git, tar, gzip, ca-certificates)"
 dnf install -y --quiet python3.11 python3.11-pip git tar gzip ca-certificates
 say "python: $(python3.11 --version)"
 
+step "1 GB swapfile (safety net against a global OOM)"
+if ! swapon --show=NAME --noheadings | grep -qx /swapfile; then
+  [ -f /swapfile ] || { fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null; }
+  swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+sysctl -q -w vm.swappiness=10
+
 step "Node toolchain (build-time only)"
 if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 18 ]; then
   say "node already present: $(node --version) -- skipping install"
