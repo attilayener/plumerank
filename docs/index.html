@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlumeRank — the camera wall finally points at the smoke</title>
+<meta name="description" content="PlumeRank ranks a wildfire-camera wall against each camera's own last 15 minutes, under a hard budget of 2 alerts per camera-window. OpenCV 5 on one AWS Graviton box.">
+<meta name="theme-color" content="#0A0E13">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://plumerank.edycu.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PlumeRank">
+<meta property="og:title" content="PlumeRank — the camera wall finally points at the smoke">
+<meta property="og:description" content="Ranks wildfire cameras against their own last 15 minutes, at 2 alerts per camera-window. OpenCV 5 on AWS Graviton.">
+<meta property="og:url" content="https://plumerank.edycu.dev/">
+<meta property="og:image" content="https://plumerank.edycu.dev/assets/og-image.png?v=2">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PlumeRank — a smoke plume on a ridge inside an azimuth ring, with one of two budget slots spent">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PlumeRank — the camera wall finally points at the smoke">
+<meta name="twitter:description" content="Ranks wildfire cameras against their own last 15 minutes, at 2 alerts per camera-window. OpenCV 5 on AWS Graviton.">
+<meta name="twitter:image" content="https://plumerank.edycu.dev/assets/og-image.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="assets/border58-m05.webp">
+<style>
+:root {
+  --bg:      #0A0E13;
+  --ink:     #F2F6FA;
+  --muted:   #8595A6;
+  --before:  #56646F;
+  --after:   #FF6B4A;
+  --rule:    #243140;
+  --slot:    #FFB020;
+  --signal:  #56C2FF;
+  --ok:      #3FD08A;
+  --surface: #121A22;
+  --raised:  #1A2530;
+  --ink-1:   #C6D2DE;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body:    "Barlow", system-ui, sans-serif;
+  --font-data:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --wrap: 1240px;
+  --ease: cubic-bezier(.2,.7,.2,1);
+}
+* { box-sizing: border-box; }
+html { overflow-x: clip; scroll-behavior: smooth; scroll-padding-top: 84px; color-scheme: dark; }
+body { margin: 0; background: var(--bg); color: var(--ink-1); font: 400 18px/1.6 var(--font-body); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--slot); color: var(--bg); }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; border-radius: 2px; }
+html { scrollbar-color: var(--rule) var(--bg); }
+a { color: var(--ink); text-decoration-color: color-mix(in srgb, var(--slot) 70%, transparent); text-underline-offset: 3px; }
+a:hover { color: var(--slot); }
+img { max-width: 100%; height: auto; display: block; }
+h1, h2, h3 { color: var(--ink); margin: 0; }
+p { margin: 0; }
+b, strong { color: var(--ink); font-weight: 600; }
+code, .mono { font-family: var(--font-data); font-size: .86em; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 32px; }
+.skip { position: absolute; left: -9999px; top: 8px; background: var(--slot); color: var(--bg); padding: 8px 14px; z-index: 99; }
+.skip:focus { left: 8px; }
+
+/* ---------- nav ---------- */
+.nav { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule); }
+.nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.brand img { width: 34px; height: 34px; border-radius: 8px; }
+.brand b { font: 700 23px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; }
+.brand span { font: 500 11px/1 var(--font-data); color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; align-items: center; }
+.nav ul a { font: 500 15px var(--font-body); color: var(--muted); text-decoration: none; transition: color .2s; }
+.nav ul a:hover { color: var(--ink); }
+.btn { display: inline-flex; align-items: center; gap: 10px; font: 600 16px/1 var(--font-body); padding: 14px 22px; border-radius: 4px; text-decoration: none; border: 1px solid var(--rule); color: var(--ink); background: var(--surface); transition: transform .2s var(--ease), border-color .2s, background .2s, color .2s, box-shadow .2s; }
+.btn:hover { transform: translateY(-2px); border-color: var(--muted); color: var(--ink); }
+.btn:active { transform: translateY(0); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn.primary { background: var(--slot); border-color: var(--slot); color: #1A1204; box-shadow: 0 0 0 0 transparent; }
+.btn.primary:hover { color: #1A1204; box-shadow: 0 10px 34px -10px color-mix(in srgb, var(--slot) 70%, transparent); }
+.nav .btn { padding: 10px 16px; font-size: 14px; }
+
+/* ---------- hero ---------- */
+.hero { position: relative; padding: 64px 0 24px; overflow: hidden; }
+.hero::before { content: ""; position: absolute; inset: 0; background:
+  radial-gradient(48% 60% at 78% 46%, color-mix(in srgb, var(--after) 9%, transparent) 0%, transparent 70%),
+  radial-gradient(40% 50% at 6% 0%, color-mix(in srgb, var(--signal) 6%, transparent) 0%, transparent 70%);
+  pointer-events: none; }
+.hero .wrap { position: relative; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 56px; align-items: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 500 12.5px/1 var(--font-data); color: var(--slot); letter-spacing: .16em; text-transform: uppercase; }
+.eyebrow::before { content: ""; width: 26px; height: 1px; background: var(--slot); }
+h1 { font: 800 clamp(58px, 7.4vw, 108px)/.9 var(--font-display); text-transform: uppercase; letter-spacing: -.004em; margin: 22px 0 26px; }
+h1 .hot { color: var(--after); display: inline; text-shadow: 0 0 46px color-mix(in srgb, var(--after) 38%, transparent); }
+.sub { font-size: 19px; color: var(--ink-1); max-width: 58ch; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin: 32px 0 22px; }
+.runline { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); font: 500 14px/1 var(--font-data); max-width: 100%; }
+.runline code { padding: 12px 14px; color: var(--ink); font-size: 14px; white-space: nowrap; }
+.runline code::before { content: "$ "; color: var(--before); }
+.runline button { font: 500 12px/1 var(--font-data); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: none; border: 0; border-left: 1px solid var(--rule); padding: 13px 14px; cursor: pointer; transition: color .2s, background .2s; }
+.runline button:hover { color: var(--slot); background: var(--raised); }
+.runnote { display: block; margin-top: 10px; font: 400 13px/1.5 var(--font-data); color: var(--muted); }
+
+/* the fire finder */
+.finder { position: relative; width: 100%; max-width: 560px; margin-left: auto; aspect-ratio: 1; }
+.finder svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.finder .ticks { transform-origin: 50% 50%; animation: turn 120s linear infinite; }
+@keyframes turn { to { transform: rotate(360deg); } }
+.lens { position: absolute; inset: 12.5%; border-radius: 50%; overflow: hidden; background: #05080B; box-shadow: 0 0 0 1px var(--rule), 0 30px 80px -30px #000; }
+.lens img { position: absolute; inset: 0; width: 100%; height: 100% !important; object-fit: cover; opacity: 0; transition: opacity .9s ease; }
+.lens img.on { opacity: 1; }
+.lens::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, transparent 58%, rgba(5,8,11,.55) 100%); }
+.bearing { transition: opacity .6s, stroke .6s; }
+.finder[data-alert="1"] .bearing { stroke: var(--after); opacity: 1; }
+.finder .stamp { position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; background: color-mix(in srgb, var(--bg) 88%, transparent); border: 1px solid var(--rule); border-radius: 4px; padding: 10px 14px; font: 500 13px/1 var(--font-data); white-space: nowrap; }
+.clock { color: var(--ink); font-weight: 600; min-width: 64px; font-variant-numeric: tabular-nums; }
+.state { color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; min-width: 104px; }
+.finder[data-alert="1"] .state { color: var(--after); }
+.slots { display: inline-flex; gap: 5px; }
+.slots i { width: 14px; height: 14px; border: 1px solid var(--before); display: block; transition: background .4s, border-color .4s, box-shadow .4s; }
+.finder[data-alert="1"] .slots i:first-child, .slots i.on { background: var(--slot); border-color: var(--slot); box-shadow: 0 0 14px color-mix(in srgb, var(--slot) 60%, transparent); }
+.finder figcaption { position: absolute; top: 100%; left: 0; right: 0; margin-top: 18px; font: 400 12.5px/1.55 var(--font-data); color: var(--muted); text-align: center; }
+
+/* status bar */
+.status { margin-top: 64px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--surface); }
+.status .wrap { display: flex; gap: 18px; align-items: baseline; padding-top: 14px; padding-bottom: 14px; font: 400 14px/1.5 var(--font-data); color: var(--muted); }
+.status b { color: var(--slot); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+
+/* ---------- sections ---------- */
+section.block { padding: 112px 0 0; }
+.label { font: 500 12.5px/1 var(--font-data); color: var(--slot); letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+.label::after { content: ""; height: 1px; width: 56px; background: var(--rule); }
+h2 { font: 700 clamp(40px, 4.6vw, 64px)/.98 var(--font-display); text-transform: uppercase; margin: 18px 0 18px; letter-spacing: .002em; }
+h2 em { font-style: normal; color: var(--after); }
+.lede { max-width: 66ch; color: var(--ink-1); }
+
+/* receipts */
+.receipts { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); margin-top: 56px; }
+.receipt { padding: 28px 26px 24px; border-left: 1px solid var(--rule); }
+.receipt:first-child { border-left: 0; }
+.receipt .n { font: 800 64px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.receipt .n small { font-size: .5em; color: var(--muted); font-weight: 600; margin-left: 4px; }
+.receipt .n.hot { color: var(--slot); }
+.receipt .l { margin-top: 10px; font: 600 14px/1.35 var(--font-body); color: var(--ink); text-transform: uppercase; letter-spacing: .05em; }
+.receipt .src { margin-top: 10px; font: 400 11.5px/1.45 var(--font-data); color: var(--muted); word-break: break-word; }
+.receipts-note { margin-top: 14px; font: 400 13px/1.5 var(--font-data); color: var(--muted); }
+
+/* demo pair */
+.pair { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px; margin-top: 48px; align-items: stretch; }
+.browser { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--surface); box-shadow: 0 40px 90px -50px #000; }
+.browser .bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); font: 400 12.5px/1 var(--font-data); color: var(--muted); }
+.browser .bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--rule); display: block; }
+.browser .bar span { margin-left: 10px; }
+.browser .bar a { margin-left: auto; color: var(--signal); text-decoration: none; }
+.browser .bar a:hover { color: var(--ink); }
+.term { border: 1px solid var(--rule); border-radius: 8px; background: #070A0E; display: flex; flex-direction: column; overflow: hidden; }
+.term .bar { padding: 10px 14px; border-bottom: 1px solid var(--rule); font: 400 12.5px/1 var(--font-data); color: var(--muted); display: flex; justify-content: space-between; }
+.term pre { margin: 0; padding: 18px 18px 20px; font: 400 12.5px/1.62 var(--font-data); color: var(--ink-1); white-space: pre-wrap; word-break: break-word; flex: 1; min-height: 420px; }
+.term .c { color: var(--before); } .term .p { color: var(--slot); } .term .g { color: var(--ok); } .term .w { color: var(--ink); font-weight: 500; } .term .s { color: var(--signal); }
+.cursor { display: inline-block; width: 8px; height: 1.1em; background: var(--slot); vertical-align: text-bottom; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.cap { margin-top: 14px; font: 400 13px/1.55 var(--font-data); color: var(--muted); }
+
+/* the log */
+.logwrap { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 40px; align-items: start; }
+.log { border-top: 1px solid var(--ink); font: 400 14px/1 var(--font-data); }
+.log .hd, .log .row { display: grid; grid-template-columns: 74px minmax(0, 1fr) 96px 96px 96px; align-items: center; gap: 12px; padding: 0 10px; }
+.log .hd { height: 40px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--rule); }
+.log .hd .sm { display: none; }
+.log .row { height: 40px; border-bottom: 1px solid var(--rule); color: var(--ink-1); transition: background .25s; }
+.log .row:hover { background: var(--surface); }
+.log .row .t { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.log .row .f { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log .row .f span { color: var(--muted); }
+.log .row.miss .t { color: var(--before); }
+.log .row.miss .f { color: var(--muted); }
+.log .row.star { background: var(--raised); }
+.mark { font-size: 12.5px; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.mark i { width: 12px; height: 12px; border: 1px solid var(--before); display: block; flex: none; }
+.mark.y { color: var(--ink); } .mark.y i { background: var(--slot); border-color: var(--slot); }
+.mark.y.pr i { background: var(--after); border-color: var(--after); }
+.js .log .row { opacity: 0; transform: translateX(-8px); }
+.js .log.in .row { opacity: 1; transform: none; transition: opacity .45s var(--ease), transform .45s var(--ease), background .25s; transition-delay: calc(var(--i) * 28ms); }
+.logside { position: sticky; top: 100px; }
+.logside .big { font: 800 120px/.85 var(--font-display); color: var(--ink); }
+.logside .big small { font-size: .36em; color: var(--muted); }
+.logside p { margin-top: 14px; font-size: 16px; }
+.logside .key { margin-top: 24px; display: grid; gap: 10px; }
+
+/* bars */
+.bars { margin-top: 48px; display: grid; gap: 18px; max-width: 980px; }
+.bar-row .top { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-bottom: 8px; }
+.bar-row .name { font: 600 17px/1.3 var(--font-body); color: var(--ink); }
+.bar-row .name span { color: var(--muted); font-weight: 400; }
+.bar-row .val { font: 600 15px/1 var(--font-data); color: var(--ink); white-space: nowrap; }
+.track { height: 14px; background: var(--surface); border: 1px solid var(--rule); position: relative; overflow: hidden; }
+.fill { position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--before); }
+.fill.pr { background: linear-gradient(90deg, var(--after), var(--slot)); }
+.js .fill { width: 0; transition: width 1.4s var(--ease); }
+.js .bars.in .fill { width: var(--w); }
+.split { font: 500 12px/1 var(--font-data); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-top: 10px; padding-top: 18px; border-top: 1px dashed var(--rule); }
+
+/* bento */
+.bento { margin-top: 48px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 26px; position: relative; overflow: hidden; transition: border-color .25s, transform .25s var(--ease); }
+.card:hover { border-color: color-mix(in srgb, var(--slot) 45%, var(--rule)); transform: translateY(-2px); }
+.card.a { grid-column: span 4; } .card.b { grid-column: span 2; } .card.c { grid-column: span 2; } .card.d { grid-column: span 2; } .card.e { grid-column: span 2; }
+.card .step { font: 500 12px/1 var(--font-data); color: var(--muted); letter-spacing: .14em; }
+.card h3 { font: 700 30px/1 var(--font-display); text-transform: uppercase; margin: 14px 0 12px; }
+.card p { font-size: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+.chip { font: 500 12px/1 var(--font-data); color: var(--signal); background: color-mix(in srgb, var(--signal) 8%, transparent); border: 1px solid color-mix(in srgb, var(--signal) 22%, transparent); padding: 6px 8px; border-radius: 3px; }
+.card .ico { width: 40px; height: 40px; color: var(--slot); }
+.card.a .formula { margin-top: 20px; font: 400 14px/1.7 var(--font-data); background: #070A0E; border: 1px solid var(--rule); border-radius: 4px; padding: 16px 18px; color: var(--ink-1); }
+.card.a .formula .p { color: var(--slot); }
+.stats { margin-top: 16px; display: grid; gap: 8px; font: 400 13px/1.3 var(--font-data); }
+.stats div { display: grid; grid-template-columns: 34px 1fr 52px; gap: 10px; align-items: center; color: var(--muted); }
+.stats div b { color: var(--ink); font-weight: 600; }
+.stats .auc { text-align: right; color: var(--ink); }
+.stats .auc.bad { color: var(--after); }
+
+/* aws */
+.aws { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.aws svg { width: 100%; height: auto; }
+.aws ul { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
+.aws li { padding: 16px 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 150px 1fr; gap: 16px; font-size: 16px; }
+.aws li span { font: 500 12.5px/1.6 var(--font-data); color: var(--slot); letter-spacing: .08em; text-transform: uppercase; }
+
+/* honest */
+.quotes { margin-top: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.quote { border-left: 2px solid var(--after); padding: 6px 0 6px 22px; }
+.quote q { display: block; font: 500 25px/1.18 var(--font-display); color: var(--ink); quotes: "\201C" "\201D"; }
+.quote p { margin-top: 14px; font-size: 15px; color: var(--ink-1); }
+.quote cite { display: block; margin-top: 14px; font: 400 12.5px/1.4 var(--font-data); color: var(--muted); font-style: normal; }
+
+/* faq */
+.faq { margin-top: 40px; border-top: 1px solid var(--rule); max-width: 900px; }
+.faq details { border-bottom: 1px solid var(--rule); }
+.faq summary { list-style: none; cursor: pointer; padding: 22px 44px 22px 0; position: relative; font: 600 20px/1.3 var(--font-body); color: var(--ink); transition: color .2s; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary:hover { color: var(--slot); }
+.faq summary::after { content: "+"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font: 400 26px/1 var(--font-data); color: var(--slot); transition: transform .25s var(--ease); }
+.faq details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+.faq .ans { padding: 0 0 24px; max-width: 72ch; font-size: 17px; }
+.faq .ans p + p { margin-top: 12px; }
+
+/* footer */
+.closing { margin-top: 128px; border-top: 1px solid var(--rule); background: radial-gradient(60% 120% at 50% 120%, color-mix(in srgb, var(--after) 12%, transparent), transparent 70%); }
+.closing .wrap { padding-top: 88px; padding-bottom: 72px; text-align: center; }
+.closing h2 { margin: 18px auto 18px; max-width: 18ch; }
+.closing .label { justify-content: center; }
+.closing .label::after { display: none; }
+.closing .ctas { justify-content: center; }
+footer { border-top: 1px solid var(--rule); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-top: 24px; padding-bottom: 32px; font: 400 13px/1.6 var(--font-data); color: var(--muted); }
+footer a { color: var(--ink-1); }
+
+/* reveal (content is visible by default; JS opts in) */
+.js .rv { opacity: 0; transform: translateY(18px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.js .rv.in { opacity: 1; transform: none; }
+.js .hero .seq { opacity: 0; transform: translateY(16px); animation: rise .9s var(--ease) forwards; animation-delay: calc(var(--d) * 110ms + 80ms); }
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+@media (max-width: 1040px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+  .runline { display: flex; }
+  .runline code { white-space: normal; overflow-wrap: anywhere; flex: 1; }
+  .finder { margin: 24px auto 40px; max-width: 480px; }
+  .pair, .logwrap, .aws { grid-template-columns: 1fr; }
+  .logside { position: static; }
+  .receipts { grid-template-columns: repeat(2, 1fr); }
+  .receipt:nth-child(3) { border-left: 0; }
+  .receipt:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .bento { grid-template-columns: repeat(2, 1fr); }
+  .card.a, .card.b, .card.c, .card.d, .card.e { grid-column: span 2; }
+  .quotes { grid-template-columns: 1fr; }
+  .nav ul li.opt { display: none; }
+}
+@media (max-width: 640px) {
+  body { font-size: 17px; }
+  .wrap { padding: 0 16px; }
+  .hero { padding-top: 44px; }
+  .brand span { display: none; }
+  .nav ul { gap: 14px; }
+  .nav ul li.opt2 { display: none; }
+  .receipts { grid-template-columns: 1fr; }
+  .receipt { border-left: 0 !important; border-top: 1px solid var(--rule); }
+  .receipt:first-child { border-top: 0; }
+  .receipt .n { font-size: 54px; }
+  .log .hd, .log .row { grid-template-columns: 46px minmax(0, 1fr) 30px 30px 30px; gap: 8px; padding: 0 4px; font-size: 12.5px; }
+  .mark b { display: none; }
+  .log .hd .lg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .log .hd .sm { display: inline; }
+  .log .hd { position: relative; }
+  .finder { margin-bottom: 110px; }
+  .finder .stamp { font-size: 11.5px; gap: 10px; padding: 8px 10px; }
+  .state { min-width: 0; }
+  .aws li { grid-template-columns: 1fr; gap: 4px; }
+  .status .wrap { flex-direction: column; gap: 4px; }
+  .term pre { min-height: 0; font-size: 11.5px; }
+  .runline code { white-space: normal; }
+  section.block { padding-top: 84px; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="PlumeRank home">
+      <img src="assets/icon.svg" alt="" width="34" height="34">
+      <b>PlumeRank</b><span>// lookout log</span>
+    </a>
+    <nav aria-label="Sections">
+      <ul>
+        <li class="opt"><a href="#log">The log</a></li>
+        <li class="opt"><a href="#mechanism">Mechanism</a></li>
+        <li class="opt"><a href="#honest">Honest</a></li>
+        <li class="opt2"><a href="#faq">FAQ</a></li>
+        <li class="opt2"><a href="pitch/">Pitch deck</a></li>
+        <li><a class="btn primary" href="https://github.com/edycutjong/plumerank"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow seq" style="--d:0">Lookout log · OpenCV AI Competition 2026</div>
+      <h1 class="seq" style="--d:1">The camera wall finally <span class="hot">points at the smoke.</span></h1>
+      <p class="sub seq" style="--d:2">It is 04:50, and one dispatcher faces a wall of camera tiles — ALERTCalifornia alone runs over 1,000. PlumeRank scores every camera against <b>its own last 15 minutes</b> and ranks the wall under a hard budget of <b>2 alerts per camera-window</b>. On the development fires it caught <b>17 of 29</b>, a median <b>32.0 minutes</b> after ignition. The same neural network run on every frame caught <b>6</b>.</p>
+      <div class="ctas seq" style="--d:3">
+        <a class="btn primary" href="https://github.com/edycutjong/plumerank"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a>
+        <a class="btn" href="pitch/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8"/></svg>Pitch deck</a>
+        <a class="btn" href="http://44.242.91.201"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M5 12a7 7 0 0114 0M2 12a10 10 0 0120 0"/></svg>Live wall on AWS</a>
+      </div>
+      <div class="seq" style="--d:4">
+        <div class="runline"><code>git clone https://github.com/edycutjong/plumerank &amp;&amp; cd plumerank &amp;&amp; make verify</code><button type="button" data-copy="git clone https://github.com/edycutjong/plumerank &amp;&amp; cd plumerank &amp;&amp; make verify">Copy</button></div>
+        <span class="runnote">≤3 min · no keys · no account · recomputes real metrics on committed pixels</span>
+      </div>
+    </div>
+
+    <figure class="finder seq" style="--d:2" id="finder" data-alert="0" aria-label="Real HPWREN frames from the Border58 Fire stepping from five minutes before ignition to twenty minutes after; PlumeRank's alert fires at plus eight minutes">
+      <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="99" fill="none" stroke="#243140" stroke-width=".4"/>
+        <circle cx="100" cy="100" r="88.5" fill="none" stroke="#243140" stroke-width=".3"/>
+        <g class="ticks" stroke="#56646F"><line x1="189.50" y1="100.00" x2="198.00" y2="100.00" stroke-width=".7"/><line x1="194.37" y1="104.95" x2="197.87" y2="105.13" stroke-width=".35"/><line x1="193.98" y1="109.88" x2="197.46" y2="110.24" stroke-width=".35"/><line x1="193.34" y1="114.78" x2="196.79" y2="115.33" stroke-width=".35"/><line x1="192.43" y1="119.65" x2="195.86" y2="120.38" stroke-width=".35"/><line x1="189.35" y1="123.94" x2="194.66" y2="125.36" stroke-width=".35"/><line x1="189.87" y1="129.20" x2="193.20" y2="130.28" stroke-width=".35"/><line x1="188.22" y1="133.87" x2="191.49" y2="135.12" stroke-width=".35"/><line x1="186.33" y1="138.44" x2="189.53" y2="139.86" stroke-width=".35"/><line x1="184.20" y1="142.90" x2="187.32" y2="144.49" stroke-width=".35"/><line x1="177.51" y1="144.75" x2="184.87" y2="149.00" stroke-width=".7"/><line x1="179.25" y1="151.47" x2="182.19" y2="153.37" stroke-width=".35"/><line x1="176.45" y1="155.55" x2="179.28" y2="157.60" stroke-width=".35"/><line x1="173.44" y1="159.47" x2="176.16" y2="161.67" stroke-width=".35"/><line x1="170.23" y1="163.23" x2="172.83" y2="165.57" stroke-width=".35"/><line x1="165.41" y1="165.41" x2="169.30" y2="169.30" stroke-width=".35"/><line x1="163.23" y1="170.23" x2="165.57" y2="172.83" stroke-width=".35"/><line x1="159.47" y1="173.44" x2="161.67" y2="176.16" stroke-width=".35"/><line x1="155.55" y1="176.45" x2="157.60" y2="179.28" stroke-width=".35"/><line x1="151.47" y1="179.25" x2="153.37" y2="182.19" stroke-width=".35"/><line x1="144.75" y1="177.51" x2="149.00" y2="184.87" stroke-width=".7"/><line x1="142.90" y1="184.20" x2="144.49" y2="187.32" stroke-width=".35"/><line x1="138.44" y1="186.33" x2="139.86" y2="189.53" stroke-width=".35"/><line x1="133.87" y1="188.22" x2="135.12" y2="191.49" stroke-width=".35"/><line x1="129.20" y1="189.87" x2="130.28" y2="193.20" stroke-width=".35"/><line x1="123.94" y1="189.35" x2="125.36" y2="194.66" stroke-width=".35"/><line x1="119.65" y1="192.43" x2="120.38" y2="195.86" stroke-width=".35"/><line x1="114.78" y1="193.34" x2="115.33" y2="196.79" stroke-width=".35"/><line x1="109.88" y1="193.98" x2="110.24" y2="197.46" stroke-width=".35"/><line x1="104.95" y1="194.37" x2="105.13" y2="197.87" stroke-width=".35"/><line x1="100.00" y1="189.50" x2="100.00" y2="198.00" stroke-width=".7"/><line x1="95.05" y1="194.37" x2="94.87" y2="197.87" stroke-width=".35"/><line x1="90.12" y1="193.98" x2="89.76" y2="197.46" stroke-width=".35"/><line x1="85.22" y1="193.34" x2="84.67" y2="196.79" stroke-width=".35"/><line x1="80.35" y1="192.43" x2="79.62" y2="195.86" stroke-width=".35"/><line x1="76.06" y1="189.35" x2="74.64" y2="194.66" stroke-width=".35"/><line x1="70.80" y1="189.87" x2="69.72" y2="193.20" stroke-width=".35"/><line x1="66.13" y1="188.22" x2="64.88" y2="191.49" stroke-width=".35"/><line x1="61.56" y1="186.33" x2="60.14" y2="189.53" stroke-width=".35"/><line x1="57.10" y1="184.20" x2="55.51" y2="187.32" stroke-width=".35"/><line x1="55.25" y1="177.51" x2="51.00" y2="184.87" stroke-width=".7"/><line x1="48.53" y1="179.25" x2="46.63" y2="182.19" stroke-width=".35"/><line x1="44.45" y1="176.45" x2="42.40" y2="179.28" stroke-width=".35"/><line x1="40.53" y1="173.44" x2="38.33" y2="176.16" stroke-width=".35"/><line x1="36.77" y1="170.23" x2="34.43" y2="172.83" stroke-width=".35"/><line x1="34.59" y1="165.41" x2="30.70" y2="169.30" stroke-width=".35"/><line x1="29.77" y1="163.23" x2="27.17" y2="165.57" stroke-width=".35"/><line x1="26.56" y1="159.47" x2="23.84" y2="161.67" stroke-width=".35"/><line x1="23.55" y1="155.55" x2="20.72" y2="157.60" stroke-width=".35"/><line x1="20.75" y1="151.47" x2="17.81" y2="153.37" stroke-width=".35"/><line x1="22.49" y1="144.75" x2="15.13" y2="149.00" stroke-width=".7"/><line x1="15.80" y1="142.90" x2="12.68" y2="144.49" stroke-width=".35"/><line x1="13.67" y1="138.44" x2="10.47" y2="139.86" stroke-width=".35"/><line x1="11.78" y1="133.87" x2="8.51" y2="135.12" stroke-width=".35"/><line x1="10.13" y1="129.20" x2="6.80" y2="130.28" stroke-width=".35"/><line x1="10.65" y1="123.94" x2="5.34" y2="125.36" stroke-width=".35"/><line x1="7.57" y1="119.65" x2="4.14" y2="120.38" stroke-width=".35"/><line x1="6.66" y1="114.78" x2="3.21" y2="115.33" stroke-width=".35"/><line x1="6.02" y1="109.88" x2="2.54" y2="110.24" stroke-width=".35"/><line x1="5.63" y1="104.95" x2="2.13" y2="105.13" stroke-width=".35"/><line x1="10.50" y1="100.00" x2="2.00" y2="100.00" stroke-width=".7"/><line x1="5.63" y1="95.05" x2="2.13" y2="94.87" stroke-width=".35"/><line x1="6.02" y1="90.12" x2="2.54" y2="89.76" stroke-width=".35"/><line x1="6.66" y1="85.22" x2="3.21" y2="84.67" stroke-width=".35"/><line x1="7.57" y1="80.35" x2="4.14" y2="79.62" stroke-width=".35"/><line x1="10.65" y1="76.06" x2="5.34" y2="74.64" stroke-width=".35"/><line x1="10.13" y1="70.80" x2="6.80" y2="69.72" stroke-width=".35"/><line x1="11.78" y1="66.13" x2="8.51" y2="64.88" stroke-width=".35"/><line x1="13.67" y1="61.56" x2="10.47" y2="60.14" stroke-width=".35"/><line x1="15.80" y1="57.10" x2="12.68" y2="55.51" stroke-width=".35"/><line x1="22.49" y1="55.25" x2="15.13" y2="51.00" stroke-width=".7"/><line x1="20.75" y1="48.53" x2="17.81" y2="46.63" stroke-width=".35"/><line x1="23.55" y1="44.45" x2="20.72" y2="42.40" stroke-width=".35"/><line x1="26.56" y1="40.53" x2="23.84" y2="38.33" stroke-width=".35"/><line x1="29.77" y1="36.77" x2="27.17" y2="34.43" stroke-width=".35"/><line x1="34.59" y1="34.59" x2="30.70" y2="30.70" stroke-width=".35"/><line x1="36.77" y1="29.77" x2="34.43" y2="27.17" stroke-width=".35"/><line x1="40.53" y1="26.56" x2="38.33" y2="23.84" stroke-width=".35"/><line x1="44.45" y1="23.55" x2="42.40" y2="20.72" stroke-width=".35"/><line x1="48.53" y1="20.75" x2="46.63" y2="17.81" stroke-width=".35"/><line x1="55.25" y1="22.49" x2="51.00" y2="15.13" stroke-width=".7"/><line x1="57.10" y1="15.80" x2="55.51" y2="12.68" stroke-width=".35"/><line x1="61.56" y1="13.67" x2="60.14" y2="10.47" stroke-width=".35"/><line x1="66.13" y1="11.78" x2="64.88" y2="8.51" stroke-width=".35"/><line x1="70.80" y1="10.13" x2="69.72" y2="6.80" stroke-width=".35"/><line x1="76.06" y1="10.65" x2="74.64" y2="5.34" stroke-width=".35"/><line x1="80.35" y1="7.57" x2="79.62" y2="4.14" stroke-width=".35"/><line x1="85.22" y1="6.66" x2="84.67" y2="3.21" stroke-width=".35"/><line x1="90.12" y1="6.02" x2="89.76" y2="2.54" stroke-width=".35"/><line x1="95.05" y1="5.63" x2="94.87" y2="2.13" stroke-width=".35"/><line x1="100.00" y1="10.50" x2="100.00" y2="2.00" stroke-width=".7"/><line x1="104.95" y1="5.63" x2="105.13" y2="2.13" stroke-width=".35"/><line x1="109.88" y1="6.02" x2="110.24" y2="2.54" stroke-width=".35"/><line x1="114.78" y1="6.66" x2="115.33" y2="3.21" stroke-width=".35"/><line x1="119.65" y1="7.57" x2="120.38" y2="4.14" stroke-width=".35"/><line x1="123.94" y1="10.65" x2="125.36" y2="5.34" stroke-width=".35"/><line x1="129.20" y1="10.13" x2="130.28" y2="6.80" stroke-width=".35"/><line x1="133.87" y1="11.78" x2="135.12" y2="8.51" stroke-width=".35"/><line x1="138.44" y1="13.67" x2="139.86" y2="10.47" stroke-width=".35"/><line x1="142.90" y1="15.80" x2="144.49" y2="12.68" stroke-width=".35"/><line x1="144.75" y1="22.49" x2="149.00" y2="15.13" stroke-width=".7"/><line x1="151.47" y1="20.75" x2="153.37" y2="17.81" stroke-width=".35"/><line x1="155.55" y1="23.55" x2="157.60" y2="20.72" stroke-width=".35"/><line x1="159.47" y1="26.56" x2="161.67" y2="23.84" stroke-width=".35"/><line x1="163.23" y1="29.77" x2="165.57" y2="27.17" stroke-width=".35"/><line x1="165.41" y1="34.59" x2="169.30" y2="30.70" stroke-width=".35"/><line x1="170.23" y1="36.77" x2="172.83" y2="34.43" stroke-width=".35"/><line x1="173.44" y1="40.53" x2="176.16" y2="38.33" stroke-width=".35"/><line x1="176.45" y1="44.45" x2="179.28" y2="42.40" stroke-width=".35"/><line x1="179.25" y1="48.53" x2="182.19" y2="46.63" stroke-width=".35"/><line x1="177.51" y1="55.25" x2="184.87" y2="51.00" stroke-width=".7"/><line x1="184.20" y1="57.10" x2="187.32" y2="55.51" stroke-width=".35"/><line x1="186.33" y1="61.56" x2="189.53" y2="60.14" stroke-width=".35"/><line x1="188.22" y1="66.13" x2="191.49" y2="64.88" stroke-width=".35"/><line x1="189.87" y1="70.80" x2="193.20" y2="69.72" stroke-width=".35"/><line x1="189.35" y1="76.06" x2="194.66" y2="74.64" stroke-width=".35"/><line x1="192.43" y1="80.35" x2="195.86" y2="79.62" stroke-width=".35"/><line x1="193.34" y1="85.22" x2="196.79" y2="84.67" stroke-width=".35"/><line x1="193.98" y1="90.12" x2="197.46" y2="89.76" stroke-width=".35"/><line x1="194.37" y1="95.05" x2="197.87" y2="94.87" stroke-width=".35"/></g>
+        <g font-family="IBM Plex Mono, monospace" font-size="4" fill="#8595A6" text-anchor="middle">
+          <text x="100" y="6.5">N</text><text x="195.5" y="101.4">E</text><text x="100" y="197.5">S</text><text x="4.5" y="101.4">W</text>
+        </g>
+        <line class="bearing" x1="100" y1="100" x2="197.05" y2="86.36" stroke="#56646F" stroke-width=".7" opacity=".5"/>
+        <circle class="bearing" cx="197.05" cy="86.36" r="1.6" fill="none" stroke="#56646F" stroke-width=".7" opacity=".5"/>
+      </svg>
+      <div class="lens">
+        <img class="on" src="assets/border58-m05.webp" alt="" data-t="-05:00" data-s="quiet" width="1000" height="1000">
+        <img src="assets/border58-p00.webp" alt="" data-t="+00:00" data-s="ignition" width="1000" height="1000" loading="lazy">
+        <img src="assets/border58-p04.webp" alt="" data-t="+04:00" data-s="rising" width="1000" height="1000" loading="lazy">
+        <img src="assets/border58-p08.webp" alt="" data-t="+08:00" data-s="alert · slot 1/2" data-alert="1" width="1000" height="1000" loading="lazy">
+        <img src="assets/border58-p14.webp" alt="" data-t="+14:00" data-s="alert · slot 1/2" data-alert="1" width="1000" height="1000" loading="lazy">
+        <img src="assets/border58-p20.webp" alt="" data-t="+20:00" data-s="alert · slot 1/2" data-alert="1" width="1000" height="1000" loading="lazy">
+      </div>
+      <div class="stamp" aria-hidden="true"><span class="clock" id="fclock">T−05:00</span><span class="state" id="fstate">quiet</span><span class="slots"><i></i><i></i></span></div>
+      <figcaption>Real HPWREN frames · Border58 Fire, Otay Mountain West, 22 Jun 2024.<br>PlumeRank alerted at <b>+8 min</b>. B1 and B2 never alerted. <span class="mono">results/arm_dev_2026-10-04.json</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<div class="status" role="note">
+  <div class="wrap"><b>Status · 10 Oct 2026</b><span>The held-out run is in progress. Until it is committed, every number on this page comes from the development set (in-sample) and says so.</span></div>
+</div>
+
+<section class="block" id="receipts" aria-labelledby="h-receipts">
+  <div class="wrap">
+    <div class="label rv">Ledger · what the files say</div>
+    <h2 class="rv" id="h-receipts">Minutes to a human look, <em>at a fixed budget.</em></h2>
+    <p class="lede rv">Published smoke detectors report per-frame F1, or time-to-detection with no cap on false alarms. Neither tells a dispatcher which tile to open, or tells an agency whether the system survives a real shift before someone mutes it. PlumeRank reports one thing: minutes after ignition until a human is pointed at the right camera, with every system held to the same alert budget.</p>
+    <div class="receipts rv">
+      <div class="receipt"><div class="n hot" data-count="17" data-suffix="/29">17<small>/29</small></div><div class="l">development fires caught</div><div class="src">results/arm_dev_2026-10-04.json · headline.n_detected</div></div>
+      <div class="receipt"><div class="n" data-count="32.0" data-dec="1" data-suffix=" min">32.0<small> min</small></div><div class="l">median time to detection</div><div class="src">same file · headline.p50_minutes</div></div>
+      <div class="receipt"><div class="n" data-count="2" data-suffix=" vs 3,645">2<small> vs 3,645</small></div><div class="l">CNN calls per camera-window, PlumeRank vs B1</div><div class="src">same file · model_calls_per_camera_night</div></div>
+      <div class="receipt"><div class="n" data-count="714">714</div><div class="l">tests passing · 97% coverage</div><div class="src">README.md · Testing · 1,500 property-based cases</div></div>
+    </div>
+    <p class="receipts-note rv">Development set = the 29 fires the constants were fit on. These numbers are in-sample, and they are labelled that way everywhere they appear. The held-out run is the only number this project will call its headline.</p>
+  </div>
+</section>
+
+<section class="block" id="demo" aria-labelledby="h-demo">
+  <div class="wrap">
+    <div class="label rv">Scene 01 · the wall, shown twice</div>
+    <h2 class="rv" id="h-demo">62 cameras. One list. <em>Nothing hidden.</em></h2>
+    <p class="lede rv">On the left, the live wall on the AWS box: 29 development fires and 33 fire-free confusion windows, replayed one minute of footage per second, re-ranked on every tick. On the right, the judge command run on a clean checkout. It recomputes the metrics from committed pixels and refuses to print a headline that does not exist yet.</p>
+    <div class="pair">
+      <div class="rv">
+        <div class="browser">
+          <div class="bar"><i></i><i></i><i></i><span>44.242.91.201 / the wall</span><a href="http://44.242.91.201">open live ↗</a></div>
+          <img src="assets/live-wall.webp" alt="The live PlumeRank wall: 62 HPWREN camera tiles with a ranked watch list on the right; rank 1 and rank 2 carry alert tags and per-statistic scores" width="1800" height="1125" loading="lazy">
+        </div>
+        <p class="cap">Captured from the live box on 10 Oct 2026. The watch list keeps all 62 cameras and only reorders them.</p>
+      </div>
+      <div class="term rv" aria-label="Terminal replay of make verify's benchmark step">
+        <div class="bar"><span>plumerank — zsh</span><span>replay of a real run</span></div>
+<pre id="term" data-replay><span class="p">$</span> <span class="w">.venv/bin/python scripts/bench.py --arm micro</span>
+windows unified to 31 frames
+CPUCreditBalance before : n/a
+CPUCreditBalance after  : n/a
+
+<span class="c">========================================================================</span>
+<span class="s">REPRODUCED HERE</span>
+<span class="c">========================================================================</span>
+  what           : the micro corpus, recomputed live by the real OpenCV 5 pipeline
+  corpus         : data/micro/ (10 windows x 31 frames)
+  PlumeRank      : p50    n/a min   p95    n/a min   (2/5 detected)
+  B1 CNN grid    : p50    n/a min   p95    n/a min   (1/5 detected)      (the SAME onnx, every frame)
+  B2 frame-diff  : p50    n/a min   p95    n/a min   (0/5 detected)
+  realised rate  : 1.57 alerts/camera-night on the 5 non-fire micro windows (target 2.00, uncapped)
+  escalation     : 0.65% of frames touched by ONNX (top-2 of a 10-window roster; the published figure in block 2 is the same rule over a larger one)
+  checked against: results/verify_micro.json -- <span class="g">MATCH</span> (byte-for-byte)
+
+<span class="c">========================================================================</span>
+<span class="s">PUBLISHED, NOT RECOMPUTED HERE</span>
+<span class="c">========================================================================</span>
+  status         : no committed HOLD run in results/ -- nothing is published yet, and this command does not produce it
+  reproduce with: make fetch &amp;&amp; make bench  (about 95 min)
+
+<span class="p">$</span> <span class="w">curl -s http://44.242.91.201/build-info | python3 -c &quot;import json,sys;print(json.load(sys.stdin)[&#x27;opencv&#x27;][&#x27;version&#x27;])&quot;</span>
+5.0.0</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="log" aria-labelledby="h-log">
+  <div class="wrap">
+    <div class="label rv">The log · every development fire, caught or missed</div>
+    <h2 class="rv" id="h-log">Twenty-nine fires. <em>One line each.</em></h2>
+    <p class="lede rv">A fire lookout writes one line per event: time, bearing, what changed. Here is the development set written the same way. Each row is a real FIgLib ignition, listed with the minute after ignition at which each system first alerted. All three systems are calibrated to the same budget on the same fire-free windows. Misses are listed too.</p>
+    <div class="logwrap">
+      <div class="log" id="logtable" role="table" aria-label="Detection minute per development fire for PlumeRank, B1 and B2">
+        <div class="hd" role="row"><span role="columnheader">T+min</span><span role="columnheader">fire · camera</span><span role="columnheader"><span class="lg">PlumeRank</span><span class="sm" aria-hidden="true">PR</span></span><span role="columnheader"><span class="lg">B1 CNN</span><span class="sm" aria-hidden="true">B1</span></span><span role="columnheader"><span class="lg">B2 diff</span><span class="sm" aria-hidden="true">B2</span></span></div>
+        <div class="row" role="row" style="--i:0"><span class="t" role="cell">+1</span><span class="f" role="cell">Grove Fire · 2024 <span>· tp-w-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+1</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:1"><span class="t" role="cell">+7</span><span class="f" role="cell">Dale Bradford Fire · 2025 <span>· hp-n-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+7</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row star" role="row" style="--i:2"><span class="t" role="cell">+8</span><span class="f" role="cell">Border 58 Fire · 2024 <span>· om-w-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+8</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:3"><span class="t" role="cell">+8</span><span class="f" role="cell">Scissors Fire · 2025 <span>· mp-n-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+8</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+9</b></span></div>
+        <div class="row" role="row" style="--i:4"><span class="t" role="cell">+9</span><span class="f" role="cell">Creelman Fire · 2026 <span>· bm-s-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+9</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:5"><span class="t" role="cell">+11</span><span class="f" role="cell">Chia Fire · 2026 <span>· hp-n-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+11</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+28</b></span></div>
+        <div class="row" role="row" style="--i:6"><span class="t" role="cell">+12</span><span class="f" role="cell">Mission Fire · 2025 <span>· rm-s-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+12</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:7"><span class="t" role="cell">+13</span><span class="f" role="cell">Crossing Fire · 2025 <span>· hp-n-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+13</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:8"><span class="t" role="cell">+13</span><span class="f" role="cell">Highway Fire · 2025 <span>· hp-e-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+13</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:9"><span class="t" role="cell">+14</span><span class="f" role="cell">Bridge Fire · 2024 <span>· wilson-e-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+14</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:10"><span class="t" role="cell">+17</span><span class="f" role="cell">Mission Fire · 2026 <span>· rm-s-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+17</b></span><span class="mark y " role="cell"><i></i><b>+24</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:11"><span class="t" role="cell">+19</span><span class="f" role="cell">Unnamed Fire · 2024 <span>· ws-s-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+19</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:12"><span class="t" role="cell">+21</span><span class="f" role="cell">Palisades Fire · 2025 <span>· 69bravo-e-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+21</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:13"><span class="t" role="cell">+30</span><span class="f" role="cell">Prescribed Fire · 2025 <span>· hp-e-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+30</b></span><span class="mark y " role="cell"><i></i><b>+21</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:14"><span class="t" role="cell">+32</span><span class="f" role="cell">Valley Fire · 2024 <span>· cp-s-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+32</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:15"><span class="t" role="cell">+34</span><span class="f" role="cell">Gilman Fire · 2025 <span>· tdlln-s-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+34</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row" role="row" style="--i:16"><span class="t" role="cell">+38</span><span class="f" role="cell">Del Mar Fire · 2024 <span>· tdlln-n-mobo-c</span></span><span class="mark y pr" role="cell"><i></i><b>+38</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:17"><span class="t" role="cell">miss</span><span class="f" role="cell">Unnamed Fire · 2024 <span>· dwpgm-s-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+38</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:18"><span class="t" role="cell">miss</span><span class="f" role="cell">Border 2 Fire · 2025 <span>· om-w-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+20</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:19"><span class="t" role="cell">miss</span><span class="f" role="cell">Rancho Fire · 2025 <span>· bm-s-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+11</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:20"><span class="t" role="cell">miss</span><span class="f" role="cell">Live Oak Fire · 2026 <span>· rm-s-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+3</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:21"><span class="t" role="cell">miss</span><span class="f" role="cell">McCain Fire · 2024 <span>· ws-e-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:22"><span class="t" role="cell">miss</span><span class="f" role="cell">Church Fire · 2024 <span>· ws-w-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark y " role="cell"><i></i><b>+29</b></span></div>
+        <div class="row miss" role="row" style="--i:23"><span class="t" role="cell">miss</span><span class="f" role="cell">Garden Fire · 2024 <span>· rm-s-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:24"><span class="t" role="cell">miss</span><span class="f" role="cell">Palisades Fire · 2025 <span>· dwpgm-s-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:25"><span class="t" role="cell">miss</span><span class="f" role="cell">Cahuilla Fire · 2025 <span>· hp-n-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:26"><span class="t" role="cell">miss</span><span class="f" role="cell">Posta Fire · 2025 <span>· ws-w-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:27"><span class="t" role="cell">miss</span><span class="f" role="cell">Mission Fire · 2026 <span>· rm-s-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+        <div class="row miss" role="row" style="--i:28"><span class="t" role="cell">miss</span><span class="f" role="cell">Thorn Fire · 2026 <span>· ws-n-mobo-c</span></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span><span class="mark" role="cell"><i></i><b>—</b></span></div>
+      </div>
+      <aside class="logside rv">
+        <div class="big">17<small>/29</small></div>
+        <p>caught by PlumeRank. The same CNN on every frame (B1, as deployed) caught <b>6</b>. Frame differencing (B2) caught <b>3</b>. Even routed through PlumeRank's own per-camera baseline, they reach <b>14</b> and <b>10</b>.</p>
+        <div class="key">
+          <span class="mark y pr"><i></i>PlumeRank alerted</span>
+          <span class="mark y"><i></i>a baseline alerted</span>
+          <span class="mark"><i></i>no alert within the window</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="compare" aria-labelledby="h-compare">
+  <div class="wrap">
+    <div class="label rv">Same model, both sides</div>
+    <h2 class="rv" id="h-compare">The win is not a bigger network. <em>It is the same one, asked less often.</em></h2>
+    <p class="lede rv">B1 is PlumeRank's own ONNX tile classifier, run on every frame instead of the ~2% the classical stage escalates. Because the model is identical on both sides, the gap comes from the pipeline, not from model size. Every system is calibrated to 2.0 alerts per camera-window on the confusion set; all of them land at 1.99.</p>
+    <div class="bars rv" id="bars">
+      <div class="bar-row"><div class="top"><span class="name">PlumeRank <span>· per-camera baseline · median 32.0 min</span></span><span class="val">17 / 29</span></div><div class="track"><div class="fill pr" style="--w:58.6%"></div></div></div>
+      <div class="bar-row"><div class="top"><span class="name">B1 through the same baseline <span>· no median</span></span><span class="val">14 / 29</span></div><div class="track"><div class="fill" style="--w:48.3%"></div></div></div>
+      <div class="bar-row"><div class="top"><span class="name">B2 through the same baseline <span>· no median</span></span><span class="val">10 / 29</span></div><div class="track"><div class="fill" style="--w:34.5%"></div></div></div>
+      <div class="split">As deployed, no per-camera baseline</div>
+      <div class="bar-row"><div class="top"><span class="name">B1 · the same CNN on every frame <span>· no median</span></span><span class="val">6 / 29</span></div><div class="track"><div class="fill" style="--w:20.7%"></div></div></div>
+      <div class="bar-row"><div class="top"><span class="name">B2 · frame differencing <span>· no median</span></span><span class="val">3 / 29</span></div><div class="track"><div class="fill" style="--w:10.3%"></div></div></div>
+    </div>
+    <p class="cap rv">Development set, in-sample. "No median" means the system detected fewer than half the fires; that is the result itself, not missing data. Source: results/arm_dev_2026-10-04.json.</p>
+  </div>
+</section>
+
+<section class="block" id="mechanism" aria-labelledby="h-mech">
+  <div class="wrap">
+    <div class="label rv">Mechanism · OpenCV 5 does the per-frame work</div>
+    <h2 class="rv" id="h-mech">A camera that runs hot all night <em>is not a fire.</em></h2>
+    <p class="lede rv">23 OpenCV 5 surfaces across 6 modules, counted from the source by <code>scripts/check_claims.py</code> on every test run. Four classical statistics fold into one hazard per camera. Each camera is then judged only against itself.</p>
+    <div class="bento">
+      <article class="card a rv">
+        <div class="step">05 · the part that carries the ranking</div>
+        <h3>Each camera against its own last 15 minutes</h3>
+        <p>The fused hazard is z-scored against the camera's own trailing 15 minutes, then a solver picks the one threshold that spends exactly the budget on fire-free windows. Without the baseline, the same pipeline catches fewer fires; with it, both baselines improve too, which is why the comparison above runs them through it.</p>
+        <div class="formula"><span class="p">z</span>(cam, t) = (h(t) − mean<sub>15 min</sub>) / sd<sub>15 min</sub><br><span class="p">θ</span> = solve_threshold(confusion set, budget = 2.0 / camera-window) → 0.849</div>
+        <div class="chips"><span class="chip">rank.Baseline</span><span class="chip">solve_threshold</span><span class="chip">CloudWatch drift ±15%</span></div>
+      </article>
+      <article class="card b rv">
+        <svg class="ico" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="20" cy="20" r="14"/><path d="M20 4v6M20 30v6M4 20h6M30 20h6"/><circle cx="20" cy="20" r="3"/></svg>
+        <div class="step">01 · stabilise</div>
+        <h3>Hold the horizon still</h3>
+        <p>Mast sway would read as motion. Sub-pixel phase correlation and a MAGSAC++ affine fit register each frame to the last.</p>
+        <div class="chips"><span class="chip">phaseCorrelate</span><span class="chip">createHanningWindow</span><span class="chip">estimateAffine2D · USAC_MAGSAC</span></div>
+      </article>
+      <article class="card c rv">
+        <svg class="ico" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 30l9-9 6 5 8-10 9 8"/><rect x="20" y="8" width="12" height="12" stroke-dasharray="2 2"/></svg>
+        <div class="step">02 · segment</div>
+        <h3>Find what changed</h3>
+        <p>A Gaussian-mixture background model per camera; connected components become the boxes the statistics read.</p>
+        <div class="chips"><span class="chip">createBackgroundSubtractorMOG2</span><span class="chip">connectedComponentsWithStats</span></div>
+      </article>
+      <article class="card d rv">
+        <svg class="ico" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 34V20M16 34V12M24 34V24M32 34V6"/></svg>
+        <div class="step">03 · four statistics</div>
+        <h3>Measured, then fused</h3>
+        <div class="stats">
+          <div><b>S1</b>base anchoring<span class="auc">0.528</span></div>
+          <div><b>S2</b>vertical growth<span class="auc">0.50</span></div>
+          <div><b>S3</b>diffuse boundary<span class="auc bad">0.44</span></div>
+          <div><b>S4</b>DIS flow drift<span class="auc">0.538</span></div>
+        </div>
+        <p style="margin-top:12px;font-size:14px;color:var(--muted)">AUC alone, pre- vs post-ignition. None is a detector by itself, and this page says so.</p>
+        <div class="chips"><span class="chip">Sobel</span><span class="chip">Laplacian</span><span class="chip">DISOpticalFlow_create</span></div>
+      </article>
+      <article class="card e rv">
+        <svg class="ico" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="6" y="6" width="28" height="28" rx="2"/><path d="M6 15h28M15 6v28"/><rect x="15" y="15" width="19" height="19" fill="currentColor" opacity=".18"/></svg>
+        <div class="step">04 · escalate</div>
+        <h3>A CNN for 2% of frames</h3>
+        <p>51 of 2,291 frames go to a small ONNX tile classifier through <code>cv2.dnn</code>. It was trained only on Pyro-SDIS (French fire services) and has never seen a Californian pixel.</p>
+        <div class="chips"><span class="chip">dnn.readNetFromONNX</span><span class="chip">ENGINE_NEW</span><span class="chip">blobFromImage</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="aws" aria-labelledby="h-aws">
+  <div class="wrap">
+    <div class="label rv">Cloud · one box, on purpose</div>
+    <h2 class="rv" id="h-aws">One Graviton instance. <em>Every number committed.</em></h2>
+    <div class="aws">
+      <div class="rv"><svg viewBox="0 0 560 360" role="img" aria-labelledby="awst awsd"><title id="awst">PlumeRank on AWS</title><desc id="awsd">An S3 bucket feeds one t4g.small Graviton instance running OpenCV 5, FastAPI and Caddy; CloudWatch watches the alert rate and the heartbeat; judges reach the instance over HTTP.</desc>
+<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#56646F"/></marker></defs>
+<g font-family="IBM Plex Mono, monospace" font-size="11" fill="#8595A6">
+<rect x="180" y="96" width="200" height="168" rx="6" fill="#121A22" stroke="#FFB020"/>
+<text x="196" y="122" fill="#FFB020" font-size="11" letter-spacing="1.5">EC2 · t4g.small · arm64</text>
+<rect x="196" y="136" width="168" height="30" rx="3" fill="#0A0E13" stroke="#243140"/><text x="208" y="155" fill="#F2F6FA">OpenCV 5.0.0 · NEON</text>
+<rect x="196" y="174" width="168" height="30" rx="3" fill="#0A0E13" stroke="#243140"/><text x="208" y="193" fill="#F2F6FA">FastAPI · 4 GET routes</text>
+<rect x="196" y="212" width="168" height="30" rx="3" fill="#0A0E13" stroke="#243140"/><text x="208" y="231" fill="#F2F6FA">Caddy · static wall</text>
+<rect x="10" y="150" width="120" height="60" rx="6" fill="#121A22" stroke="#243140"/><text x="24" y="175" fill="#F2F6FA">S3</text><text x="24" y="195">corpus + bundle</text>
+<path d="M130 180H176" stroke="#56646F" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="190" y="12" width="180" height="56" rx="6" fill="#121A22" stroke="#243140"/><text x="204" y="35" fill="#F2F6FA">CloudWatch</text><text x="204" y="54">drift ±15% · heartbeat</text>
+<path d="M280 96V72" stroke="#56646F" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="430" y="150" width="120" height="60" rx="6" fill="#121A22" stroke="#243140"/><text x="444" y="175" fill="#F2F6FA">Judge</text><text x="444" y="195">browser · curl</text>
+<path d="M426 180H384" stroke="#56646F" stroke-width="1.2" marker-end="url(#ar)"/>
+<text x="180" y="292">HPWREN FIgLib replay → stabilise → segment</text>
+<text x="180" y="310">→ S1–S4 → escalate ~2% → fuse → baseline</text>
+<text x="180" y="328" fill="#FF6B4A">→ solve_threshold → ranked watch list</text>
+</g></svg></div>
+      <ul class="rv">
+        <li><span>Compute</span><div>One <b>t4g.small</b> (Graviton, arm64) runs OpenCV 5.0.0 built for NEON, the FastAPI service and the static site behind Caddy. <a href="http://44.242.91.201/build-info">/build-info</a> prints the build string.</div></li>
+        <li><span>Storage</span><div>One S3 bucket: the DEV + CONFUSE corpus (5,082 frames) and the code bundle the box boots from.</div></li>
+        <li><span>Watch</span><div>CloudWatch tracks the realised alert rate on the fire-free cameras, with drift alarms at ±15% of 2.0. A heartbeat-silence alarm reboots the instance if the service stops beating.</div></li>
+        <li><span>Not here</span><div>No Lambda, no managed vision API, no second instance, no upload route, no dispatch route. Four GET routes, all tested.</div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="honest" aria-labelledby="h-honest">
+  <div class="wrap">
+    <div class="label rv">Honest by design · lifted from the README</div>
+    <h2 class="rv" id="h-honest">What it cannot do yet, <em>in its own words.</em></h2>
+    <div class="quotes">
+      <figure class="quote rv"><q>This project does not yet have a headline number, and says so on purpose.</q><p>The held-out run is measured once, after the constants are frozen. Until then the live box serves no benchmark and labels its threshold as development-calibrated.</p><cite>— README · What it actually measures</cite></figure>
+      <figure class="quote rv"><q>Cloud is the adversary — not the fog this project was designed against.</q><p>Low cloud cost 4.25 and cloud shadow 3.86 alerts per camera-window, against fog's 1.15. A blind census then found the fog class picks marine layer at chance.</p><cite>— README · Honest limitations, 2</cite></figure>
+      <figure class="quote rv"><q>The novelty is a metric reframe, not a new sensor.</q><p>The OpenCV operations are well known. What is new is the attention-budget objective they are pointed at. The system is also daylight only, because FIgLib is.</p><cite>— README · Honest limitations, 1 and 4</cite></figure>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="faq" aria-labelledby="h-faq">
+  <div class="wrap">
+    <div class="label rv">Questions a judge would ask</div>
+    <h2 class="rv" id="h-faq">Asked, <em>and answered.</em></h2>
+    <div class="faq rv">
+      <details><summary>Is the wall actually live, or a recording?</summary><div class="ans"><p>Live. The AWS box replays real HPWREN FIgLib footage through the real pipeline, one minute of footage per second, and re-ranks every camera on every tick over server-sent events. Nothing is pre-rendered. <a href="http://44.242.91.201/health">/health</a> shows the tick counter and the measured tick time.</p></div></details>
+      <details><summary>What is mocked?</summary><div class="ans"><p>Nothing on the demo path. There are no offline, mock or dry-run branches in the pipeline, API or scripts. <code>make verify</code> recomputes real metrics on committed pixels and checks them byte-for-byte against <code>results/verify_micro.json</code>. The replay is the one thing that is not live camera input: the footage is historical, because the ground truth is the ignition time recorded in FIgLib.</p></div></details>
+      <details><summary>Why not report F1 like every other smoke detector?</summary><div class="ans"><p>Because a dispatcher does not act on frames. They act on a short list, and they mute any system that interrupts too often. PlumeRank holds every system to the same alert budget and reports minutes after ignition until a human is pointed at the right camera. FIgLib's per-sequence ignition clock means this needs no hand labelling.</p></div></details>
+      <details><summary>What exactly is a "camera-night"?</summary><div class="ans"><p>The code's name for one evaluation window: 81 minutes of footage on one camera, the length of a FIgLib sequence. So the budget is 2 alerts per camera per 81-minute window, about 18 per camera over a 12-hour shift if run continuously. This page calls it a camera-window to avoid the confusion; the windows are daytime.</p></div></details>
+      <details><summary>Where is the held-out number?</summary><div class="ans"><p>Not committed yet. The held-out set is 60 FIgLib fires that no constant was fit on. The run reads them exactly once, refuses to start unless the constants hash matches a committed freeze, and logs every read to <code>results/hold_access.log</code>. Whatever comes out becomes the headline, and this page will show it in place of the development numbers.</p></div></details>
+      <details><summary>Could it dispatch an engine, or hide a camera?</summary><div class="ans"><p>No. It is a ranking aid for a human. There is no dispatch route and no upload route, and tests assert that exactly four documented routes exist. The full roster always stays on screen, every ranked entry carries its evidence crop, and the alert budget is a published, logged parameter with a drift alarm.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<section class="closing" aria-labelledby="h-close">
+  <div class="wrap">
+    <div class="label">04:50 · next sixty seconds</div>
+    <h2 id="h-close">Open the right tile <em>first.</em></h2>
+    <div class="ctas">
+      <a class="btn primary" href="https://github.com/edycutjong/plumerank">View on GitHub</a>
+      <a class="btn" href="pitch/">Pitch deck</a>
+      <a class="btn" href="http://44.242.91.201">Live wall</a>
+      <a class="btn" href="http://44.242.91.201/judge">The 30-second path for judges</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>PlumeRank · Apache-2.0 · © 2026 Edy Cu · Built for the OpenCV AI Competition 2026, powered by AWS</span>
+    <span>Imagery: <a href="http://hpwren.ucsd.edu/">HPWREN</a> FIgLib · <a href="https://github.com/edycutjong/plumerank">source</a> · <a href="pitch/">deck</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce && 'IntersectionObserver' in window) root.classList.add('js');
+
+  // copy
+  document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+    const txt = b.getAttribute('data-copy');
+    try { await navigator.clipboard.writeText(txt); b.textContent = 'Copied'; }
+    catch { const r = document.createRange(); r.selectNodeContents(b.previousElementSibling); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selected'; }
+    setTimeout(() => b.textContent = 'Copy', 1800);
+  }));
+
+  // fire finder: step the real frames
+  const finder = document.getElementById('finder');
+  const imgs = [...finder.querySelectorAll('.lens img')];
+  const clock = document.getElementById('fclock'), state = document.getElementById('fstate');
+  let i = 0;
+  const show = k => {
+    imgs.forEach((im, j) => im.classList.toggle('on', j === k));
+    const im = imgs[k];
+    clock.textContent = 'T' + im.dataset.t.replace('-', '−');
+    state.textContent = im.dataset.s;
+    finder.dataset.alert = im.dataset.alert ? '1' : '0';
+  };
+  if (reduce) { show(3); }
+  else {
+    imgs.forEach(im => { if (im.loading === 'lazy') { const p = new Image(); p.src = im.src; } });
+    const hold = [1700, 1400, 1400, 2600, 1700, 2400];
+    const tick = () => { i = (i + 1) % imgs.length; show(i); setTimeout(tick, hold[i]); };
+    setTimeout(tick, hold[0] + 900);
+  }
+
+  if (!root.classList.contains('js')) return;
+
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target; el.classList.add('in'); io.unobserve(el);
+    if (el.classList.contains('receipts')) el.querySelectorAll('[data-count]').forEach(count);
+    if (el.matches('[data-replay]') || el.querySelector?.('[data-replay]')) replay();
+  }), { threshold: .18, rootMargin: '0px 0px -6% 0px' });
+  document.querySelectorAll('.rv, .log, .bars').forEach(el => io.observe(el));
+
+  function count(n) {
+    const to = parseFloat(n.dataset.count), dec = +(n.dataset.dec || 0), suf = n.dataset.suffix || '';
+    const small = suf ? `<small>${suf}</small>` : '';
+    const t0 = performance.now(), dur = 1300;
+    const step = t => { const k = Math.min(1, (t - t0) / dur), v = to * (1 - Math.pow(1 - k, 3));
+      n.innerHTML = (dec ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US')) + small;
+      if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+
+  // terminal replay: types the real captured run line by line
+  const term = document.getElementById('term');
+  const full = term.innerHTML;
+  const lines = full.split('\n');
+  term.innerHTML = '';
+  let started = false;
+  function replay() {
+    if (started) return; started = true;
+    let k = 0;
+    const next = () => {
+      if (k >= lines.length) { term.innerHTML = full + '<span class="cursor"></span>'; return; }
+      term.innerHTML = lines.slice(0, ++k).join('\n') + '<span class="cursor"></span>';
+      const ln = lines[k - 1]; setTimeout(next, ln.includes('$ ') ? 650 : (ln.trim() ? 70 : 140));
+    };
+    next();
+  }
+  const tio = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { replay(); tio.disconnect(); } }), { threshold: .3 });
+  tio.observe(term);
+})();
+</script>
+</body>
+</html>

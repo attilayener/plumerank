@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlumeRank — pitch deck</title>
+<meta name="description" content="PlumeRank pitch deck: ranking a wildfire-camera wall at a fixed alert budget, with OpenCV 5 on AWS Graviton.">
+<meta name="theme-color" content="#0A0E13">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PlumeRank">
+<meta property="og:title" content="PlumeRank — pitch deck">
+<meta property="og:description" content="Ranking a wildfire-camera wall at 2 alerts per camera-window. OpenCV 5 on AWS Graviton.">
+<meta property="og:url" content="https://plumerank.edycu.dev/pitch/">
+<meta property="og:image" content="https://plumerank.edycu.dev/assets/og-image.png?v=2">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #0A0E13;
+  --ink:     #F2F6FA;
+  --muted:   #8595A6;
+  --before:  #56646F;
+  --after:   #FF6B4A;
+  --rule:    #243140;
+  --slot:    #FFB020;
+  --signal:  #56C2FF;
+  --ok:      #3FD08A;
+  --surface: #121A22;
+  --raised:  #1A2530;
+  --ink-1:   #C6D2DE;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body:    "Barlow", system-ui, sans-serif;
+  --font-data:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070A; overflow: hidden; color-scheme: dark; }
+body { font-family: var(--font-body); color: var(--ink-1); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--slot); color: var(--bg); }
+.viewport { position: fixed; inset: 0; overflow: hidden; }
+.stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform: translate(-50%, -50%) scale(var(--s, .5)); transform-origin: 50% 50%; }
+.slide { position: absolute; inset: 0; background: var(--bg); padding: 96px 120px 110px; display: none; overflow: hidden; }
+.slide.on { display: block; animation: fade .5s ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.slide::after { content: ""; position: absolute; left: 120px; right: 120px; bottom: 72px; height: 1px; background: var(--rule); }
+.foot { position: absolute; left: 120px; right: 120px; bottom: 34px; display: flex; justify-content: space-between; font: 500 16px/1 var(--font-data); color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.foot b { color: var(--ink); font-weight: 600; }
+.kicker { font: 500 22px/1 var(--font-data); color: var(--slot); letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 18px; }
+.kicker::before { content: ""; width: 44px; height: 2px; background: var(--slot); }
+h1, h2 { font-family: var(--font-display); text-transform: uppercase; color: var(--ink); margin: 0; letter-spacing: -.004em; }
+h1 { font-weight: 800; font-size: 150px; line-height: .88; }
+h2 { font-weight: 700; font-size: 104px; line-height: .92; margin-top: 30px; }
+.hot { color: var(--after); text-shadow: 0 0 60px color-mix(in srgb, var(--after) 35%, transparent); }
+.body { font-size: 32px; line-height: 1.4; color: var(--ink-1); max-width: 30ch; }
+.body b { color: var(--ink); font-weight: 600; }
+.mono { font-family: var(--font-data); }
+.speaker-notes { display: none; }
+
+/* finder (shared with landing) */
+.finder { position: absolute; aspect-ratio: 1; }
+.finder svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.finder .lens { position: absolute; inset: 12.5%; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px var(--rule); }
+.finder .lens img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ticks { transform-origin: 50% 50%; animation: turn 140s linear infinite; }
+@keyframes turn { to { transform: rotate(360deg); } }
+.ledger { display: inline-flex; align-items: center; gap: 22px; background: color-mix(in srgb, var(--bg) 88%, transparent); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 22px; font: 500 26px/1 var(--font-data); color: var(--ink); }
+.ledger .st { color: var(--after); letter-spacing: .06em; text-transform: uppercase; font-size: 20px; }
+.ledger .sl { display: inline-flex; gap: 8px; }
+.ledger .sl i { width: 24px; height: 24px; border: 2px solid var(--before); display: block; }
+.ledger .sl i.on { background: var(--slot); border-color: var(--slot); box-shadow: 0 0 20px color-mix(in srgb, var(--slot) 60%, transparent); }
+.term { background: #070A0E; border: 1px solid var(--rule); border-radius: 8px; font: 400 21px/1.6 var(--font-data); color: var(--ink-1); padding: 22px 26px; }
+.term .p { color: var(--slot); } .term .g { color: var(--ok); } .term .c { color: var(--before); }
+
+/* slide-specific */
+.s1 .finder { right: 110px; top: 110px; width: 780px; }
+.s1 .finder .ledger { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
+.s1 h1 { margin-top: 40px; max-width: 960px; }
+.s1 .term { position: absolute; left: 120px; bottom: 120px; width: 900px; }
+.s1 .brand { position: absolute; left: 120px; top: 96px; display: flex; align-items: center; gap: 18px; font: 700 34px/1 var(--font-display); color: var(--ink); letter-spacing: .08em; text-transform: uppercase; }
+.s1 .brand img { width: 56px; height: 56px; border-radius: 12px; box-shadow: 0 0 40px color-mix(in srgb, var(--after) 35%, transparent); }
+.s1 .kicker { margin-top: 110px; }
+
+.s2 .clock { position: absolute; right: 120px; top: 120px; font: 800 380px/.8 var(--font-display); color: var(--ink); letter-spacing: -.02em; }
+.s2 .clock small { display: block; font: 500 26px/1 var(--font-data); color: var(--muted); letter-spacing: .14em; margin-top: 30px; text-align: right; }
+.s2 .wall { position: absolute; left: 120px; right: 120px; bottom: 120px; display: grid; grid-template-columns: repeat(24, 1fr); gap: 6px; }
+.s2 .wall i { aspect-ratio: 16/10; background: var(--surface); border: 1px solid var(--rule); display: block; }
+.s2 .wall i.lit { background: var(--raised); border-color: var(--after); box-shadow: 0 0 18px color-mix(in srgb, var(--after) 50%, transparent); }
+.s2 .body { margin-top: 40px; max-width: 26ch; }
+
+.s3 .cols { position: absolute; left: 120px; right: 120px; bottom: 150px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; }
+.s3 .col { border-top: 2px solid var(--before); padding-top: 30px; }
+.s3 .col.r { border-color: var(--slot); }
+.s3 .col .t { font: 500 22px/1 var(--font-data); color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.s3 .col .q { font: 700 112px/.95 var(--font-display); color: var(--ink); text-transform: uppercase; margin: 24px 0 20px; }
+.s3 .col.l .q { color: var(--before); text-decoration: line-through; text-decoration-thickness: 4px; }
+.s3 .col p { font-size: 36px; line-height: 1.4; margin: 0; max-width: 28ch; }
+
+.s4 .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; margin-top: 64px; }
+.s4 .f { text-align: left; }
+.s4 .f .im { aspect-ratio: 1; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px var(--rule); }
+.s4 .f.alert .im { box-shadow: 0 0 0 4px var(--after), 0 0 60px color-mix(in srgb, var(--after) 45%, transparent); }
+.s4 .f img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.s4 .f .t { margin-top: 22px; font: 600 34px/1 var(--font-data); color: var(--ink); }
+.s4 .f .d { margin-top: 10px; font: 500 20px/1.3 var(--font-data); color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+.s4 .f.alert .d { color: var(--after); }
+.s4 .f .sl { display: inline-flex; gap: 6px; margin-top: 14px; }
+.s4 .f .sl i { width: 20px; height: 20px; border: 2px solid var(--before); display: block; }
+.s4 .f .sl i.on { background: var(--slot); border-color: var(--slot); }
+
+.s5 .pipe { display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px; margin-top: 70px; }
+.s5 .st { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 26px 22px; min-height: 470px; position: relative; padding-top: 34px; }
+.s5 .st.k { border-color: var(--slot); }
+.s5 .st .n { font: 500 20px/1 var(--font-data); color: var(--muted); }
+.s5 .st h3 { font: 700 54px/.95 var(--font-display); text-transform: uppercase; color: var(--ink); margin: 18px 0 18px; }
+.s5 .st code { display: block; font: 500 20px/1.7 var(--font-data); color: var(--signal); }
+.s5 .aws { position: absolute; left: 120px; bottom: 112px; margin: 0; font: 500 26px/1.5 var(--font-data); color: var(--muted); }
+.s5 .aws b { color: var(--slot); font-weight: 600; }
+
+.s6 .shot { position: absolute; left: 120px; top: 262px; width: 1060px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; box-shadow: 0 50px 120px -40px #000; }
+.s6 .shot .bar { padding: 12px 18px; border-bottom: 1px solid var(--rule); font: 400 18px/1 var(--font-data); color: var(--muted); background: var(--surface); }
+.s6 .shot img { display: block; width: 100%; }
+.s6 .side { position: absolute; right: 120px; top: 262px; width: 560px; }
+.s6 .side .row { border-top: 1px solid var(--rule); padding: 22px 0; }
+.s6 .side .row { padding: 34px 0; }
+.s6 .side .row b { display: block; font: 800 88px/1 var(--font-display); color: var(--ink); }
+.s6 .side .row span { font-size: 28px; color: var(--muted); }
+
+.s7 .bars { margin-top: 70px; display: grid; gap: 40px; width: 1180px; }
+.s7 .bar .top { display: flex; justify-content: space-between; font: 600 30px/1 var(--font-body); color: var(--ink); margin-bottom: 12px; }
+.s7 .bar .top span { font-family: var(--font-data); font-size: 28px; }
+.s7 .bar .tr { height: 36px; background: var(--surface); border: 1px solid var(--rule); }
+.s7 .bar .fi { height: 100%; background: var(--before); }
+.s7 .bar.pr .fi { background: linear-gradient(90deg, var(--after), var(--slot)); }
+.s7 .big { position: absolute; right: 120px; top: 340px; width: 460px; text-align: left; }
+.s7 .big b { display: block; font: 800 260px/.85 var(--font-display); color: var(--slot); }
+.s7 .big p { font-size: 28px; line-height: 1.35; margin: 16px 0 0; }
+.s7 .note { position: absolute; left: 120px; bottom: 100px; font: 400 20px/1.4 var(--font-data); color: var(--muted); }
+
+.s8 .rules { margin-top: 90px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; }
+.s8 .r { border-left: 3px solid var(--slot); padding: 4px 0 4px 28px; }
+.s8 .r b { display: block; font: 700 66px/1 var(--font-display); text-transform: uppercase; color: var(--ink); }
+.s8 .r p { font-size: 32px; line-height: 1.4; margin: 16px 0 0; }
+.s8 .r code { font: 500 22px/1.5 var(--font-data); color: var(--signal); display: block; margin-top: 16px; }
+.s8 .lim { position: absolute; left: 120px; right: 120px; bottom: 110px; margin: 0; border-top: 1px solid var(--rule); padding-top: 30px; font: 500 26px/1.5 var(--font-data); color: var(--muted); }
+.s8 .lim b { color: var(--after); font-weight: 600; }
+
+.s9 .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 70px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.s9 .cell { padding: 56px 40px; border-left: 1px solid var(--rule); }
+.s9 .cell:first-child { border-left: 0; }
+.s9 .cell b { display: block; font: 800 170px/.9 var(--font-display); color: var(--ink); }
+.s9 .cell span { display: block; margin-top: 18px; font: 600 24px/1.3 var(--font-body); text-transform: uppercase; letter-spacing: .05em; color: var(--ink); }
+.s9 .cell em { display: block; margin-top: 12px; font: 400 18px/1.4 var(--font-data); color: var(--muted); font-style: normal; }
+.s9 .term { position: absolute; left: 120px; bottom: 120px; width: auto; font-size: 26px; }
+
+.s10 h2 { font-size: 150px; max-width: 1100px; }
+.s10 .qr { position: absolute; right: 120px; top: 150px; width: 360px; padding: 30px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+.s10 .qr svg { display: block; width: 100%; height: auto; }
+.s10 .qr p { margin: 20px 0 0; text-align: center; font: 500 22px/1 var(--font-data); color: var(--ink); }
+.s10 .links { margin-top: 64px; display: grid; gap: 18px; font: 500 32px/1 var(--font-data); }
+.s10 .links span { color: var(--muted); display: inline-block; width: 160px; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; }
+.s10 .links a { color: var(--ink); text-decoration: none; }
+
+/* chrome */
+.ui { position: fixed; right: 18px; bottom: 14px; z-index: 10; display: flex; gap: 8px; align-items: center; font: 500 13px/1 var(--font-data); color: var(--muted); }
+.ui button { font: inherit; color: var(--ink-1); background: rgba(18,26,34,.85); border: 1px solid var(--rule); border-radius: 4px; padding: 8px 12px; cursor: pointer; transition: border-color .2s, color .2s; }
+.ui button:hover { border-color: var(--slot); color: var(--slot); }
+.ui button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ui .count { padding: 0 6px; color: var(--ink); }
+.ui a { color: var(--muted); text-decoration: none; padding: 0 6px; }
+.ui a:hover { color: var(--slot); }
+.ver { position: fixed; left: 16px; bottom: 14px; z-index: 10; font: 400 12px/1 var(--font-data); color: var(--before); }
+.notes-panel { position: fixed; left: 0; right: 0; bottom: 0; height: 20vh; z-index: 9; background: rgba(5,7,10,.94); border-top: 1px solid var(--rule); padding: 18px 28px 50px; font: 400 18px/1.5 var(--font-body); color: var(--ink-1); display: none; overflow: auto; }
+body.presenter .notes-panel { display: block; }
+body.presenter.idle { cursor: none; }
+body.overview .stage { display: none; }
+.grid-view { position: fixed; inset: 0; z-index: 8; display: none; grid-template-columns: repeat(5, 1fr); gap: 16px; padding: 40px; overflow: auto; background: #05070A; }
+body.overview .grid-view { display: grid; }
+.grid-view button { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; text-align: left; color: var(--ink); font: 700 26px/1.05 var(--font-display); text-transform: uppercase; cursor: pointer; aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: space-between; }
+.grid-view button span { font: 500 13px/1 var(--font-data); color: var(--slot); }
+.grid-view button:hover, .grid-view button.cur { border-color: var(--slot); }
+
+@media print {
+  @page { size: 16in 9in landscape; margin: 0; }
+  html, body { height: auto; overflow: visible; background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .viewport { position: static; }
+  .stage { position: static; transform: none; width: 1920px; height: auto; zoom: .8; }
+  .slide { position: relative; display: block !important; width: 1920px; height: 1080px; page-break-after: always; break-after: page; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; animation: none; }
+  .ui, .ver, .notes-panel, .grid-view, .speaker-notes { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) { .ticks, .slide.on { animation: none; } }
+</style>
+</head>
+<body>
+<div class="viewport">
+<div class="stage" id="stage">
+
+<section class="slide s1 on" data-title="The camera wall finally points at the smoke">
+  <div class="brand"><img src="../assets/icon.svg" alt="PlumeRank icon">PlumeRank</div>
+  <div class="kicker">OpenCV AI Competition 2026 · powered by AWS</div>
+  <h1>The camera wall finally <span class="hot">points at the smoke.</span></h1>
+  <div class="term"><span class="p">$</span> make verify<br><span class="c">…</span> checked against: results/verify_micro.json -- <span class="g">MATCH</span> (byte-for-byte)</div>
+  <div class="finder">
+    <svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="99" fill="none" stroke="#243140" stroke-width=".4"/><circle cx="100" cy="100" r="88.5" fill="none" stroke="#243140" stroke-width=".3"/><g class="ticks" stroke="#56646F"><line x1="189.50" y1="100.00" x2="198.00" y2="100.00" stroke-width=".7"/><line x1="194.37" y1="104.95" x2="197.87" y2="105.13" stroke-width=".35"/><line x1="193.98" y1="109.88" x2="197.46" y2="110.24" stroke-width=".35"/><line x1="193.34" y1="114.78" x2="196.79" y2="115.33" stroke-width=".35"/><line x1="192.43" y1="119.65" x2="195.86" y2="120.38" stroke-width=".35"/><line x1="189.35" y1="123.94" x2="194.66" y2="125.36" stroke-width=".35"/><line x1="189.87" y1="129.20" x2="193.20" y2="130.28" stroke-width=".35"/><line x1="188.22" y1="133.87" x2="191.49" y2="135.12" stroke-width=".35"/><line x1="186.33" y1="138.44" x2="189.53" y2="139.86" stroke-width=".35"/><line x1="184.20" y1="142.90" x2="187.32" y2="144.49" stroke-width=".35"/><line x1="177.51" y1="144.75" x2="184.87" y2="149.00" stroke-width=".7"/><line x1="179.25" y1="151.47" x2="182.19" y2="153.37" stroke-width=".35"/><line x1="176.45" y1="155.55" x2="179.28" y2="157.60" stroke-width=".35"/><line x1="173.44" y1="159.47" x2="176.16" y2="161.67" stroke-width=".35"/><line x1="170.23" y1="163.23" x2="172.83" y2="165.57" stroke-width=".35"/><line x1="165.41" y1="165.41" x2="169.30" y2="169.30" stroke-width=".35"/><line x1="163.23" y1="170.23" x2="165.57" y2="172.83" stroke-width=".35"/><line x1="159.47" y1="173.44" x2="161.67" y2="176.16" stroke-width=".35"/><line x1="155.55" y1="176.45" x2="157.60" y2="179.28" stroke-width=".35"/><line x1="151.47" y1="179.25" x2="153.37" y2="182.19" stroke-width=".35"/><line x1="144.75" y1="177.51" x2="149.00" y2="184.87" stroke-width=".7"/><line x1="142.90" y1="184.20" x2="144.49" y2="187.32" stroke-width=".35"/><line x1="138.44" y1="186.33" x2="139.86" y2="189.53" stroke-width=".35"/><line x1="133.87" y1="188.22" x2="135.12" y2="191.49" stroke-width=".35"/><line x1="129.20" y1="189.87" x2="130.28" y2="193.20" stroke-width=".35"/><line x1="123.94" y1="189.35" x2="125.36" y2="194.66" stroke-width=".35"/><line x1="119.65" y1="192.43" x2="120.38" y2="195.86" stroke-width=".35"/><line x1="114.78" y1="193.34" x2="115.33" y2="196.79" stroke-width=".35"/><line x1="109.88" y1="193.98" x2="110.24" y2="197.46" stroke-width=".35"/><line x1="104.95" y1="194.37" x2="105.13" y2="197.87" stroke-width=".35"/><line x1="100.00" y1="189.50" x2="100.00" y2="198.00" stroke-width=".7"/><line x1="95.05" y1="194.37" x2="94.87" y2="197.87" stroke-width=".35"/><line x1="90.12" y1="193.98" x2="89.76" y2="197.46" stroke-width=".35"/><line x1="85.22" y1="193.34" x2="84.67" y2="196.79" stroke-width=".35"/><line x1="80.35" y1="192.43" x2="79.62" y2="195.86" stroke-width=".35"/><line x1="76.06" y1="189.35" x2="74.64" y2="194.66" stroke-width=".35"/><line x1="70.80" y1="189.87" x2="69.72" y2="193.20" stroke-width=".35"/><line x1="66.13" y1="188.22" x2="64.88" y2="191.49" stroke-width=".35"/><line x1="61.56" y1="186.33" x2="60.14" y2="189.53" stroke-width=".35"/><line x1="57.10" y1="184.20" x2="55.51" y2="187.32" stroke-width=".35"/><line x1="55.25" y1="177.51" x2="51.00" y2="184.87" stroke-width=".7"/><line x1="48.53" y1="179.25" x2="46.63" y2="182.19" stroke-width=".35"/><line x1="44.45" y1="176.45" x2="42.40" y2="179.28" stroke-width=".35"/><line x1="40.53" y1="173.44" x2="38.33" y2="176.16" stroke-width=".35"/><line x1="36.77" y1="170.23" x2="34.43" y2="172.83" stroke-width=".35"/><line x1="34.59" y1="165.41" x2="30.70" y2="169.30" stroke-width=".35"/><line x1="29.77" y1="163.23" x2="27.17" y2="165.57" stroke-width=".35"/><line x1="26.56" y1="159.47" x2="23.84" y2="161.67" stroke-width=".35"/><line x1="23.55" y1="155.55" x2="20.72" y2="157.60" stroke-width=".35"/><line x1="20.75" y1="151.47" x2="17.81" y2="153.37" stroke-width=".35"/><line x1="22.49" y1="144.75" x2="15.13" y2="149.00" stroke-width=".7"/><line x1="15.80" y1="142.90" x2="12.68" y2="144.49" stroke-width=".35"/><line x1="13.67" y1="138.44" x2="10.47" y2="139.86" stroke-width=".35"/><line x1="11.78" y1="133.87" x2="8.51" y2="135.12" stroke-width=".35"/><line x1="10.13" y1="129.20" x2="6.80" y2="130.28" stroke-width=".35"/><line x1="10.65" y1="123.94" x2="5.34" y2="125.36" stroke-width=".35"/><line x1="7.57" y1="119.65" x2="4.14" y2="120.38" stroke-width=".35"/><line x1="6.66" y1="114.78" x2="3.21" y2="115.33" stroke-width=".35"/><line x1="6.02" y1="109.88" x2="2.54" y2="110.24" stroke-width=".35"/><line x1="5.63" y1="104.95" x2="2.13" y2="105.13" stroke-width=".35"/><line x1="10.50" y1="100.00" x2="2.00" y2="100.00" stroke-width=".7"/><line x1="5.63" y1="95.05" x2="2.13" y2="94.87" stroke-width=".35"/><line x1="6.02" y1="90.12" x2="2.54" y2="89.76" stroke-width=".35"/><line x1="6.66" y1="85.22" x2="3.21" y2="84.67" stroke-width=".35"/><line x1="7.57" y1="80.35" x2="4.14" y2="79.62" stroke-width=".35"/><line x1="10.65" y1="76.06" x2="5.34" y2="74.64" stroke-width=".35"/><line x1="10.13" y1="70.80" x2="6.80" y2="69.72" stroke-width=".35"/><line x1="11.78" y1="66.13" x2="8.51" y2="64.88" stroke-width=".35"/><line x1="13.67" y1="61.56" x2="10.47" y2="60.14" stroke-width=".35"/><line x1="15.80" y1="57.10" x2="12.68" y2="55.51" stroke-width=".35"/><line x1="22.49" y1="55.25" x2="15.13" y2="51.00" stroke-width=".7"/><line x1="20.75" y1="48.53" x2="17.81" y2="46.63" stroke-width=".35"/><line x1="23.55" y1="44.45" x2="20.72" y2="42.40" stroke-width=".35"/><line x1="26.56" y1="40.53" x2="23.84" y2="38.33" stroke-width=".35"/><line x1="29.77" y1="36.77" x2="27.17" y2="34.43" stroke-width=".35"/><line x1="34.59" y1="34.59" x2="30.70" y2="30.70" stroke-width=".35"/><line x1="36.77" y1="29.77" x2="34.43" y2="27.17" stroke-width=".35"/><line x1="40.53" y1="26.56" x2="38.33" y2="23.84" stroke-width=".35"/><line x1="44.45" y1="23.55" x2="42.40" y2="20.72" stroke-width=".35"/><line x1="48.53" y1="20.75" x2="46.63" y2="17.81" stroke-width=".35"/><line x1="55.25" y1="22.49" x2="51.00" y2="15.13" stroke-width=".7"/><line x1="57.10" y1="15.80" x2="55.51" y2="12.68" stroke-width=".35"/><line x1="61.56" y1="13.67" x2="60.14" y2="10.47" stroke-width=".35"/><line x1="66.13" y1="11.78" x2="64.88" y2="8.51" stroke-width=".35"/><line x1="70.80" y1="10.13" x2="69.72" y2="6.80" stroke-width=".35"/><line x1="76.06" y1="10.65" x2="74.64" y2="5.34" stroke-width=".35"/><line x1="80.35" y1="7.57" x2="79.62" y2="4.14" stroke-width=".35"/><line x1="85.22" y1="6.66" x2="84.67" y2="3.21" stroke-width=".35"/><line x1="90.12" y1="6.02" x2="89.76" y2="2.54" stroke-width=".35"/><line x1="95.05" y1="5.63" x2="94.87" y2="2.13" stroke-width=".35"/><line x1="100.00" y1="10.50" x2="100.00" y2="2.00" stroke-width=".7"/><line x1="104.95" y1="5.63" x2="105.13" y2="2.13" stroke-width=".35"/><line x1="109.88" y1="6.02" x2="110.24" y2="2.54" stroke-width=".35"/><line x1="114.78" y1="6.66" x2="115.33" y2="3.21" stroke-width=".35"/><line x1="119.65" y1="7.57" x2="120.38" y2="4.14" stroke-width=".35"/><line x1="123.94" y1="10.65" x2="125.36" y2="5.34" stroke-width=".35"/><line x1="129.20" y1="10.13" x2="130.28" y2="6.80" stroke-width=".35"/><line x1="133.87" y1="11.78" x2="135.12" y2="8.51" stroke-width=".35"/><line x1="138.44" y1="13.67" x2="139.86" y2="10.47" stroke-width=".35"/><line x1="142.90" y1="15.80" x2="144.49" y2="12.68" stroke-width=".35"/><line x1="144.75" y1="22.49" x2="149.00" y2="15.13" stroke-width=".7"/><line x1="151.47" y1="20.75" x2="153.37" y2="17.81" stroke-width=".35"/><line x1="155.55" y1="23.55" x2="157.60" y2="20.72" stroke-width=".35"/><line x1="159.47" y1="26.56" x2="161.67" y2="23.84" stroke-width=".35"/><line x1="163.23" y1="29.77" x2="165.57" y2="27.17" stroke-width=".35"/><line x1="165.41" y1="34.59" x2="169.30" y2="30.70" stroke-width=".35"/><line x1="170.23" y1="36.77" x2="172.83" y2="34.43" stroke-width=".35"/><line x1="173.44" y1="40.53" x2="176.16" y2="38.33" stroke-width=".35"/><line x1="176.45" y1="44.45" x2="179.28" y2="42.40" stroke-width=".35"/><line x1="179.25" y1="48.53" x2="182.19" y2="46.63" stroke-width=".35"/><line x1="177.51" y1="55.25" x2="184.87" y2="51.00" stroke-width=".7"/><line x1="184.20" y1="57.10" x2="187.32" y2="55.51" stroke-width=".35"/><line x1="186.33" y1="61.56" x2="189.53" y2="60.14" stroke-width=".35"/><line x1="188.22" y1="66.13" x2="191.49" y2="64.88" stroke-width=".35"/><line x1="189.87" y1="70.80" x2="193.20" y2="69.72" stroke-width=".35"/><line x1="189.35" y1="76.06" x2="194.66" y2="74.64" stroke-width=".35"/><line x1="192.43" y1="80.35" x2="195.86" y2="79.62" stroke-width=".35"/><line x1="193.34" y1="85.22" x2="196.79" y2="84.67" stroke-width=".35"/><line x1="193.98" y1="90.12" x2="197.46" y2="89.76" stroke-width=".35"/><line x1="194.37" y1="95.05" x2="197.87" y2="94.87" stroke-width=".35"/></g><line x1="100" y1="100" x2="197.05" y2="86.36" stroke="#FF6B4A" stroke-width=".8"/><circle cx="197.05" cy="86.36" r="1.8" fill="none" stroke="#FF6B4A" stroke-width=".8"/></svg>
+    <div class="lens"><img src="../assets/border58-p08.webp" alt="Real HPWREN frame, Border58 Fire, eight minutes after ignition, with a smoke plume on the horizon"></div>
+    <div class="ledger"><span>T+08:00</span><span class="st">alert · slot 1/2</span><span class="sl"><i class="on"></i><i></i></span></div>
+  </div>
+  <div class="foot"><span>PlumeRank · lookout log</span><b>01 / 10</b></div>
+  <aside class="speaker-notes">PlumeRank decides which camera a fire dispatcher looks at first. The frame here is real: the Border58 Fire, eight minutes after ignition, the minute PlumeRank alerted. Neither baseline ever did.</aside>
+</section>
+
+<section class="slide s2" data-title="04:50, one dispatcher">
+  <div class="kicker">The scene</div>
+  <h2>One dispatcher.<br>A wall of tiles.<br><span class="hot">Which first?</span></h2>
+  <p class="body">ALERTCalifornia alone runs <b>over 1,000 cameras</b>. A human opens a few per minute and mutes anything that interrupts too often.</p>
+  <div class="clock">04:50<small>NEXT SIXTY SECONDS</small></div>
+  <div class="wall" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="lit"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="foot"><span>The problem</span><b>02 / 10</b></div>
+  <aside class="speaker-notes">The bottleneck is not detection, it is attention. One person, a wall of tiles, and a hard limit on how many interruptions they will tolerate before they stop listening.</aside>
+</section>
+
+<section class="slide s3" data-title="F1 does not open a tile">
+  <div class="kicker">The metric</div>
+  <h2>F1 does not open a tile.</h2>
+  <div class="cols">
+    <div class="col l"><div class="t">What detectors report</div><div class="q">Per-frame F1</div><p>Or time-to-detection with no cap on false alarms. Neither says which tile to open.</p></div>
+    <div class="col r"><div class="t">What PlumeRank reports</div><div class="q">Minutes to a look</div><p>Minutes after ignition until a human is pointed at the right camera, at <b style="color:var(--ink)">2 alerts per camera-window</b>.</p></div>
+  </div>
+  <div class="foot"><span>The reframe</span><b>03 / 10</b></div>
+  <aside class="speaker-notes">FIgLib gives every sequence a real ignition clock, so minutes-to-a-look needs no hand labels. Every system, ours and both baselines, is held to the same budget on the same fire-free windows.</aside>
+</section>
+
+<section class="slide s4" data-title="The frozen moment">
+  <div class="kicker">Border58 Fire · Otay Mountain West · real frames</div>
+  <h2>The tile that changed <span class="hot">goes first.</span></h2>
+  <div class="strip">
+    <div class="f"><div class="im"><img src="../assets/border58-m05.webp" alt="Five minutes before ignition"></div><div class="t">T−05</div><div class="d">quiet</div><div class="sl"><i></i><i></i></div></div>
+    <div class="f"><div class="im"><img src="../assets/border58-p00.webp" alt="At ignition"></div><div class="t">T+00</div><div class="d">ignition</div><div class="sl"><i></i><i></i></div></div>
+    <div class="f alert"><div class="im"><img src="../assets/border58-p08.webp" alt="Eight minutes after ignition, smoke visible"></div><div class="t">T+08</div><div class="d">PlumeRank alert</div><div class="sl"><i class="on"></i><i></i></div></div>
+    <div class="f"><div class="im"><img src="../assets/border58-p20.webp" alt="Twenty minutes after ignition"></div><div class="t">T+20</div><div class="d">B1, B2: still silent</div><div class="sl"><i class="on"></i><i></i></div></div>
+  </div>
+  <div class="foot"><span>Source · results/arm_dev_2026-10-04.json</span><b>04 / 10</b></div>
+  <aside class="speaker-notes">These are real HPWREN frames. PlumeRank alerted at plus eight minutes and spent one of the camera's two budget slots. The same CNN on every frame, and frame differencing, never alerted on this fire.</aside>
+</section>
+
+<section class="slide s5" data-title="Mechanism">
+  <div class="kicker">Mechanism · 23 OpenCV 5 surfaces · 6 modules</div>
+  <h2>Each camera, <span class="hot">against itself.</span></h2>
+  <div class="pipe">
+    <div class="st"><div class="n">01</div><h3>Stabilise</h3><code>phaseCorrelate</code><code>USAC_MAGSAC</code></div>
+    <div class="st"><div class="n">02</div><h3>Segment</h3><code>MOG2</code><code>connectedComponents</code></div>
+    <div class="st"><div class="n">03</div><h3>S1–S4</h3><code>Sobel · Laplacian</code><code>DISOpticalFlow</code></div>
+    <div class="st"><div class="n">04</div><h3>Escalate 2%</h3><code>dnn · ONNX</code><code>ENGINE_NEW</code></div>
+    <div class="st k"><div class="n">05</div><h3>Own last 15 min</h3><code>rank.Baseline</code><code>z-score</code></div>
+    <div class="st k"><div class="n">06</div><h3>Budget solve</h3><code>solve_threshold</code><code>θ = 0.849</code></div>
+  </div>
+  <p class="aws"><b>AWS</b> · one t4g.small Graviton · S3 corpus · CloudWatch drift ±15% + heartbeat reboot</p>
+  <div class="foot"><span>Mechanism</span><b>05 / 10</b></div>
+  <aside class="speaker-notes">OpenCV 5 does every per-frame step. The step that carries the ranking is the fifth: a camera that runs hot all night is not a fire, so each camera is z-scored against its own last fifteen minutes before one threshold is solved to spend the budget.</aside>
+</section>
+
+<section class="slide s6" data-title="Live on AWS">
+  <div class="kicker">Demo · live on the Graviton box</div>
+  <h2>62 cameras. <span class="hot">Nothing hidden.</span></h2>
+  <div class="shot"><div class="bar">44.242.91.201 / the wall · captured 10 Oct 2026</div><img src="../assets/live-wall.webp" alt="The live PlumeRank wall with 62 camera tiles and a ranked watch list"></div>
+  <div class="side">
+    <div class="row"><b>29 + 33</b><span>development fires + fire-free windows</span></div>
+    <div class="row"><b>1 s / tick</b><span>one minute of footage, re-ranked</span></div>
+    <div class="row"><b>0 removed</b><span>the list only reorders</span></div>
+  </div>
+  <div class="foot"><span>http://44.242.91.201</span><b>06 / 10</b></div>
+  <aside class="speaker-notes">This is the real endpoint: the pipeline replays FIgLib footage and re-ranks all 62 cameras every second over server-sent events. Every ranked entry carries its evidence crop so a human can overrule it at a glance.</aside>
+</section>
+
+<section class="slide s7" data-title="Results">
+  <div class="kicker">Development set · in-sample · same budget</div>
+  <h2>Same model. <span class="hot">Asked less often.</span></h2>
+  <div class="bars">
+    <div class="bar pr"><div class="top">PlumeRank<span>17 / 29</span></div><div class="tr"><div class="fi" style="width:58.6%"></div></div></div>
+    <div class="bar"><div class="top">B1 via same baseline<span>14 / 29</span></div><div class="tr"><div class="fi" style="width:48.3%"></div></div></div>
+    <div class="bar"><div class="top">B2 via same baseline<span>10 / 29</span></div><div class="tr"><div class="fi" style="width:34.5%"></div></div></div>
+    <div class="bar"><div class="top">B1 · CNN on every frame<span>6 / 29</span></div><div class="tr"><div class="fi" style="width:20.7%"></div></div></div>
+    <div class="bar"><div class="top">B2 · frame differencing<span>3 / 29</span></div><div class="tr"><div class="fi" style="width:10.3%"></div></div></div>
+  </div>
+  <div class="big"><b>32.0</b><p>minutes, median time to detection. Only PlumeRank reaches a median.</p></div>
+  <p class="note">CNN calls per camera-window: PlumeRank 2 · B1 3,645 · results/arm_dev_2026-10-04.json</p>
+  <div class="foot"><span>Results</span><b>07 / 10</b></div>
+  <aside class="speaker-notes">B1 is our own ONNX classifier on every frame, so the gap is the pipeline, not the model. These are development numbers, in-sample, and labelled that way. The held-out run is read once, after the freeze.</aside>
+</section>
+
+<section class="slide s8" data-title="Held-out discipline">
+  <div class="kicker">Honest by design</div>
+  <h2>The headline is <span class="hot">read once.</span></h2>
+  <div class="rules">
+    <div class="r"><b>Frozen first</b><p>The held-out run refuses to start unless the constants hash matches a committed freeze.</p><code>results/constants.sha256</code></div>
+    <div class="r"><b>Logged reads</b><p>Every read of held-out pixels appends one line, with the commit.</p><code>results/hold_access.log</code></div>
+    <div class="r"><b>Verified frames</b><p>Every frame must hash to the fetch receipt before the read counts.</p><code>data/fetch_receipt.json</code></div>
+  </div>
+  <p class="lim"><b>Known limits:</b> daylight only · cloud, not fog, is the adversary · S3 alone scores AUC 0.44</p>
+  <div class="foot"><span>Trust</span><b>08 / 10</b></div>
+  <aside class="speaker-notes">We built the honesty into the code. The held-out sixty fires are read exactly once, after the freeze, and the README lists the limits in our own words, including that cloud, not fog, is what costs the budget.</aside>
+</section>
+
+<section class="slide s9" data-title="Engineering">
+  <div class="kicker">Proof of work</div>
+  <h2>Reproducible in <span class="hot">three minutes.</span></h2>
+  <div class="grid">
+    <div class="cell"><b>714</b><span>tests passing</span><em>97% coverage on plumerank/</em></div>
+    <div class="cell"><b>23</b><span>OpenCV 5 surfaces</span><em>counted by check_claims.py</em></div>
+    <div class="cell"><b>1,500</b><span>property cases</span><em>hypothesis · budget never overspent</em></div>
+    <div class="cell"><b>4</b><span>GET routes</span><em>no upload, no dispatch</em></div>
+  </div>
+  <div class="term"><span class="p">$</span> git clone https://github.com/edycutjong/plumerank &amp;&amp; cd plumerank &amp;&amp; make verify</div>
+  <div class="foot"><span>Engineering</span><b>09 / 10</b></div>
+  <aside class="speaker-notes">One command, no keys, no account: it rebuilds the environment, runs the suite, recomputes real metrics on committed pixels and checks them byte-for-byte.</aside>
+</section>
+
+<section class="slide s10" data-title="Open the right tile first">
+  <div class="kicker">Try it</div>
+  <h2>Open the right tile <span class="hot">first.</span></h2>
+  <div class="links">
+    <div><span>Site</span><a href="https://plumerank.edycu.dev">plumerank.edycu.dev</a></div>
+    <div><span>Live</span><a href="http://44.242.91.201">44.242.91.201</a></div>
+    <div><span>Code</span><a href="https://github.com/edycutjong/plumerank">github.com/edycutjong/plumerank</a></div>
+  </div>
+  <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" role="img" aria-label="QR code for plumerank.edycu.dev"><path class="qrline" stroke="#f2f6fa" d="M0 0.5h7m1 0h2m2 0h2m2 0h1m1 0h1m1 0h1m1 0h7m-29 1h1m5 0h1m2 0h2m2 0h1m1 0h4m3 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h4m3 0h1m1 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m3 0h3m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h2m2 0h4m1 0h1m3 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h1m1 0h3m1 0h3m2 0h2m1 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h1m1 0h2m1 0h1m2 0h2m2 0h1m-20 1h1m1 0h1m1 0h4m3 0h1m3 0h8m1 0h2m1 0h1m-29 1h1m1 0h1m5 0h1m2 0h4m5 0h1m1 0h1m3 0h1m1 0h1m-26 1h5m1 0h1m1 0h3m1 0h1m3 0h1m2 0h2m1 0h1m1 0h1m-28 1h1m3 0h2m3 0h1m3 0h2m1 0h1m1 0h2m1 0h2m3 0h2m-28 1h1m4 0h3m3 0h2m1 0h1m2 0h1m2 0h1m1 0h2m-21 1h3m2 0h2m3 0h1m1 0h2m2 0h3m1 0h1m1 0h1m1 0h1m-25 1h4m1 0h8m5 0h2m5 0h1m-29 1h1m1 0h1m1 0h1m7 0h1m2 0h2m2 0h1m3 0h1m4 0h1m-29 1h2m2 0h3m1 0h2m1 0h2m1 0h3m2 0h2m7 0h1m-28 1h1m1 0h1m1 0h1m1 0h1m1 0h4m2 0h1m5 0h3m2 0h3m-29 1h1m1 0h5m1 0h3m1 0h2m6 0h2m1 0h6m-27 1h1m2 0h1m1 0h1m3 0h1m3 0h4m1 0h1m2 0h3m-26 1h1m3 0h1m1 0h3m3 0h3m1 0h1m3 0h5m1 0h1m-19 1h4m2 0h1m1 0h3m1 0h1m3 0h1m2 0h2m-29 1h7m1 0h3m5 0h1m1 0h1m1 0h1m1 0h1m1 0h4m-28 1h1m5 0h1m1 0h1m2 0h2m2 0h1m2 0h1m1 0h1m3 0h1m1 0h3m-29 1h1m1 0h3m1 0h1m3 0h1m3 0h1m1 0h1m1 0h1m1 0h6m1 0h1m-28 1h1m1 0h3m1 0h1m1 0h1m1 0h1m4 0h1m1 0h6m1 0h2m2 0h1m-29 1h1m1 0h3m1 0h1m2 0h4m2 0h2m1 0h3m3 0h1m3 0h1m-29 1h1m5 0h1m1 0h4m4 0h2m1 0h2m1 0h2m3 0h1m-28 1h7m6 0h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m2 0h1"/></svg><p>plumerank.edycu.dev</p></div>
+  <div class="foot"><span>Apache-2.0 · imagery HPWREN FIgLib</span><b>10 / 10</b></div>
+  <aside class="speaker-notes">Everything is public: the live wall on AWS, the code, and the committed results every number comes from. Thank you.</aside>
+</section>
+
+</div>
+</div>
+
+<div class="grid-view" id="grid" aria-label="Slide overview"></div>
+<div class="notes-panel" id="notes" aria-live="polite"></div>
+<div class="ver">v1.0 · 2026-10-10</div>
+<nav class="ui" aria-label="Deck controls">
+  <a href="../">← site</a>
+  <button type="button" id="prev" aria-label="Previous slide">←</button>
+  <span class="count" id="count">01 / 10</span>
+  <button type="button" id="next" aria-label="Next slide">→</button>
+  <button type="button" id="ov" aria-label="Slide overview (Esc)">Esc</button>
+  <button type="button" id="pr" aria-label="Presenter notes (P)">P</button>
+</nav>
+
+<script>
+(() => {
+  const slides = [...document.querySelectorAll('.slide')];
+  const stage = document.getElementById('stage');
+  const count = document.getElementById('count');
+  const notes = document.getElementById('notes');
+  const grid = document.getElementById('grid');
+  const n = slides.length, pad = x => String(x).padStart(2, '0');
+  let cur = 0;
+
+  function fit() {
+    const w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
+    stage.style.setProperty('--s', Math.min(w / 1920, h / 1080));
+  }
+  function go(k) {
+    cur = Math.max(0, Math.min(n - 1, k));
+    slides.forEach((s, i) => s.classList.toggle('on', i === cur));
+    count.textContent = `${pad(cur + 1)} / ${pad(n)}`;
+    notes.textContent = slides[cur].querySelector('.speaker-notes')?.textContent.trim() || '';
+    [...grid.children].forEach((b, i) => b.classList.toggle('cur', i === cur));
+    if (location.hash !== '#' + (cur + 1)) history.replaceState(null, '', '#' + (cur + 1));
+  }
+  slides.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<span>${pad(i + 1)}</span>${s.dataset.title}`;
+    b.addEventListener('click', () => { document.body.classList.remove('overview'); go(i); });
+    grid.appendChild(b);
+  });
+  const toggleOv = () => document.body.classList.toggle('overview');
+  const togglePr = () => document.body.classList.toggle('presenter');
+  document.getElementById('prev').onclick = () => go(cur - 1);
+  document.getElementById('next').onclick = () => go(cur + 1);
+  document.getElementById('ov').onclick = toggleOv;
+  document.getElementById('pr').onclick = togglePr;
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(cur + 1); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(n - 1);
+    else if (e.key === 'Escape') toggleOv();
+    else if (e.key === 'p' || e.key === 'P') togglePr();
+  });
+  let tx = null;
+  addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', e => { if (tx === null) return; const dx = e.changedTouches[0].clientX - tx; if (Math.abs(dx) > 40) go(cur + (dx < 0 ? 1 : -1)); tx = null; });
+  let idle;
+  addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idle); idle = setTimeout(() => document.body.classList.add('idle'), 2000); });
+  addEventListener('resize', fit);
+  fit();
+  go((parseInt(location.hash.slice(1), 10) || 1) - 1);
+})();
+</script>
+</body>
+</html>
