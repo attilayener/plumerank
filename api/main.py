@@ -1370,7 +1370,7 @@ class Replay:
             for s in final
         ]
         entries = self._write_evidence(emit(final, threshold, budget), frames, picked, index)
-        self._write_thumbnails(entries, frames)
+        self._write_thumbnails(entries, frames, fill_all=self._ticks == 0)
 
         crossed = [s.camera_id for s in final if s.hazard >= threshold]
         self._alerts_uncapped += len(crossed)
@@ -1505,7 +1505,13 @@ class Replay:
             out.append(dataclasses.replace(entry, evidence_url=url))
         return out
 
-    def _write_thumbnails(self, entries: list[WatchEntry], frames: dict[str, np.ndarray]) -> None:
+    def _write_thumbnails(
+        self,
+        entries: list[WatchEntry],
+        frames: dict[str, np.ndarray],
+        *,
+        fill_all: bool = False,
+    ) -> None:
         """Refresh the small live image a wall tile shows, within a fixed per-tick budget.
 
         Evidence crops exist only for cameras with a tracked component, so without these most
@@ -1516,12 +1522,20 @@ class Replay:
 
         One file per camera, overwritten in place (``{replay_id}/frames/{key}.jpg``), so the
         directory is bounded at the roster size; ``?t=`` busts the browser cache on rewrite.
+
+        ``fill_all`` writes every camera once. ``_tick`` sets it on a replay's first tick:
+        ``_reset_replay`` has just emptied ``_frame_urls``, and without it a quiet camera
+        would read "no frame published" until the round-robin reached it, up to a roster's
+        worth of ticks into the judge's first minute (~62 thumbnails, once).
         """
-        targets = [e.camera_id for e in entries if e.rank <= TOP_K]
-        if self._cameras:
-            self._thumb_cursor %= len(self._cameras)
-            targets.append(self._cameras[self._thumb_cursor].camera_id)
-            self._thumb_cursor += 1
+        if fill_all:
+            targets = [c.camera_id for c in self._cameras]
+        else:
+            targets = [e.camera_id for e in entries if e.rank <= TOP_K]
+            if self._cameras:
+                self._thumb_cursor %= len(self._cameras)
+                targets.append(self._cameras[self._thumb_cursor].camera_id)
+                self._thumb_cursor += 1
         directory = EVIDENCE_DIR / self.replay_id / "frames"
         for key in dict.fromkeys(targets):
             frame = frames.get(key)

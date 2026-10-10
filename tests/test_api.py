@@ -886,6 +886,30 @@ def test_thumbnails_cover_the_top_k_plus_one_round_robin_camera(
     assert all(u.startswith("/evidence/") and "?t=" in u for u in replay._frame_urls.values())
 
 
+def test_the_first_tick_of_a_replay_gives_every_tile_a_picture(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """_reset_replay empties _frame_urls; the first tick must not leave quiet tiles blank."""
+    from plumerank.types import WatchEntry
+
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path)
+    replay = main.Replay()
+    keys = [f"cam{i}" for i in range(main.TOP_K + 3)]
+    replay._cameras = [
+        main._Camera(main.Sequence(sequence_id=k, camera_id=k, arm="dev", frame_paths=[], t0_index=None))
+        for k in keys
+    ]
+    frames = {k: np.full((270, 480, 3), 80, np.uint8) for k in keys}
+    entries = [
+        WatchEntry(rank=1, camera_id=keys[0], hazard=0.5, s1=0, s2=0, s3=0, s4=0,
+                   escalated=False, alerted=False, budget_spent=0)
+    ]
+    replay._write_thumbnails(entries, frames, fill_all=True)
+    assert set(replay._frame_urls) == set(keys)
+    written = list((tmp_path / replay.replay_id / "frames").glob("*.jpg"))
+    assert len(written) == len(keys)
+
+
 def test_repeated_cameras_get_url_safe_roster_keys() -> None:
     seqs = [
         main.Sequence(sequence_id=f"s{i}", camera_id="cp-s-mobo-c", arm="dev", frame_paths=["a"], t0_index=None)
