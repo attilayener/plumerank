@@ -328,6 +328,8 @@ def test_a_held_out_file_that_cannot_calibrate_this_wall_is_refused_and_named(
     why: str,
 ) -> None:
     monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    # Past the corpus check on a clean clone (data/corpus is gitignored), as in the test above.
+    monkeypatch.setattr(main, "_wall_sequences", lambda: ([object()], None))
     (tmp_path / "bench_2026-10-08.json").write_text(
         json.dumps(_held_out(0.61, **over)), encoding="utf-8"
     )
