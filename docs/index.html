@@ -338,7 +338,7 @@ footer a { color: var(--ink-1); }
       <div class="ctas seq" style="--d:3">
         <a class="btn primary" href="https://github.com/edycutjong/plumerank"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a>
         <a class="btn" href="pitch/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8"/></svg>Pitch deck</a>
-        <a class="btn" href="http://44.242.91.201"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M5 12a7 7 0 0114 0M2 12a10 10 0 0120 0"/></svg>Live wall on AWS</a>
+        <a class="btn" href="https://live.plumerank.edycu.dev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M5 12a7 7 0 0114 0M2 12a10 10 0 0120 0"/></svg>Live wall on AWS</a>
       </div>
       <div class="seq" style="--d:4">
         <div class="runline"><code>git clone https://github.com/edycutjong/plumerank &amp;&amp; cd plumerank &amp;&amp; make verify</code><button type="button" data-copy="git clone https://github.com/edycutjong/plumerank &amp;&amp; cd plumerank &amp;&amp; make verify">Copy</button></div>
@@ -398,7 +398,7 @@ footer a { color: var(--ink-1); }
     <div class="pair">
       <div class="rv">
         <div class="browser">
-          <div class="bar"><i></i><i></i><i></i><span>44.242.91.201 / the wall</span><a href="http://44.242.91.201">open live ↗</a></div>
+          <div class="bar"><i></i><i></i><i></i><span>live.plumerank.edycu.dev / the wall</span><a href="https://live.plumerank.edycu.dev">open live ↗</a></div>
           <img src="assets/live-wall.webp" alt="The live PlumeRank wall: 62 HPWREN camera tiles with a ranked watch list on the right; rank 1 and rank 2 carry alert tags and per-statistic scores" width="1800" height="1125" loading="lazy">
         </div>
         <p class="cap">Captured from the live box on 10 Oct 2026. The watch list keeps all 62 cameras and only reorders them.</p>
@@ -442,7 +442,7 @@ CPUCreditBalance after  : n/a
 
   reproduce with: make fetch &amp;&amp; make bench  (about 95 min)
 
-<span class="p">$</span> <span class="w">curl -s http://44.242.91.201/build-info | python3 -c &quot;import json,sys;print(json.load(sys.stdin)[&#x27;opencv&#x27;][&#x27;version&#x27;])&quot;</span>
+<span class="p">$</span> <span class="w">curl -s https://live.plumerank.edycu.dev/build-info | python3 -c &quot;import json,sys;print(json.load(sys.stdin)[&#x27;opencv&#x27;][&#x27;version&#x27;])&quot;</span>
 5.0.0</pre>
       </div>
     </div>
@@ -617,7 +617,7 @@ CPUCreditBalance after  : n/a
 <text x="180" y="328" fill="#FF6B4A">→ solve_threshold → ranked watch list</text>
 </g></svg></div>
       <ul class="rv">
-        <li><span>Compute</span><div>One <b>t4g.small</b> (Graviton, arm64) runs OpenCV 5.0.0 built for NEON, the FastAPI service and the static site behind Caddy. <a href="http://44.242.91.201/build-info">/build-info</a> prints the build string.</div></li>
+        <li><span>Compute</span><div>One <b>t4g.small</b> (Graviton, arm64) runs OpenCV 5.0.0 built for NEON, the FastAPI service and the static site behind Caddy. <a href="https://live.plumerank.edycu.dev/build-info">/build-info</a> prints the build string.</div></li>
         <li><span>Storage</span><div>One S3 bucket: the DEV + CONFUSE corpus (5,082 frames) and the code bundle the box boots from.</div></li>
         <li><span>Watch</span><div>CloudWatch tracks the realised alert rate on the fire-free cameras, with drift alarms at ±15% of 2.0. A heartbeat-silence alarm reboots the instance if the service stops beating.</div></li>
         <li><span>Not here</span><div>No Lambda, no managed vision API, no second instance, no upload route, no dispatch route. Four GET routes, all tested.</div></li>
@@ -643,7 +643,7 @@ CPUCreditBalance after  : n/a
     <div class="label rv">Questions a judge would ask</div>
     <h2 class="rv" id="h-faq">Asked, <em>and answered.</em></h2>
     <div class="faq rv">
-      <details><summary>Is the wall actually live, or a recording?</summary><div class="ans"><p>Live. The AWS box replays real HPWREN FIgLib footage through the real pipeline, one minute of footage per second, and re-ranks every camera on every tick over server-sent events. Nothing is pre-rendered. <a href="http://44.242.91.201/health">/health</a> shows the tick counter and the measured tick time.</p></div></details>
+      <details><summary>Is the wall actually live, or a recording?</summary><div class="ans"><p>Live. The AWS box replays real HPWREN FIgLib footage through the real pipeline, one minute of footage per second, and re-ranks every camera on every tick over server-sent events. Nothing is pre-rendered. <a href="https://live.plumerank.edycu.dev/health">/health</a> shows the tick counter and the measured tick time.</p></div></details>
       <details><summary>What is mocked?</summary><div class="ans"><p>Nothing on the demo path. There are no offline, mock or dry-run branches in the pipeline, API or scripts. <code>make verify</code> recomputes real metrics on committed pixels and checks them byte-for-byte against <code>results/verify_micro.json</code>. The replay is the one thing that is not live camera input: the footage is historical, because the ground truth is the ignition time recorded in FIgLib.</p></div></details>
       <details><summary>Why not report F1 like every other smoke detector?</summary><div class="ans"><p>Because a dispatcher does not act on frames. They act on a short list, and they mute any system that interrupts too often. PlumeRank holds every system to the same alert budget and reports minutes after ignition until a human is pointed at the right camera. FIgLib's per-sequence ignition clock means this needs no hand labelling.</p></div></details>
       <details><summary>What exactly is a "camera-night"?</summary><div class="ans"><p>The code's name for one evaluation window: 81 minutes of footage on one camera, the length of a FIgLib sequence. So the budget is 2 alerts per camera per 81-minute window, about 18 per camera over a 12-hour shift if run continuously. This page calls it a camera-window to avoid the confusion; the windows are daytime.</p></div></details>
@@ -660,8 +660,8 @@ CPUCreditBalance after  : n/a
     <div class="ctas">
       <a class="btn primary" href="https://github.com/edycutjong/plumerank">View on GitHub</a>
       <a class="btn" href="pitch/">Pitch deck</a>
-      <a class="btn" href="http://44.242.91.201">Live wall</a>
-      <a class="btn" href="http://44.242.91.201/judge">The 30-second path for judges</a>
+      <a class="btn" href="https://live.plumerank.edycu.dev">Live wall</a>
+      <a class="btn" href="https://live.plumerank.edycu.dev/judge">The 30-second path for judges</a>
     </div>
   </div>
 </section>

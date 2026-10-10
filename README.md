@@ -5,8 +5,8 @@
 
   <br/>
 
-  [![Live Endpoint](https://img.shields.io/badge/🟢_Live-44.242.91.201-06b6d4?style=for-the-badge)](http://44.242.91.201)
-  [![/judge](https://img.shields.io/badge/👩‍⚖️_For-Judges-f59e0b?style=for-the-badge)](http://44.242.91.201/judge)
+  [![Live Endpoint](https://img.shields.io/badge/🟢_Live-live.plumerank.edycu.dev-06b6d4?style=for-the-badge)](https://live.plumerank.edycu.dev)
+  [![/judge](https://img.shields.io/badge/👩‍⚖️_For-Judges-f59e0b?style=for-the-badge)](https://live.plumerank.edycu.dev/judge)
   [![Landing](https://img.shields.io/badge/🌐_Site-plumerank.edycu.dev-FF6B4A?style=for-the-badge)](https://plumerank.edycu.dev)
   [![Pitch Deck](https://img.shields.io/badge/📊_Pitch-Deck-f59e0b?style=for-the-badge)](https://plumerank.edycu.dev/pitch/)
   [![Built for OpenCV AI Competition 2026](https://img.shields.io/badge/OpenCV_AI_Competition-2026-8b5cf6?style=for-the-badge)](https://opencv26.devpost.com/)

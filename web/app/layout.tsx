@@ -18,7 +18,7 @@ const TITLE = "PlumeRank — which wildfire camera to look at first";
 const DESCRIPTION =
   "Two alerts per camera per 81-minute window. PlumeRank ranks wildfire cameras so the " +
   "likeliest smoke comes first.";
-const SITE_URL = "http://44.242.91.201";
+const SITE_URL = "https://live.plumerank.edycu.dev";
 const AUTHOR = "Edy Cu";
 
 export const metadata: Metadata = {

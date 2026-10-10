@@ -4,7 +4,7 @@ This is the full walkthrough. For the 30-second version, see [`JUDGE.md`](JUDGE.
 
 ## Live
 
-- Wall: `http://44.242.91.201`
+- Wall: `https://live.plumerank.edycu.dev`
 - `GET /build-info` — real `cv2.getBuildInformation()`, instance id, AMI id, commit sha
 - `GET /health`
 - `/results` — `/build-info` in-page; the held-out operating curve, baseline race, sensitivity

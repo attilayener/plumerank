@@ -8,14 +8,14 @@ here is one 81-minute window of footage on one camera — the length of a FIgLib
 
 ## 1. Click these, in order
 
-1. **The Wall** — `http://44.242.91.201` — no login. The live ranking: 29 development-set fire
+1. **The Wall** — `https://live.plumerank.edycu.dev` — no login. The live ranking: 29 development-set fire
    sequences and 33 fire-free confusion-set windows (the confusion set is marked on screen),
    replayed from real HPWREN footage through the real pipeline, on the frozen threshold the held-out
    run solved on the fire-free confusion set (§4).
-2. **`/build-info`** — `http://44.242.91.201/build-info` — `GET /build-info`. Real
+2. **`/build-info`** — `https://live.plumerank.edycu.dev/build-info` — `GET /build-info`. Real
    `cv2.getBuildInformation()` output, the EC2 instance id and AMI id, and the git commit this
    box is running, read live off the box — nothing here is typed by hand.
-3. **`/results`** — `http://44.242.91.201/results` — the same `/build-info` block rendered
+3. **`/results`** — `https://live.plumerank.edycu.dev/results` — the same `/build-info` block rendered
    in-page, and the held-out evidence (baseline race, operating curve, sensitivity strip, ablation
    grid) from `results/bench_2026-10-10.json`.
 
@@ -86,7 +86,7 @@ the steadier comparison. The run executed on a local arm64 machine, not the endp
 
 ## 6. Links
 
-- Live endpoint: `http://44.242.91.201`
+- Live endpoint: `https://live.plumerank.edycu.dev` (the same box also answers on its Elastic IP, `http://44.242.91.201`, the address used before the hostname existed)
 - `/build-info` · `/health` · `/results`
 - Repository: https://github.com/edycutjong/plumerank (this box's own `/build-info` names the exact commit it runs)
 - Site and pitch deck: https://plumerank.edycu.dev · https://plumerank.edycu.dev/pitch/
