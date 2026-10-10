@@ -57,9 +57,12 @@ jobs:
           fi
 
           BUMP=none
-          echo "$LOG" | grep -qE '^(feat|fix|perf)(\(.+\))?!:|BREAKING CHANGE:' && BUMP=major
-          [ "$BUMP" = none ] && echo "$LOG" | grep -qE '^feat(\(.+\))?:'        && BUMP=minor
-          [ "$BUMP" = none ] && echo "$LOG" | grep -qE '^(fix|perf)(\(.+\))?:'  && BUMP=patch
+          # Here-strings, not `echo "$LOG" | grep -q`: grep -q exits on the first match, echo
+          # then dies of SIGPIPE on a long history, and under pipefail the pipeline reads as
+          # "no match" -- the first dispatched release said "No releasable commits" over 100+.
+          grep -qE '^(feat|fix|perf)(\(.+\))?!:|BREAKING CHANGE:' <<< "$LOG" && BUMP=major
+          [ "$BUMP" = none ] && grep -qE '^feat(\(.+\))?:' <<< "$LOG"        && BUMP=minor
+          [ "$BUMP" = none ] && grep -qE '^(fix|perf)(\(.+\))?:' <<< "$LOG"  && BUMP=patch
           if [ "$BUMP" = none ]; then
             echo "No releasable commits since ${LAST:-the beginning}."
             echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
