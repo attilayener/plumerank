@@ -92,7 +92,7 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 | Median time-to-detection (misses = never) | **38.0 min** | 32.0 min |
 | Mean time-to-detection of the detected fires | 13.3 min | 16.9 min |
 | Alert rate | 1.99 /camera-night on the confusion set (target 2.0); 1.92 realised on HOLD | 1.99 on the confusion set; 2.37 realised on DEV |
-| Escalation fraction (frames sent to the ONNX classifier) | 1.76% — within the 2% cap | 2.23% — over the cap |
+| Escalation fraction (frames sent to the ONNX classifier) | 1.76% — within the 2% cap | 2.14% — over the cap |
 | CNN calls per camera-night | 1.4 (PlumeRank) vs 3,645 (B1) | 1.8 vs 3,645 |
 | **B1 through the same per-camera baseline (like-for-like)** | **18 / 54 — no median** | 14 / 29 — no median |
 | **B2 through the same per-camera baseline (like-for-like)** | **20 / 54 — no median** | 10 / 29 — no median |
@@ -109,7 +109,8 @@ reproduces it anywhere. Per-sequence results for every system are in each file's
 ## Honest limitations
 
 1. **Daylight only, and a window-sized budget.** HPWREN FIgLib (the ground-truth dataset) is
-   daylight-only and no IR camera exists in this build; a night-shift dispatcher works hours this
+   almost all daytime (the few night windows in the held-out arm are 5 of its 6 stated exclusions)
+   and no IR camera exists in this build; a night-shift dispatcher works hours this
    system cannot cover. The budget is calibrated per 81-minute window (see "The unit" above); a
    real deployment would set a per-shift budget and re-solve the threshold for it.
 2. **Cloud is the adversary — not the fog this project was designed against — and the
@@ -226,7 +227,7 @@ pinning, timing, build info, and two engine/estimator flags) — mechanically co
 | Surface | Lives in | Without it |
 |---|---|---|
 | `createBackgroundSubtractorMOG2` + `.apply` | `plumerank/segment.py` | a per-pixel Gaussian-mixture background model, rewritten from the paper |
-| `phaseCorrelate` + `createHanningWindow` (+ `phaseCorrelateIterative`, new in 5.x) | `plumerank/stabilise.py` | a padded DFT cross-power-spectrum stabiliser with sub-pixel refinement |
+| `phaseCorrelate` + `createHanningWindow` (+ `phaseCorrelateIterative`, added in OpenCV 4.13 / 5.0) | `plumerank/stabilise.py` | a padded DFT cross-power-spectrum stabiliser with sub-pixel refinement |
 | `estimateAffine2D(..., USAC_MAGSAC)` | `plumerank/stabilise.py` | a correct MAGSAC++ implementation |
 | `connectedComponentsWithStats`, `Sobel`, `Laplacian` | `plumerank/segment.py`, `plumerank/statistic.py` | the component boxes S1/S2 read, and the boundary energies S3 reads |
 | `DISOpticalFlow_create` | `plumerank/statistic.py` (S4) | a dense flow field at usable speed |
@@ -338,7 +339,7 @@ plumerank/       # the pipeline: stabilise, segment, statistic, escalate, rank, 
 api/             # FastAPI app — /build-info, /health, /api/watchlist, /api/benchmark
 scripts/         # fetch.py, bench.py, check_claims.py, check_submission_readiness.py
 web/             # Next.js frontend — the Wall ("/"), "/results", "/judge"
-tests/           # 746 tests, 100% line coverage on plumerank/
+tests/           # 833 tests, 100% line coverage on plumerank/
 deploy/          # EC2 bootstrap (Caddy, systemd, OpenCV 5 build pin)
 results/         # committed run artefacts — every published number lives here
 ```

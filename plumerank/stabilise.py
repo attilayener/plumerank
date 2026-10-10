@@ -3,9 +3,9 @@
 Why this module is first, and why it is not optional
 ----------------------------------------------------
 Every background subtractor OpenCV 5 ships -- MOG2, LSBP, GSOC -- models a *per-pixel*
-history and therefore assumes the camera does not move. HPWREN's cameras are PTZ: they
-pan on a schedule and they twitch in wind. Hand an unregistered pair to MOG2 and the
-entire ridgeline comes back as foreground, which is precisely where S1's base-anchoring
+history and therefore assumes the camera does not move. HPWREN's fixed cameras still
+shake in wind, and a whole-frame estimate can follow moving cloud. Hand an unregistered
+pair to MOG2 and the entire ridgeline comes back as foreground, which is precisely where S1's base-anchoring
 statistic lives. So the library's design and this project's primitive are in structural
 tension, and the only honest resolution is to bolt registration in *front* of the model
 and then publish how well it worked (``residual_error``), rather than to average the
@@ -14,8 +14,8 @@ failure away.
 The two paths, and the single line between them
 -----------------------------------------------
 **Primary** is phase correlation: a Hanning-windowed ``cv2.phaseCorrelate`` for the
-coarse shift and its peak response, then ``cv2.phaseCorrelateIterative`` -- new in
-OpenCV 5.x, refining the shift inside phase-correlation space rather than by
+coarse shift and its peak response, then ``cv2.phaseCorrelateIterative`` -- added in
+OpenCV 4.13 / 5.0, refining the shift inside phase-correlation space rather than by
 interpolating a 5x5 centroid -- for the sub-pixel number we actually use. On a real
 HPWREN frame given a synthetic 3.5 px shift in seven directions the coarse peak is
 0.04-0.45 px out and the refinement 0.001-0.011 px out, so the 5.x call is worth about

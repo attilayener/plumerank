@@ -12,8 +12,8 @@ flowchart TB
 
     S3B["S3 -- one bucket, one prefix<br/>corpus/"]
 
-    subgraph CV["OpenCV 5 classical path -- plumerank/ -- ~98% of frames stop here (DEV: 2.23% escalated)"]
-        STAB["stabilise.py<br/>phaseCorrelate + createHanningWindow<br/>+ phaseCorrelateIterative (new in 5.x)<br/>estimateAffine2D(USAC_MAGSAC)"]
+    subgraph CV["OpenCV 5 classical path -- plumerank/ -- ~98% of frames stop here (DEV: 2.14% escalated)"]
+        STAB["stabilise.py<br/>phaseCorrelate + createHanningWindow<br/>+ phaseCorrelateIterative (OpenCV 4.13 / 5.0)<br/>estimateAffine2D(USAC_MAGSAC)"]
         SEG["segment.py<br/>createBackgroundSubtractorMOG2<br/>morphologyEx . createCLAHE<br/>connectedComponentsWithStats"]
         STAT["statistic.py -- the custom primitive<br/>S1 base anchoring . S2 growth anisotropy<br/>S3 diffuse-boundary (Laplacian vs Sobel)<br/>S4 DISOpticalFlow drift, in-box"]
         RANK["rank.py<br/>fuse -> [escalate top-2] -> per-camera baseline<br/>(trailing 15 min) -> alert-budget<br/>threshold -> ranked watch list + evidence crop"]

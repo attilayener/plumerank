@@ -126,7 +126,7 @@ DEV fire (18/29) than the shipped cell — disclosed, not acted on, because DEV 
 | Detected | 17 / 29 |
 | Median time-to-detection | 32.0 min |
 | Alert rate | 1.99 alerts/camera-night on the confusion set (target 2.0); 2.37 realised on DEV |
-| Escalation fraction | 2.23% of frames — over the 2% design cap (`within_max: false` in the run file) |
+| Escalation fraction | 2.14% of frames — over the 2% design cap (`within_max: false` in the run file) |
 | **B1 through the same per-camera baseline as PlumeRank** | **14 / 29 detected — no median** (2.51 realised on DEV) |
 | **B2 through the same per-camera baseline as PlumeRank** | **10 / 29 detected — no median** (2.05 realised on DEV) |
 | B1 as deployed (same ONNX, every frame) | 6 / 29 detected — no median (0.46 realised on DEV; threshold within 1e-6 of 1.0 — saturated probabilities) |
