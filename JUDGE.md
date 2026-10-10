@@ -86,6 +86,7 @@ the steadier comparison. The run executed on a local arm64 machine, not the endp
 
 ## 6. Links
 
+- Demo video (3:34): https://youtu.be/QqX85JuNfVM
 - Live endpoint: `https://live.plumerank.edycu.dev` (the same box also answers on its Elastic IP, `http://44.242.91.201`, the address used before the hostname existed)
 - `/build-info` · `/health` · `/results`
 - Repository: https://github.com/edycutjong/plumerank (this box's own `/build-info` names the exact commit it runs)

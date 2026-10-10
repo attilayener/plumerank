@@ -11,6 +11,7 @@
   [![/judge](https://img.shields.io/badge/👩‍⚖️_For-Judges-f59e0b?style=for-the-badge)](https://live.plumerank.edycu.dev/judge)
   [![Landing](https://img.shields.io/badge/🌐_Site-plumerank.edycu.dev-FF6B4A?style=for-the-badge)](https://plumerank.edycu.dev)
   [![Pitch Deck](https://img.shields.io/badge/📊_Pitch-Deck-f59e0b?style=for-the-badge)](https://plumerank.edycu.dev/pitch/)
+  [![Demo Video](https://img.shields.io/badge/🎬_Demo-Video-ef4444?style=for-the-badge)](https://youtu.be/QqX85JuNfVM)
   [![Built for OpenCV AI Competition 2026](https://img.shields.io/badge/OpenCV_AI_Competition-2026-8b5cf6?style=for-the-badge)](https://opencv26.devpost.com/)
 
   <br/>
@@ -31,6 +32,8 @@
 ---
 
 ## See it in action
+
+**Demo video (3:34):** https://youtu.be/QqX85JuNfVM — the live wall, a fire reaching rank 1, the held-out results, the architecture and the limitations.
 
 <div align="center">
   <img src="docs/assets/live-wall.webp" alt="The live PlumeRank wall on AWS: 62 HPWREN camera tiles and a ranked watch list with per-statistic scores" width="100%">
