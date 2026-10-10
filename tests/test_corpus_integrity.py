@@ -278,6 +278,16 @@ def _freeze_commit_time() -> dt.datetime | None:
     The commit that added the file is a fact that survives cloning.
     """
     try:
+        # A shallow clone cannot answer this: its oldest visible commit appears to ADD every
+        # file it contains, so the freeze would be dated to that commit -- found 2026-10-10,
+        # when CI's depth-1 checkout dated a freeze made five minutes BEFORE the HOLD read to
+        # twenty minutes after it. Unknown is a skip, never a wrong date.
+        shallow = subprocess.run(
+            ["git", "-C", str(_ROOT), "rev-parse", "--is-shallow-repository"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+        if shallow.returncode != 0 or shallow.stdout.strip() != "false":
+            return None
         completed = subprocess.run(
             [
                 "git", "-C", str(_ROOT), "log", "--diff-filter=A", "--format=%aI",
@@ -327,7 +337,7 @@ def test_hold_untouched_until_freeze() -> None:
     if frozen_at is None:
         pytest.skip(
             f"{freeze.relative_to(_ROOT)} is not in git history here (no .git, no git "
-            f"binary, or the freeze is uncommitted), so the moment it came into existence "
+            f"binary, a shallow clone, or the freeze is uncommitted), so the moment it came into existence "
             f"cannot be established. File mtimes are rewritten by `git clone` and are not "
             f"evidence. Commit the freeze to make this test meaningful."
         )
