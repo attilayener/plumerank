@@ -161,7 +161,11 @@ reproduces it anywhere. Per-sequence results for every system are in each file's
    ground on every one. The other 7 on DEV and all 39 on CONFUSE are not: the ground moved a
    median 0.07 px (DEV) / 0.04 px (CONFUSE) while the sky band moved 3.3–14.8 px (per-window
    medians), and the whole-frame phase correlation was pulled toward it. On the fire-free set the
-   threshold is solved on, every warp of ≥ 1 px therefore shifts a static ridgeline. Not changed:
+   threshold is solved on, every warp of ≥ 1 px therefore shifts a static ridgeline — and it
+   costs little: replaying CONFUSE as the committed run did (reproducing its 1.9885 alerts per
+   camera-night), 2 of the 64 threshold crossings fall on those 39 sky-warped frames, a per-frame
+   rate of 5.1% against 2.4% on the rest (`scripts/measure_registration_alerts.py`,
+   `results/registration_alerts_2026-10-10.json`; two events, so a direction, not a size). Not changed:
    the held-out read measured this pipeline; estimating the shift on the ground band only is the
    first item of future work.
 

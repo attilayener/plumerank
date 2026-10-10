@@ -1,0 +1,42 @@
+{
+  "by_frame_kind": {
+    "other": {
+      "crossings": 62,
+      "frames": 2568,
+      "rate": 0.0241
+    },
+    "weather": {
+      "crossings": 2,
+      "frames": 39,
+      "rate": 0.0513
+    }
+  },
+  "crossings_total": 64,
+  "frames_per_window": 79,
+  "realised_alerts_per_camera_night": 1.9885,
+  "threshold": 0.8491604639866016,
+  "threshold_source": "bench_2026-10-10.json",
+  "weather_definition": "stabilise() warp >= 1.0 px that worsens the TERRAIN band's MSE",
+  "what": "CONFUSE threshold crossings on frames the stabiliser warped by the sky vs the rest",
+  "windows": 33,
+  "windows_with_weather_frames": [
+    {
+      "crossings": 3,
+      "sequence_id": "confuse_cp-w-mobo-c_20260826",
+      "weather_crossings": 1,
+      "weather_frames": 34
+    },
+    {
+      "crossings": 1,
+      "sequence_id": "confuse_mlo-s-mobo-c_20260826",
+      "weather_crossings": 1,
+      "weather_frames": 4
+    },
+    {
+      "crossings": 4,
+      "sequence_id": "confuse_pi-e-mobo-c_20260823",
+      "weather_crossings": 0,
+      "weather_frames": 1
+    }
+  ]
+}
