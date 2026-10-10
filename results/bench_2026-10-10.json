@@ -1,0 +1,1229 @@
+{
+  "ablation": [
+    {
+      "baseline": "shipped",
+      "bg": "mog2",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "True",
+      "escalation_fraction": "0.021388",
+      "model_calls_per_camera_night": "1.732",
+      "n": "29",
+      "n_detected": "17",
+      "n_missed": "12",
+      "p50_minutes": "32.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.3688",
+      "s4": "True",
+      "seed": "20261026",
+      "threshold": "0.8491604639866016",
+      "wall_clock_seconds": "267.7"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "mog2",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "False",
+      "escalation_fraction": "0.0",
+      "model_calls_per_camera_night": "0.0",
+      "n": "29",
+      "n_detected": "17",
+      "n_missed": "12",
+      "p50_minutes": "32.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.3335",
+      "s4": "True",
+      "seed": "20261026",
+      "threshold": "0.8473390125067687",
+      "wall_clock_seconds": "271.9"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "mog2",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "True",
+      "escalation_fraction": "0.001746",
+      "model_calls_per_camera_night": "0.141",
+      "n": "29",
+      "n_detected": "14",
+      "n_missed": "15",
+      "p50_minutes": "miss",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.3335",
+      "s4": "False",
+      "seed": "20261026",
+      "threshold": "0.8550827728050512",
+      "wall_clock_seconds": "273.7"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "mog2",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "False",
+      "escalation_fraction": "0.0",
+      "model_calls_per_camera_night": "0.0",
+      "n": "29",
+      "n_detected": "14",
+      "n_missed": "15",
+      "p50_minutes": "miss",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.4042",
+      "s4": "False",
+      "seed": "20261026",
+      "threshold": "0.8524174512067679",
+      "wall_clock_seconds": "294.3"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "lsbp",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "True",
+      "escalation_fraction": "0.025316",
+      "model_calls_per_camera_night": "2.051",
+      "n": "29",
+      "n_detected": "16",
+      "n_missed": "13",
+      "p50_minutes": "34.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "1.9446",
+      "s4": "True",
+      "seed": "20261026",
+      "threshold": "0.7861122929243153",
+      "wall_clock_seconds": "412.5"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "lsbp",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "False",
+      "escalation_fraction": "0.0",
+      "model_calls_per_camera_night": "0.0",
+      "n": "29",
+      "n_detected": "16",
+      "n_missed": "13",
+      "p50_minutes": "34.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "1.9799",
+      "s4": "True",
+      "seed": "20261026",
+      "threshold": "0.7852233318874561",
+      "wall_clock_seconds": "398.4"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "lsbp",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "True",
+      "escalation_fraction": "0.013095",
+      "model_calls_per_camera_night": "1.061",
+      "n": "29",
+      "n_detected": "12",
+      "n_missed": "17",
+      "p50_minutes": "miss",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.7577",
+      "s4": "False",
+      "seed": "20261026",
+      "threshold": "0.7697464971442332",
+      "wall_clock_seconds": "391.7"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "lsbp",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "False",
+      "escalation_fraction": "0.0",
+      "model_calls_per_camera_night": "0.0",
+      "n": "29",
+      "n_detected": "12",
+      "n_missed": "17",
+      "p50_minutes": "miss",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.7931",
+      "s4": "False",
+      "seed": "20261026",
+      "threshold": "0.7681764568143067",
+      "wall_clock_seconds": "383.9"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "gsoc",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "True",
+      "escalation_fraction": "0.017023",
+      "model_calls_per_camera_night": "1.379",
+      "n": "29",
+      "n_detected": "16",
+      "n_missed": "13",
+      "p50_minutes": "34.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.4749",
+      "s4": "True",
+      "seed": "20261026",
+      "threshold": "0.7960563772323883",
+      "wall_clock_seconds": "296.2"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "gsoc",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "False",
+      "escalation_fraction": "0.0",
+      "model_calls_per_camera_night": "0.0",
+      "n": "29",
+      "n_detected": "16",
+      "n_missed": "13",
+      "p50_minutes": "34.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.4395",
+      "s4": "True",
+      "seed": "20261026",
+      "threshold": "0.7950777857254212",
+      "wall_clock_seconds": "294.5"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "gsoc",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "True",
+      "escalation_fraction": "0.010912",
+      "model_calls_per_camera_night": "0.884",
+      "n": "29",
+      "n_detected": "17",
+      "n_missed": "12",
+      "p50_minutes": "33.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.2274",
+      "s4": "False",
+      "seed": "20261026",
+      "threshold": "0.8035100231560431",
+      "wall_clock_seconds": "292.3"
+    },
+    {
+      "baseline": "shipped",
+      "bg": "gsoc",
+      "budget": "2.0",
+      "commit": "05460be14742dcdc05d80c36837d167ac1b14c5a",
+      "escalation": "False",
+      "escalation_fraction": "0.0",
+      "model_calls_per_camera_night": "0.0",
+      "n": "29",
+      "n_detected": "18",
+      "n_missed": "11",
+      "p50_minutes": "33.000",
+      "p95_minutes": "miss",
+      "realised_rate_uncapped": "2.1921",
+      "s4": "False",
+      "seed": "20261026",
+      "threshold": "0.8035100231560431",
+      "wall_clock_seconds": "290.3"
+    }
+  ],
+  "ablation_source": "ablation_2026-10-10.csv",
+  "arm": "hold",
+  "background": "mog2",
+  "baseline": {
+    "applied_to": [
+      "plumerank"
+    ],
+    "cell": "shipped",
+    "note": "per-camera trailing-window z-score of the fused hazard, squashed to (0,1); solved and spent on the same series. 'shipped' is rank.Baseline at the constants; 'absolute' is the pre-2026-09-16 pipeline and the ablation.",
+    "sd_floor": 0.02,
+    "shipped": true,
+    "warmup_frames": 5,
+    "window_frames": 15,
+    "z_scale": 2.0
+  },
+  "baselines": [
+    {
+      "arm_realised_rate_uncapped": 1.9177,
+      "budget_slots": 108,
+      "budget_slots_spent": 73,
+      "calibration_realised_rate_uncapped": 1.9885,
+      "label": "PlumeRank",
+      "model_calls": 75,
+      "model_calls_per_camera_night": 1.424,
+      "system": "plumerank",
+      "threshold": 0.8491604639866016,
+      "ttd": {
+        "detection_rate": 0.5,
+        "mean_detected_minutes": 13.333,
+        "n": 54,
+        "n_detected": 27,
+        "n_missed": 27,
+        "p50_minutes": 38.0,
+        "p95_minutes": null
+      }
+    },
+    {
+      "arm_realised_rate_uncapped": 1.6329,
+      "budget_slots": 108,
+      "budget_slots_spent": 7,
+      "calibration_realised_rate_uncapped": 1.9885,
+      "label": "B1 CNN grid",
+      "model_calls": 191970,
+      "model_calls_per_camera_night": 3645.0,
+      "system": "b1_cnn_grid",
+      "threshold": 0.99999999994233,
+      "ttd": {
+        "detection_rate": 0.037,
+        "mean_detected_minutes": 21.0,
+        "n": 54,
+        "n_detected": 2,
+        "n_missed": 52,
+        "p50_minutes": null,
+        "p95_minutes": null
+      }
+    },
+    {
+      "arm_realised_rate_uncapped": 2.7532,
+      "budget_slots": 108,
+      "budget_slots_spent": 15,
+      "calibration_realised_rate_uncapped": 1.9885,
+      "label": "B2 frame-diff",
+      "model_calls": 0,
+      "model_calls_per_camera_night": 0.0,
+      "system": "b2_frame_diff",
+      "threshold": 0.9956024626209324,
+      "ttd": {
+        "detection_rate": 0.0741,
+        "mean_detected_minutes": 23.75,
+        "n": 54,
+        "n_detected": 4,
+        "n_missed": 50,
+        "p50_minutes": null,
+        "p95_minutes": null
+      }
+    }
+  ],
+  "baselines_rebased": {
+    "note": "B1 and B2 through the same per-camera trailing z-score PlumeRank ships with, calibrated on the same CONFUSE arm to the same budget -- the like-for-like comparison. 'baselines' keeps them as deployed.",
+    "rows": [
+      {
+        "arm_realised_rate_uncapped": 1.3861,
+        "budget_slots": 108,
+        "budget_slots_spent": 50,
+        "calibration_realised_rate_uncapped": 1.9885,
+        "label": "B1 rebased",
+        "model_calls": 191970,
+        "model_calls_per_camera_night": 3645.0,
+        "system": "b1_cnn_grid_rebased",
+        "threshold": 0.7749523242849979,
+        "ttd": {
+          "detection_rate": 0.3333,
+          "mean_detected_minutes": 14.222,
+          "n": 54,
+          "n_detected": 18,
+          "n_missed": 36,
+          "p50_minutes": null,
+          "p95_minutes": null
+        }
+      },
+      {
+        "arm_realised_rate_uncapped": 2.4304,
+        "budget_slots": 108,
+        "budget_slots_spent": 62,
+        "calibration_realised_rate_uncapped": 1.9885,
+        "label": "B2 rebased",
+        "model_calls": 0,
+        "model_calls_per_camera_night": 0.0,
+        "system": "b2_frame_diff_rebased",
+        "threshold": 0.7603308377925903,
+        "ttd": {
+          "detection_rate": 0.3704,
+          "mean_detected_minutes": 15.15,
+          "n": 54,
+          "n_detected": 20,
+          "n_missed": 34,
+          "p50_minutes": null,
+          "p95_minutes": null
+        }
+      }
+    ]
+  },
+  "budget_alerts_per_camera_night": 2.0,
+  "budget_slots_per_camera": 2,
+  "calibration": {
+    "drift_tolerance": 0.15,
+    "n_calibration_windows": 33,
+    "realised_alerts_per_camera_night_uncapped": 1.9885,
+    "realised_on": "confuse",
+    "slots_per_camera": 2,
+    "system": "plumerank",
+    "target_alerts_per_camera_night": 2.0,
+    "threshold": 0.8491604639866016
+  },
+  "classifier": {
+    "dataset": "pyro-sdis",
+    "onnx_sha256": "8f3e098f1cca0472b26049b1571ffbdb7b2d3b66d3c2bb9ac196ce5feff046bc",
+    "source": "data/tile_manifest.json",
+    "throwaway": false,
+    "val_precision": 0.8498,
+    "val_recall": 0.8021,
+    "val_tiles": 12044
+  },
+  "denominator": {
+    "arm": "hold",
+    "criteria": "data/excluded.json",
+    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it; results/hold_access.log records every read of HOLD pixels, each after the constants freeze it names.",
+    "excluded": 6,
+    "excluded_sequence_ids": [
+      "20240806_Border68FireMayBeHardToFind_om-w-mobo-m",
+      "20241021_PalomarRidge_hp-s-mobo-c",
+      "20241031_MontezumaFire_sm-w-mobo-c",
+      "20250101_Border1Fire_om-e-mobo-c",
+      "20250107_EatonFire_wilson-s-mobo-c",
+      "20250123_Border2Fire_om-w-mobo-m"
+    ],
+    "manifest": "manifest_hold.json",
+    "manifest_windows": 60,
+    "measured_on": 54,
+    "statement": "54 sequences, 6 excluded from the 60 in manifest_hold.json, see data/excluded.json"
+  },
+  "escalation": {
+    "cameras_needed_for_design_target": 100,
+    "design_target_at_scale": 0.02,
+    "fraction": 0.017581,
+    "frames_escalated": 75,
+    "frames_total": 4266,
+    "max_allowed": 0.02,
+    "roster_size": 54,
+    "structural_ceiling": 0.037037,
+    "within_max": true,
+    "within_structural_ceiling": true
+  },
+  "exclusions": {
+    "all_arms_sequence_ids": [
+      "20240806_Border68FireMayBeHardToFind_om-w-mobo-m",
+      "20241021_PalomarRidge_hp-s-mobo-c",
+      "20241031_MontezumaFire_sm-w-mobo-c",
+      "20250101_Border1Fire_om-e-mobo-c",
+      "20250107_EatonFire_wilson-s-mobo-c",
+      "20250121_LiliacFire_rm-s-mobo-c",
+      "20250123_Border2Fire_om-w-mobo-m"
+    ],
+    "count": 6,
+    "disclosure": "The exclusion pass read the FIRST FRAME of every window in the arm -- one frame per window, roughly 40 minutes before ignition -- against the mechanical criteria stated in data/excluded.json before the pass ran. Nothing in plumerank/constants.py was chosen from it; results/hold_access.log records every read of HOLD pixels, each after the constants freeze it names.",
+    "items": [
+      {
+        "reason": "night frame -- 00:23 local on a monochrome camera; terrain in silhouette, the coastal conurbation blown out white, moonlit cloud overhead.",
+        "sequence_id": "20240806_Border68FireMayBeHardToFind_om-w-mobo-m"
+      },
+      {
+        "reason": "night frame -- 05:26 local, roughly 90 minutes before sunrise; stars visible, terrain black, distant town lights the only structure in the frame.",
+        "sequence_id": "20241021_PalomarRidge_hp-s-mobo-c"
+      },
+      {
+        "reason": "smoke already in frame 1 -- a fully formed grey column stands over the reservoir shoreline at t0 minus 40 min and its spread is already a haze layer across the basin. A window that opens with a plume cannot carry a time-to-detection measured from its reported ignition.",
+        "sequence_id": "20241031_MontezumaFire_sm-w-mobo-c"
+      },
+      {
+        "reason": "night frame -- 17:39 local, roughly 45 minutes after sunset; stars visible, the ridge is a silhouette and the valley is street lighting.",
+        "sequence_id": "20250101_Border1Fire_om-e-mobo-c"
+      },
+      {
+        "reason": "night frame -- 17:48 local, roughly 50 minutes after sunset; the basin is a solid field of street lights and every ridge is a silhouette.",
+        "sequence_id": "20250107_EatonFire_wilson-s-mobo-c"
+      },
+      {
+        "reason": "night frame -- 00:06 local on a monochrome camera; stars overhead and nothing above black except the coastal light strip.",
+        "sequence_id": "20250123_Border2Fire_om-w-mobo-m"
+      }
+    ],
+    "measured_on": 54,
+    "of_manifest_windows": 60,
+    "sequence_ids": [
+      "20240806_Border68FireMayBeHardToFind_om-w-mobo-m",
+      "20241021_PalomarRidge_hp-s-mobo-c",
+      "20241031_MontezumaFire_sm-w-mobo-c",
+      "20250101_Border1Fire_om-e-mobo-c",
+      "20250107_EatonFire_wilson-s-mobo-c",
+      "20250123_Border2Fire_om-w-mobo-m"
+    ],
+    "source": "data/excluded.json"
+  },
+  "frames_per_window": 79,
+  "headline": {
+    "detection_rate": 0.5,
+    "mean_detected_minutes": 13.333,
+    "n": 54,
+    "n_detected": 27,
+    "n_missed": 27,
+    "p50_minutes": 38.0,
+    "p95_minutes": null
+  },
+  "headline_block": "PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night\n  arm            : hold (54 sequences, 6 excluded from the 60 in manifest_hold.json, see data/excluded.json)\n  PlumeRank      : p50   38.0 min   p95    n/a min\n  B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)\n  B2 frame-diff  : p50    n/a min   p95    n/a min\n  realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)\n  escalation     : 1.76% of frames touched by ONNX\n  model calls    : PlumeRank 1 / camera-night   |   B1 3645 / camera-night\n  t0 sensitivity : advantage not finite at all 11 offsets in [-5,+5]\n  background     : mog2\n  commit 5df73321059f2797c32d302676b813c81b87fd0c  instance local (not EC2)  wall clock 12m29s  2026-10-10\n-> results/bench_2026-10-10.json",
+  "headline_system": "plumerank",
+  "latency_ms": {
+    "b1": {
+      "mean_ms": 54.489,
+      "n": 4266,
+      "p50_ms": 53.635,
+      "p95_ms": 57.523,
+      "total_ms": 232450.805
+    },
+    "b2": {
+      "mean_ms": 0.014,
+      "n": 4266,
+      "p50_ms": 0.013,
+      "p95_ms": 0.018,
+      "total_ms": 57.97
+    },
+    "classical": {
+      "mean_ms": 6.693,
+      "n": 4266,
+      "p50_ms": 6.48,
+      "p95_ms": 8.517,
+      "total_ms": 28554.253
+    },
+    "escalation": {
+      "mean_ms": 1.242,
+      "n": 75,
+      "p50_ms": 1.224,
+      "p95_ms": 1.354,
+      "total_ms": 93.184
+    }
+  },
+  "model_invocations_per_camera_night": {
+    "b1_cnn_grid": 3645.0,
+    "plumerank": 1.424
+  },
+  "n_calibration_windows": 33,
+  "n_fire_windows": 54,
+  "n_windows": 54,
+  "operating_curve": [
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 0.9304,
+      "b1_cnn_grid_threshold": 0.9999999999990127,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 0.9494,
+      "b2_frame_diff_threshold": 0.997400233978942,
+      "budget_alerts_per_camera_night": 0.5,
+      "budget_slots_per_camera": 1,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 0.4557,
+      "plumerank_threshold": 0.9738730634025216
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 1.3291,
+      "b1_cnn_grid_threshold": 0.9999999999973795,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 1.9367,
+      "b2_frame_diff_threshold": 0.9962871287128714,
+      "budget_alerts_per_camera_night": 1.0,
+      "budget_slots_per_camera": 1,
+      "plumerank_p50_minutes": null,
+      "plumerank_realised_rate_uncapped": 0.9873,
+      "plumerank_threshold": 0.9166375228873337
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 1.6329,
+      "b1_cnn_grid_threshold": 0.99999999994233,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 2.7532,
+      "b2_frame_diff_threshold": 0.9956024626209324,
+      "budget_alerts_per_camera_night": 2.0,
+      "budget_slots_per_camera": 2,
+      "plumerank_p50_minutes": 38.0,
+      "plumerank_realised_rate_uncapped": 1.9177,
+      "plumerank_threshold": 0.8491604639866016
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 5.8481,
+      "b1_cnn_grid_threshold": 0.9998490912246308,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 3.5316,
+      "b2_frame_diff_threshold": 0.9948404849944107,
+      "budget_alerts_per_camera_night": 4.0,
+      "budget_slots_per_camera": 4,
+      "plumerank_p50_minutes": 15.0,
+      "plumerank_realised_rate_uncapped": 4.0063,
+      "plumerank_threshold": 0.763830552221642
+    },
+    {
+      "b1_cnn_grid_p50_minutes": null,
+      "b1_cnn_grid_realised_rate_uncapped": 12.1899,
+      "b1_cnn_grid_threshold": 0.9973160484142757,
+      "b2_frame_diff_p50_minutes": null,
+      "b2_frame_diff_realised_rate_uncapped": 4.481,
+      "b2_frame_diff_threshold": 0.9932516027443483,
+      "budget_alerts_per_camera_night": 8.0,
+      "budget_slots_per_camera": 8,
+      "plumerank_p50_minutes": 13.0,
+      "plumerank_realised_rate_uncapped": 8.2785,
+      "plumerank_threshold": 0.6874839181989153
+    }
+  ],
+  "per_sequence": [
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 7.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "lp-s-mobo-c",
+      "plumerank_ttd_minutes": 10.0,
+      "sequence_id": "20240728_Border65Fire_lp-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 5.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "om-e-mobo-c",
+      "plumerank_ttd_minutes": 28.0,
+      "sequence_id": "20240728_Border65Fire_om-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 18.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "pi-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240728_Border65Fire_pi-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "sojr-s-mobo-c",
+      "plumerank_ttd_minutes": 16.0,
+      "sequence_id": "20240802_WarnersFire_sojr-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 20.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240813_PapaFire_rm-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 3.0,
+      "b1_cnn_grid_ttd_minutes": 18.0,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "sm-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240823_ProctorFire_sm-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 15.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 9.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "buff-n-mobo-c",
+      "plumerank_ttd_minutes": 5.0,
+      "sequence_id": "20240825_TenajaFire_buff-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 24.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 29.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "cp-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240903_NavajoFire_cp-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "marconi-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240909_BridgeFire_marconi-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 2.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "starr-n-mobo-c",
+      "plumerank_ttd_minutes": 16.0,
+      "sequence_id": "20240909_BridgeFire_starr-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 37.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 14.0,
+      "b2_frame_diff_ttd_minutes": 37.0,
+      "camera_id": "stgo-e-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20240909_BridgeFire_stgo-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 32.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "stgo-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241006_SaddlebackFire_stgo-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "pi-e-mobo-c",
+      "plumerank_ttd_minutes": 13.0,
+      "sequence_id": "20241007_Posta3Fire_pi-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 13.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "sm-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241031_QuarryFire_sm-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 9.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wc-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241108_Pasqual4Fire_wc-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 25.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bm-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241108_ResortFire_bm-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 12.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 8.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mg-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241108_ResortFire_mg-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 3.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "dwpgm-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20241113_Fire_dwpgm-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wc-w-mobo-m",
+      "plumerank_ttd_minutes": 29.0,
+      "sequence_id": "20250120_TedWilliamsFire_wc-w-mobo-m"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ch-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250122_BernardoFire_ch-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ml-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250226_PennyFire_ml-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 36.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 17.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250429_TrailFire_rm-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "ml-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250501_FelipeFire_ml-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 5.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 17.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wc-n-mobo-c",
+      "plumerank_ttd_minutes": 3.0,
+      "sequence_id": "20250516_AcademyFire_wc-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bh-w-mobo-c",
+      "plumerank_ttd_minutes": 35.0,
+      "sequence_id": "20250530_HendersonFire_bh-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "cp-w-mobo-c",
+      "plumerank_ttd_minutes": 12.0,
+      "sequence_id": "20250617_MonteFire_cp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 15.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 5.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "lp-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250709_SteeleFire_lp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "om-n-mobo-c",
+      "plumerank_ttd_minutes": 20.0,
+      "sequence_id": "20250709_SteeleFire_om-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 0.0,
+      "b1_cnn_grid_ttd_minutes": 24.0,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "lp-n-mobo-c",
+      "plumerank_ttd_minutes": 1.0,
+      "sequence_id": "20250710_SpringsFire_lp-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bl-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250801_BernardoFire_bl-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 5.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250823_VailFire_hp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": 28.0,
+      "camera_id": "sm-n-mobo-c",
+      "plumerank_ttd_minutes": 2.0,
+      "sequence_id": "20250905_LodgeFire_sm-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "sm-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20250908_CochesFire_sm-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mg-n-mobo-c",
+      "plumerank_ttd_minutes": 8.0,
+      "sequence_id": "20250914_HenshawFire_mg-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 6.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wc-w-mobo-m",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20251019_RanchFire_wc-w-mobo-m"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": 9.0,
+      "camera_id": "mp-n-mobo-m",
+      "plumerank_ttd_minutes": 8.0,
+      "sequence_id": "20251102_ScissorsFire_mp-n-mobo-m"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "vo-e-mobo-m",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20251102_ScissorsFire_vo-e-mobo-m"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wilson-s-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260128_Fire_wilson-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "hp-w-mobo-c",
+      "plumerank_ttd_minutes": 38.0,
+      "sequence_id": "20260319_CrosleyFire_hp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 16.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 16.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mpo-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260319_CrosleyFire_mpo-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 2.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 25.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-e-mobo-c",
+      "plumerank_ttd_minutes": 24.0,
+      "sequence_id": "20260502_MissionFire_rm-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mlo-s-mobo-c",
+      "plumerank_ttd_minutes": 1.0,
+      "sequence_id": "20260519_TusilFire_mlo-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 37.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "wc-w-mobo-c",
+      "plumerank_ttd_minutes": 5.0,
+      "sequence_id": "20260622_BernardoFire_wc-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bm-e-mobo-c",
+      "plumerank_ttd_minutes": 0.0,
+      "sequence_id": "20260629_JunctionFire_bm-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mg-e-mobo-c",
+      "plumerank_ttd_minutes": 25.0,
+      "sequence_id": "20260629_JunctionFire_mg-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "vo-n-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260629_JunctionFire_vo-n-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "vo-w-mobo-c",
+      "plumerank_ttd_minutes": 26.0,
+      "sequence_id": "20260629_JunctionFire_vo-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 15.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "cp-w-mobo-c",
+      "plumerank_ttd_minutes": 8.0,
+      "sequence_id": "20260722_CreelmanFire_cp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mg-s-mobo-c",
+      "plumerank_ttd_minutes": 9.0,
+      "sequence_id": "20260722_CreelmanFire_mg-s-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 37.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "bh-w-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260722_RainbowFire_bh-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "rm-e-mobo-c",
+      "plumerank_ttd_minutes": 0.0,
+      "sequence_id": "20260722_RainbowFire_rm-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": 4.0,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 6.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "lp-w-mobo-c",
+      "plumerank_ttd_minutes": 7.0,
+      "sequence_id": "20260807_BeaverFire_lp-w-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": null,
+      "b2_frame_diff_ttd_minutes": 21.0,
+      "camera_id": "sdsc-e-mobo-c",
+      "plumerank_ttd_minutes": null,
+      "sequence_id": "20260816_SorrentoFire_sdsc-e-mobo-c"
+    },
+    {
+      "b1_cnn_grid_rebased_ttd_minutes": null,
+      "b1_cnn_grid_ttd_minutes": null,
+      "b2_frame_diff_rebased_ttd_minutes": 10.0,
+      "b2_frame_diff_ttd_minutes": null,
+      "camera_id": "mlo-s-mobo-c",
+      "plumerank_ttd_minutes": 11.0,
+      "sequence_id": "20260817_Church2Fire_mlo-s-mobo-c"
+    }
+  ],
+  "rate_definition": "every published rate here is rank.realised_rate: threshold crossings counted UNCAPPED by the alert budget, which is the quantity solve_threshold was calibrated on. emit()'s alerted flag is budget-CAPPED and is reported separately as budget_slots_spent.",
+  "results_file": "bench_2026-10-10.json",
+  "run": {
+    "calibration_manifest_sha256": "42157351223964176c8af43b822e225a94c195bf6ab9140b8d7c95ae7548f3b0",
+    "commit": "5df73321059f2797c32d302676b813c81b87fd0c",
+    "constants_sha256": "02752e86dc651fcfbf65e448cd669220e678c6c82ee6790b9f5821dd9aaea2d4",
+    "cpu_credit_balance_after": null,
+    "cpu_credit_balance_before": null,
+    "date": "2026-10-10",
+    "instance": "local (not EC2)",
+    "instance_id": null,
+    "opencv_version": "5.0.0",
+    "python": "3.11.1",
+    "started": "2026-10-10T05:37:05+00:00",
+    "wall_clock_seconds": 749.9
+  },
+  "schema": "plumerank.bench/1",
+  "seed": 20261026,
+  "sensitivity": {
+    "min_advantage_minutes": null,
+    "note": "the offset moves the ground-truth ignition clock, not the detector: these rows re-score the cached per-camera score matrix from the same replay as the headline and cost no pixels",
+    "offsets_minutes": [
+      -5,
+      -4,
+      -3,
+      -2,
+      -1,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "rows": [
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": -5,
+        "plumerank_p50_minutes": 33.0,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": -4,
+        "plumerank_p50_minutes": 32.0,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": -3,
+        "plumerank_p50_minutes": 32.0,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": -2,
+        "plumerank_p50_minutes": 37.0,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": -1,
+        "plumerank_p50_minutes": 36.0,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": 0,
+        "plumerank_p50_minutes": 38.0,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": 1,
+        "plumerank_p50_minutes": null,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": 2,
+        "plumerank_p50_minutes": null,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": 3,
+        "plumerank_p50_minutes": null,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": 4,
+        "plumerank_p50_minutes": null,
+        "plumerank_p95_minutes": null
+      },
+      {
+        "advantage_minutes": null,
+        "b1_cnn_grid_p50_minutes": null,
+        "b1_cnn_grid_p95_minutes": null,
+        "b2_frame_diff_p50_minutes": null,
+        "b2_frame_diff_p95_minutes": null,
+        "n_out_of_window": 0,
+        "n_scored": 54,
+        "offset_minutes": 5,
+        "plumerank_p50_minutes": null,
+        "plumerank_p95_minutes": null
+      }
+    ]
+  },
+  "top_k": 4
+}

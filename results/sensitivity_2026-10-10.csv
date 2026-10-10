@@ -1,0 +1,12 @@
+offset_minutes,plumerank_p50_minutes,b1_cnn_grid_p50_minutes,b2_frame_diff_p50_minutes,advantage_minutes,n_scored,n_out_of_window
+-5,33.000,miss,miss,miss,54,0
+-4,32.000,miss,miss,miss,54,0
+-3,32.000,miss,miss,miss,54,0
+-2,37.000,miss,miss,miss,54,0
+-1,36.000,miss,miss,miss,54,0
+0,38.000,miss,miss,miss,54,0
+1,miss,miss,miss,miss,54,0
+2,miss,miss,miss,miss,54,0
+3,miss,miss,miss,miss,54,0
+4,miss,miss,miss,miss,54,0
+5,miss,miss,miss,miss,54,0
