@@ -58,7 +58,7 @@ PUBLISHED, NOT RECOMPUTED HERE
   reproduce with: make fetch && make bench  (about 95 min)
 ```
 
-`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **734 passed, 1
+`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **743 passed, 1
 skipped, 97% coverage on `plumerank/`, ~2 min, no network, no credentials.**
 
 ### The pair that reproduces the published headline
