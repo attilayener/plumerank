@@ -895,7 +895,8 @@ def test_only_the_hold_arm_may_write_the_published_headline_name(
     """``results/bench_<date>.json`` is an address, not a convention.
 
     ``api/main.py:_benchmark_file`` and ``check_submission_readiness.py`` both take the
-    lexically newest ``results/bench_*.json`` with no arm filter. A DEV payload landing
+    lexically newest ``results/bench_<date>.json``; the readiness check applies no arm
+    filter of its own. A DEV payload landing
     there is an in-sample number served by ``/api/benchmark``, rendered on ``/results`` and
     compared by the readiness check as the held-out headline -- produced by a command
     anyone might reasonably run on the same afternoon as ``make bench``.

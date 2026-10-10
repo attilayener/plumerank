@@ -2327,7 +2327,9 @@ def results_filename(
 
     Only HOLD may occupy ``bench_<date>.json``. That name is not a convention here, it is
     an address: ``api/main.py:_benchmark_file`` and ``check_submission_readiness.py`` both
-    take the lexically newest ``results/bench_*.json`` with no arm filter, so a DEV or
+    take the lexically newest file named exactly ``bench_<date>.json`` (since 2026-10-10;
+    before that, any ``bench_*.json``), with no arm filter of their own -- the wall then
+    refuses a non-HOLD payload, the readiness check does not -- so a DEV or
     CONFUSE payload written under it becomes what ``/api/benchmark`` serves, what
     ``/results`` renders and what the readiness check compares -- an in-sample number
     published as the held-out headline, by a script anyone might reasonably run on the same
@@ -2351,9 +2353,9 @@ def results_filename(
 
     Raises:
         ValueError: for a HOLD run in a non-shipped cell. There is nowhere safe to put it:
-            a ``bench_s4off_<date>.json`` still matches the ``bench_*.json`` glob and sorts
-            AFTER the real headline, so it would win the "lexically newest" selection and
-            become the published number -- the exact trap the paragraph above describes.
+            a ``bench_s4off_<date>.json`` matched the readers' old ``bench_*.json`` glob and
+            sorted AFTER the real headline, so it would have won the "lexically newest"
+            selection; the readers now match the exact name, and the writer refuses anyway.
             The held-out run is one frozen run of the shipped configuration; an ablation on
             it is not a thing this plan asks for.
     """

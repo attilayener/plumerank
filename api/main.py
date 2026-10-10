@@ -607,11 +607,42 @@ def _benchmark_file() -> pathlib.Path | None:
     is a chronological one and no mtime is involved -- a fresh ``git clone`` rewrites every
     mtime to the checkout time, and picking the headline by mtime would make the served
     number depend on the order git happened to write the files.
+
+    The name is matched exactly (``_HOLD_NAME``), as ``_DEV_SHIPPED`` does for the DEV arm:
+    a bare ``bench_*.json`` glob would let ``bench_<date>_s4off.json`` sort after
+    ``bench_<date>.json`` and calibrate the wall on an ablation.
     """
     if not RESULTS_DIR.is_dir():
         return None
-    candidates = sorted(RESULTS_DIR.glob("bench_*.json"))
+    candidates = sorted(p for p in RESULTS_DIR.glob("bench_*.json") if _HOLD_NAME.match(p.name))
     return candidates[-1] if candidates else None
+
+
+#: The held-out run's filename, exactly -- bench.py writes no other name under it.
+_HOLD_NAME = re.compile(r"^bench_\d{4}-\d{2}-\d{2}\.json$")
+
+
+def _heldout_rejection(payload: dict[str, Any]) -> str | None:
+    """Why the held-out payload cannot calibrate THIS wall, or None when it can.
+
+    The checks ``_development_rejection`` already applies to the fallback, which the
+    held-out path skipped: above all the constants freeze. After any edit to
+    ``constants.py`` -- a comment is enough -- the wall would otherwise keep serving the
+    held-out threshold, labelled ``held-out``, under constants it was not solved for.
+    """
+    if payload.get("arm") != "hold":
+        return f"arm is {payload.get('arm')!r}, not 'hold'"
+    calibration = payload.get("calibration")
+    if not (isinstance(calibration, dict) and calibration.get("realised_on") == "confuse"):
+        return "its threshold was not solved on the confusion set"
+    run = payload.get("run")
+    recorded = run.get("constants_sha256") if isinstance(run, dict) else None
+    if recorded != freeze_hash():
+        return (
+            f"solved under constants {str(recorded)[:12]}, running {freeze_hash()[:12]} "
+            "-- revert plumerank/constants.py; do NOT re-run HOLD"
+        )
+    return None
 
 
 #: The shipped DEV arm's filename -- no cell suffix, so no ablation can occupy it
@@ -694,6 +725,7 @@ def _calibrated_threshold() -> tuple[float | None, str | None]:
     could produce. Absent means the live pipeline is unavailable, and says so.
     """
     path = _benchmark_file()
+    held_out = path is not None
     if path is None:
         # Before the held-out run exists, the shipped DEV run's threshold is used -- and
         # labelled as such (calibration_kind). It is not a default and not chosen: it is
@@ -729,11 +761,22 @@ def _calibrated_threshold() -> tuple[float | None, str | None]:
     calibration = payload.get("calibration")
     if isinstance(calibration, dict) and "threshold" in calibration:
         source = f"{relative}:calibration.threshold"
-        return _finite_threshold(calibration["threshold"], source), source
-    if "threshold" in payload:
+        value = _finite_threshold(calibration["threshold"], source)
+    elif "threshold" in payload:
         source = f"{relative}:threshold"
-        return _finite_threshold(payload["threshold"], source), source
-    return None, relative
+        value = _finite_threshold(payload["threshold"], source)
+    else:
+        return None, relative
+    if value is None:
+        return None, source
+    # Usable number, then provenance: the held-out file must also be the HOLD arm, solved on
+    # CONFUSE, under the constants this process is running.
+    if held_out:
+        why = _heldout_rejection(payload)
+        if why is not None:
+            LOG.error("benchmark file %s refused as the wall's calibration: %s", path, why)
+            return None, relative
+    return value, source
 
 
 def _finite_threshold(value: Any, source: str) -> float | None:
@@ -1009,6 +1052,11 @@ class Replay:
             # writes results/bench_<date>.json. The threshold inside it is solved on
             # CONFUSE, but running anything "on the CONFUSE arm" writes a different file
             # (arm_confuse_<date>.json) that this route never reads.
+            if source is not None:
+                return (
+                    f"{source} is committed but cannot calibrate this wall -- it will not "
+                    "invent a threshold; the ERROR in the service log says why"
+                )
             if _benchmark_file() is None and _DEV_REJECTIONS:
                 return (
                     "no usable calibrated threshold -- the wall will not invent one. "

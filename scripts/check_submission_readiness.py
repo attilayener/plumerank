@@ -278,7 +278,12 @@ def head_sha(root: pathlib.Path) -> str | None:
 
 
 def newest_bench(root: pathlib.Path) -> pathlib.Path | None:
-    candidates = sorted((root / "results").glob("bench_*.json"))
+    # Exact name, as api/main.py:_benchmark_file: an ablation's bench_<date>_<cell>.json
+    # sorts after bench_<date>.json and must never be read as the headline.
+    candidates = sorted(
+        p for p in (root / "results").glob("bench_*.json")
+        if re.fullmatch(r"bench_\d{4}-\d{2}-\d{2}\.json", p.name)
+    )
     return candidates[-1] if candidates else None
 
 

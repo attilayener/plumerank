@@ -283,12 +283,60 @@ def test_threshold_comes_from_the_committed_benchmark_and_has_no_default(
     monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
     assert main._calibrated_threshold() == (None, None)
 
-    (tmp_path / "bench_2026-10-08.json").write_text(
-        json.dumps({"calibration": {"threshold": 0.61}}), encoding="utf-8"
-    )
+    (tmp_path / "bench_2026-10-08.json").write_text(json.dumps(_held_out(0.61)), encoding="utf-8")
     value, source = main._calibrated_threshold()
     assert value == pytest.approx(0.61)
     assert source is not None and source.endswith(":calibration.threshold")
+
+
+def _held_out(threshold: float, **over: Any) -> dict[str, Any]:
+    """The smallest payload _heldout_rejection accepts: HOLD, solved on CONFUSE, these constants."""
+    payload: dict[str, Any] = {
+        "arm": "hold",
+        "calibration": {"threshold": threshold, "realised_on": "confuse"},
+        "run": {"constants_sha256": main.freeze_hash()},
+    }
+    payload.update(over)
+    return payload
+
+
+def test_an_ablation_name_never_calibrates_the_wall(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """bench_<date>_s4off.json sorts after bench_<date>.json; only the exact name is read."""
+    monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    (tmp_path / "bench_2026-10-10.json").write_text(json.dumps(_held_out(0.61)), encoding="utf-8")
+    (tmp_path / "bench_2026-10-10_s4off.json").write_text(json.dumps(_held_out(0.99)), encoding="utf-8")
+    assert main._benchmark_file() == tmp_path / "bench_2026-10-10.json"
+    assert main._calibrated_threshold()[0] == pytest.approx(0.61)
+
+
+@pytest.mark.parametrize(
+    ("over", "why"),
+    [
+        ({"arm": "dev"}, "an in-sample arm under the held-out name"),
+        ({"calibration": {"threshold": 0.61, "realised_on": "dev"}}, "not solved on CONFUSE"),
+        ({"run": {"constants_sha256": "0" * 64}}, "solved under other constants"),
+    ],
+)
+def test_a_held_out_file_that_cannot_calibrate_this_wall_is_refused_and_named(
+    client: TestClient,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    reprobe: None,
+    over: dict[str, Any],
+    why: str,
+) -> None:
+    monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    (tmp_path / "bench_2026-10-08.json").write_text(
+        json.dumps(_held_out(0.61, **over)), encoding="utf-8"
+    )
+    assert main._calibrated_threshold()[0] is None, why
+    live = client.get("/health").json()["live_pipeline"]
+    assert live["available"] is False
+    # Found-and-refused is not "has not been published": that sends an operator to re-run HOLD.
+    assert "is committed but cannot calibrate" in live["detail"], live["detail"]
+    assert "bench_2026-10-08.json" in live["detail"], live["detail"]
 
 
 @pytest.mark.parametrize(
