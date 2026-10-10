@@ -48,7 +48,7 @@ jobs:
       - name: Typecheck (mypy)
         run: mypy plumerank api --ignore-missing-imports
       - name: Offline suite + coverage (same command as `make test`)
-        run: pytest tests -m "not live" --cov=plumerank --cov-report=term-missing --cov-report=xml
+        run: pytest tests -m "not live" --cov=plumerank --cov-report=term-missing --cov-report=xml --cov-fail-under=100
       - name: Upload coverage report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -285,7 +285,7 @@ jobs:
           echo "All CI/CD gates passed"
           echo ""
           echo "Pipeline Summary:"
-          echo "  - Stage 1 - Backend Quality (ruff, mypy, pytest --cov, 97% on plumerank/)"
+          echo "  - Stage 1 - Backend Quality (ruff, mypy, pytest --cov, 100% on plumerank/)"
           echo "  - Stage 1 - Frontend Quality (eslint, tsc)"
           echo "  - Stage 2 - Secret Scanning (TruffleHog) + full-history gitleaks (separate workflow)"
           echo "  - Stage 2 - Dependency Audit (pip-audit + npm audit)"

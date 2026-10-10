@@ -23,7 +23,7 @@ here is one 81-minute window of footage on one camera — the length of a FIgLib
 
 | | |
 |---|---|
-| Tests | **745 passed, 1 skipped locally (CI, without the corpus, runs 733 and skips 13)**, 97% coverage on `plumerank/` |
+| Tests | **832 passed, 1 skipped locally (CI, without the corpus, runs 820 and skips 13)**, 100% line coverage on `plumerank/` |
 | Property-based testing | **1,500 generated cases** (`tests/test_invariants.py`, `hypothesis`) — the fused hazard never leaves `[0, 1]` across 500 valid-input cases and never silently passes an invalid one through another 500; the alert budget can never be overspent under any of 500 generated call sequences |
 | Static analysis | `ruff check .` and `mypy plumerank api --ignore-missing-imports` — both clean |
 | Claim/code consistency | `scripts/check_claims.py`, run inside `make test` — 23 defended OpenCV 5 surfaces across 6 modules (18 analysis calls, 5 runtime/introspection), every API route, every dependency, every Makefile target and every file path this document and `README.md` name, checked mechanically against the real source on every test run |

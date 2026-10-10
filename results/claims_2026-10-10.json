@@ -31,7 +31,7 @@
       "status": "PASS"
     },
     {
-      "detail": "20 claimed path(s), all present",
+      "detail": "23 claimed path(s), all present",
       "misses": [],
       "name": "claimed-paths",
       "status": "PASS"
@@ -45,7 +45,7 @@
     "DEMO.md",
     "JUDGE.md"
   ],
-  "generated": "2026-10-10T13:43:22+07:00",
+  "generated": "2026-10-10T20:08:25+07:00",
   "ok": true,
   "root": ".",
   "surfaces": {
@@ -113,6 +113,7 @@
         "core::getNumThreads",
         "core::getTickCount",
         "core::getTickFrequency",
+        "core::minMaxLoc",
         "core::setRNGSeed",
         "dnn::dnn.Net.setInput",
         "dnn::dnn.Net.setPreferableBackend",
@@ -128,11 +129,13 @@
         "flag::COLOR_GRAY2BGR",
         "flag::CV_32F",
         "flag::CV_32S",
+        "flag::CV_64F",
         "flag::DISOPTICAL_FLOW_PRESET_FAST",
         "flag::FONT_HERSHEY_SIMPLEX",
         "flag::IMREAD_COLOR",
         "flag::IMWRITE_JPEG_QUALITY",
         "flag::INTER_AREA",
+        "flag::INTER_CUBIC",
         "flag::INTER_LINEAR",
         "flag::LINE_AA",
         "flag::MORPH_CLOSE",
@@ -140,6 +143,7 @@
         "flag::MORPH_OPEN",
         "flag::THRESH_BINARY",
         "flag::THRESH_OTSU",
+        "flag::TM_CCOEFF_NORMED",
         "flag::dnn.DNN_BACKEND_OPENCV",
         "imgcodecs::imdecode",
         "imgcodecs::imencode",
@@ -148,6 +152,7 @@
         "imgproc::GaussianBlur",
         "imgproc::blur",
         "imgproc::getStructuringElement",
+        "imgproc::matchTemplate",
         "imgproc::threshold",
         "imgproc::warpAffine",
         "module::dnn",

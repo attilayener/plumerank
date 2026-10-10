@@ -25,7 +25,7 @@ bench:
 	$(PY) scripts/bench.py --arm hold --budget 2.0 --sensitivity --seed 20261026
 
 test:
-	$(PY) -m pytest tests -m "not live" --cov=plumerank --cov-report=term-missing
+	$(PY) -m pytest tests -m "not live" --cov=plumerank --cov-report=term-missing --cov-fail-under=100
 
 test-live:
 	$(PY) -m pytest tests -m live
