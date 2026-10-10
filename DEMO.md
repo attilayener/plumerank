@@ -18,7 +18,7 @@ This is the full walkthrough. For the 30-second version, see [`JUDGE.md`](JUDGE.
 git clone https://github.com/edycutjong/plumerank && cd plumerank
 make test      # offline suite + coverage + claim-consistency check
 make verify    # clean-venv sanity check (does NOT reproduce the published headline)
-               # measured 2026-10-10: real 124 s end to end (arm64 laptop, warm pip cache)
+               # measured 2026-10-10: real 124 s end to end (results/test_run_2026-10-10.txt)
 ```
 
 Output of `make verify`'s final step (`scripts/bench.py --arm micro`), pasted verbatim; the full
@@ -96,7 +96,7 @@ There is no per-call provider bill here (no hosted LLM API, no metered generatio
 "receipt" is the pipeline actually executing against real pixels and being checked against a
 committed expectation, which is exactly what the block above shows. The AWS side has its own
 receipt: one `t4g.small` (Graviton) instance, one S3 bucket (corpus: the DEV and CONFUSE
-frames the box replays, 5,082 objects / 2,378,622,722 bytes per `aws s3 ls --recursive --summarize`, 2026-10-10),
+frames the box replays, 5,082 objects / 2,378,622,722 bytes under the `corpus/` prefix per `aws s3 ls s3://plumerank-corpus/corpus/ --recursive --summarize`, 2026-10-10),
 CloudWatch metrics plus drift (±15%) and silence alarms on the alert budget — all funded by a $150 AWS compute
 grant from this competition, not a personal card. The held-out run itself cost nothing: it ran
 off the box, on the local machine named above.

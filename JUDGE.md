@@ -29,7 +29,7 @@ here is one 81-minute window of footage on one camera — the length of a FIgLib
 | Claim/code consistency | `scripts/check_claims.py`, run inside `make test` — 23 defended OpenCV 5 surfaces across 6 modules (18 analysis calls, 5 runtime/introspection), every API route, every dependency, every Makefile target and every file path this document and `README.md` name, checked mechanically against the real source on every test run |
 | DEV arm (orientation only — fit data, never the claim) | 17/29 detected, p50 32.0 min; calibrated to 1.99 alerts/camera-night on the confusion set, 2.37 realised on DEV. Like-for-like baselines (B1/B2 through the same per-camera baseline): 14/29 and 10/29 (`results/arm_dev_2026-10-04.json`) |
 | **HOLD arm — the headline** | **27/54 detected, median 38.0 min** at 2.0 alerts/camera-night, read once after the freeze. Like-for-like B1 18/54, B2 20/54 — neither reaches a median. The median exists only at ignition-clock offsets −5…0 min (`results/bench_2026-10-10.json`, `results/sensitivity_2026-10-10.csv`) — see §4 |
-| Compute | One AWS `t4g.small` (Graviton/ARM), one S3 bucket (the replayed corpus: 5,082 objects, 2,378,622,722 bytes per `aws s3 ls --summarize`, 2026-10-10), CloudWatch metrics, two drift alarms (±15% around the 2.0 budget) and a heartbeat-silence alarm (`deploy/alarms.sh`). No Lambda, no managed vision API. |
+| Compute | One AWS `t4g.small` (Graviton/ARM), one S3 bucket (the replayed corpus: 5,082 objects, 2,378,622,722 bytes per `aws s3 ls s3://plumerank-corpus/corpus/ --recursive --summarize`, 2026-10-10), CloudWatch metrics, two drift alarms (±15% around the 2.0 budget) and a heartbeat-silence alarm (`deploy/alarms.sh`). No Lambda, no managed vision API. |
 
 ## 3. Reproduce it yourself
 

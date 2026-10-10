@@ -6,7 +6,7 @@
 #
 #   make fetch       the corpus, sha256-verified, resumable            (~35 min)
 #   make bench       the full held-out evaluation                      (~60 min)
-#   make test        offline suite, no network, no credentials         (~95 s)
+#   make test        offline suite, no network, no credentials         (~2 min)
 #   make test-live   the two external-side-effect tests + determinism
 #   make verify      THE JUDGE ONE-LINER: clean clone -> numbers       (<=3 min)
 #

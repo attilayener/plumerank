@@ -1,7 +1,7 @@
 <div align="center">
   <h1>PlumeRank 🔥📷</h1>
   <p><em>A wall of wildfire cameras. One dispatcher. Which one gets opened next?</em></p>
-  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-window; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
+  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-night; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
 
   <br/>
 
@@ -57,8 +57,8 @@ minute of footage), a ranked shortlist of which cameras a human should look at n
 cropped evidence tile — calibrated to a fixed budget of **2 alerts per camera-night**. It never
 suppresses a camera and never dispatches an engine. It reorders human attention.
 
-> **The unit.** A *camera-night* in this project — called a *camera-window* on the landing page and
-> in the description, to stop it reading as a 12-hour night — is one evaluation window: **81 minutes of
+> **The unit.** A *camera-night* in this project — called a *camera-window* on the landing page and an
+> *81-minute window* in the Devpost description, to stop it reading as a 12-hour night — is one evaluation window: **81 minutes of
 > footage on one camera**, the length of a FIgLib sequence (`plumerank/constants.py`). So the
 > budget is 2 alerts per camera per 81-minute window — about 18 per camera over a 12-hour
 > shift if run continuously, not 2 per night. The name is the code's; the windows are daytime.
@@ -162,7 +162,9 @@ Over a rolling, stabilised window, each foreground component on each camera is m
 | S1 | **Base anchoring** | a fire is tied to the ground; a cloud is not | 0.528 — near chance |
 | S2 | **Vertical growth anisotropy** | a plume rises faster than it spreads | 0.50 — chance |
 | S3 | **Diffuse-boundary contrast** | smoke has a soft edge | 0.44 — anti-predictive (limitations 2 and 3) |
-| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | 0.538 — weak; kept on detection evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.14% in the same grid), so the two effects are not separated |
+| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | 0.538 — weak; kept on detection evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.14% in the same grid; that grid's re-run of
+the shipped cell escalated 49 frames against the 2026-10-04 run's 51 at the same constants hash and
+threshold, with identical detections), so the two effects are not separated |
 
 None of the four is a good detector alone, and per frame the fused model beats the single bit
 "a component exists" by only 0.0015 AUC in-sample (`results/statistics_confound_2026-09-06.md`).
@@ -313,10 +315,12 @@ Written from the record, not from memory; each line names the file that caught i
 
 - **2026-09-06: our own headline was misquoted.** Four documents quoted 12/29 as the shipped DEV
   result; it was the S4-off ablation cell, whose run had taken the plain `arm_dev_<date>.json`
-  filename. The shipped configuration measured 9/29 that day. Every result filename now carries
-  every axis of its configuration (`results/artefact_provenance_2026-09-06.md`).
-- **The design premise was fog; the adversary is cloud.** Low cloud and cloud shadow cost several
-  times fog's alerts (`results/class_split_2026-09-06.json`), and a blind census found the rule that
+  filename. The shipped configuration measured 9/29 that day. Result filenames now name their S4,
+  baseline, background and budget cell (`scripts/bench.py` `results_filename`; S4 fixed 2026-09-06 per
+  `results/artefact_provenance_2026-09-06.md` §7, the other three on 2026-10-04 in `c977858`).
+- **The design premise was fog; the adversary is cloud.** Low cloud and cloud shadow cost 4.25 and
+  3.86 alerts per camera-night against fog's 1.15 (pre-baseline threshold,
+  `results/class_split_2026-09-06.json`), and a blind census found the rule that
   chose the fog windows picks a marine layer at chance (`results/fog_census_2026-10-04.md`).
 - **The statistic the design rests on is anti-predictive alone.** S3, diffuse-boundary contrast,
   scores AUC 0.44 on DEV frames with a component (`results/statistics_confound_2026-09-06.md`). What
@@ -325,7 +329,8 @@ Written from the record, not from memory; each line names the file that caught i
 - **2026-10-10: the test suite segfaulted on x86-64**, unseen until the first GitHub CI run, and the
   documented DIS failure boundary ("width ≥ 100") was the first width the original sweep tested,
   not the edge (80). Fixed bit-identically on arm64 (`plumerank/statistic.py`, `dis_unmeasurable`).
-- **The held-out median is half a fire from not existing** (27/54; see "What it actually measures").
+- **The held-out median is one fire from not existing** (27/54; it is the lower order statistic,
+  `plumerank/metrics.py` `percentiles`; see "What it actually measures").
 
 ## Track selection
 
