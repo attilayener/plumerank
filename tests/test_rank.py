@@ -35,6 +35,7 @@ from plumerank.constants import (
     THRESHOLD_SEARCH_TOL,
 )
 from plumerank.rank import (
+    EVIDENCE_RENDER_SCALE,
     BudgetState,
     draw_evidence,
     emit,
@@ -348,8 +349,9 @@ def test_draw_evidence_writes_a_readable_jpeg_that_differs_from_the_crop(tmp_pat
     assert written is not None, "cv2.imread could not decode what draw_evidence wrote"
 
     x0, y0, x1, y1 = evidence_crop_box(comp, frame.shape)
-    undrawn = frame[y0:y1, x0:x1]
-    assert written.shape == undrawn.shape
+    k = EVIDENCE_RENDER_SCALE
+    undrawn = cv2.resize(frame[y0:y1, x0:x1], None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
+    assert written.shape == undrawn.shape, "rendered at EVIDENCE_RENDER_SCALE x the crop"
 
     diff = np.abs(written.astype(np.int16) - undrawn.astype(np.int16))
     assert diff.max() > 60, "nothing was drawn"
@@ -366,8 +368,9 @@ def test_the_two_overlay_lines_carry_their_own_tokens(tmp_path):
     written = cv2.imread(out, cv2.IMREAD_COLOR).astype(np.float32)
 
     x0, y0, _, _ = evidence_crop_box(comp, frame.shape)
-    foot_row = written[100 - y0]          # median bottom of the track
-    top_row = written[comp.top - y0]
+    k = EVIDENCE_RENDER_SCALE
+    foot_row = written[(100 - y0) * k]          # median bottom of the track
+    top_row = written[(comp.top - y0) * k]
 
     assert foot_row[:, 2].mean() > foot_row[:, 0].mean() + 20   # anchor: R over B
     assert top_row[:, 0].mean() > top_row[:, 2].mean() + 20     # growth: B over R
@@ -386,8 +389,10 @@ def test_draw_evidence_on_a_real_hpwren_frame(tmp_path):
     out = draw_evidence(frame, comp, track, stats(0.88, 0.55, 0.69, 0.21), tmp_path / "hpwren.jpg")
     written = cv2.imread(out, cv2.IMREAD_COLOR)
     x0, y0, x1, y1 = evidence_crop_box(comp, frame.shape)
-    assert written is not None and written.shape == frame[y0:y1, x0:x1].shape
-    assert np.abs(written.astype(np.int16) - frame[y0:y1, x0:x1].astype(np.int16)).max() > 60
+    k = EVIDENCE_RENDER_SCALE
+    undrawn = cv2.resize(frame[y0:y1, x0:x1], None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
+    assert written is not None and written.shape == undrawn.shape
+    assert np.abs(written.astype(np.int16) - undrawn.astype(np.int16)).max() > 60
 
 
 def test_draw_evidence_refuses_an_empty_track(tmp_path):
@@ -498,7 +503,7 @@ def test_the_pinned_foot_line_is_the_window_median_not_the_last_frame(tmp_path):
     _, y0, _, _ = evidence_crop_box(comp, frame.shape)
 
     def anchor_strength(src_row: int) -> float:
-        row = written[src_row - y0]
+        row = written[(src_row - y0) * EVIDENCE_RENDER_SCALE]
         return float(row[:, 2].mean() - row[:, 0].mean())
 
     assert anchor_strength(100) > 20.0, "the anchor is not on the median bottom"

@@ -112,6 +112,13 @@ DASH_OFF_PX: int = 5
 FONT_FACE: int = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SCALE: float = 0.34
 FONT_THICKNESS: int = 1
+#: The crop is upscaled this many times (bicubic) BEFORE the overlay is drawn, and every
+#: overlay length above is multiplied by it. A 160x120 working-resolution crop with text
+#: burned in at 0.34 scale, magnified ~5x by the evidence card, rendered the caption as
+#: overlapping blocks ("S10.00S20.00"). Drawing at display resolution keeps lines and text
+#: crisp; the source pixels are still the working-resolution pixels, only interpolated.
+#: Rendering only -- nothing here reaches a hazard, a rank or a threshold.
+EVIDENCE_RENDER_SCALE: int = 3
 
 
 # ---------------------------------------------------------------------------------
@@ -554,6 +561,7 @@ def _dashed_line(
     p2: tuple[int, int],
     colour: tuple[int, int, int],
     thickness: int = 1,
+    scale: int = 1,
 ) -> None:
     """A dashed segment, drawn as repeated ``cv2.line`` calls.
 
@@ -567,11 +575,11 @@ def _dashed_line(
     length = math.hypot(x2 - x1, y2 - y1)
     if length <= 0.0:
         return
-    period = DASH_ON_PX + DASH_OFF_PX
+    on, period = DASH_ON_PX * scale, (DASH_ON_PX + DASH_OFF_PX) * scale
     n = int(length // period) + 1
     for i in range(n):
         a = (i * period) / length
-        b = min((i * period + DASH_ON_PX) / length, 1.0)
+        b = min((i * period + on) / length, 1.0)
         ax = int(round(x1 + (x2 - x1) * a))
         ay = int(round(y1 + (y2 - y1) * a))
         bx = int(round(x1 + (x2 - x1) * b))
@@ -579,12 +587,12 @@ def _dashed_line(
         cv2.line(img, (ax, ay), (bx, by), colour, thickness, cv2.LINE_AA)
 
 
-def _label(img: np.ndarray, text: str, org: tuple[int, int]) -> None:
+def _label(img: np.ndarray, text: str, org: tuple[int, int], scale: int = 1) -> None:
     """Text with a dark backing pass, because the sky behind it is any brightness at all."""
-    cv2.putText(img, text, org, FONT_FACE, FONT_SCALE, COLOUR_TEXT_SHADOW_BGR,
-                FONT_THICKNESS + 2, cv2.LINE_AA)
-    cv2.putText(img, text, org, FONT_FACE, FONT_SCALE, COLOUR_NEUTRAL_BGR,
-                FONT_THICKNESS, cv2.LINE_AA)
+    cv2.putText(img, text, org, FONT_FACE, FONT_SCALE * scale, COLOUR_TEXT_SHADOW_BGR,
+                (FONT_THICKNESS + 2) * scale, cv2.LINE_AA)
+    cv2.putText(img, text, org, FONT_FACE, FONT_SCALE * scale, COLOUR_NEUTRAL_BGR,
+                FONT_THICKNESS * scale, cv2.LINE_AA)
 
 
 def draw_evidence(
@@ -614,7 +622,8 @@ def draw_evidence(
     23-surface count. Stating that is cheaper than being caught inflating it.
 
     Args:
-        frame_bgr: the working-resolution colour frame the component was found in.
+        frame_bgr: the working-resolution colour frame the component was found in. The crop
+            is written EVIDENCE_RENDER_SCALE times larger than its source pixels.
         component: the component this row is about, in working pixels.
         track: its history -- the pinned foot line is a statement about the *window*, and
             cannot be drawn from a single frame.
@@ -643,6 +652,8 @@ def draw_evidence(
     crop = frame_bgr[y0:y1, x0:x1].copy()
     if crop.size == 0:
         raise ValueError(f"empty crop {(x0, y0, x1, y1)} for frame shape {frame_bgr.shape}")
+    k = EVIDENCE_RENDER_SCALE
+    crop = cv2.resize(crop, None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
     crop_h, crop_w = crop.shape[:2]
 
     # The median bottom over the window, not the first one: S1's claim is that the foot has
@@ -654,24 +665,29 @@ def draw_evidence(
 
     cv2.rectangle(
         crop,
-        (component.x - x0, component.y - y0),
-        (component.x + component.w - x0, component.y + component.h - y0),
+        ((component.x - x0) * k, (component.y - y0) * k),
+        ((component.x + component.w - x0) * k, (component.y + component.h - y0) * k),
         COLOUR_NEUTRAL_BGR,
-        1,
+        k,
         cv2.LINE_AA,
     )
 
     # Lines are clipped into the crop for drawing, but the caption reports the true
     # source-pixel gap. Clipping the number as well would make the image agree with itself
     # and disagree with the pipeline, which is the worse of the two failures.
-    foot_y = max(0, min(crop_h - 1, foot_src - y0))
-    top_y = max(0, min(crop_h - 1, top_src - y0))
-    cv2.line(crop, (0, foot_y), (crop_w - 1, foot_y), COLOUR_ANCHOR_BGR, 1, cv2.LINE_AA)
-    _dashed_line(crop, (0, top_y), (crop_w - 1, top_y), COLOUR_GROWTH_BGR)
+    foot_y = max(0, min(crop_h - 1, (foot_src - y0) * k))
+    top_y = max(0, min(crop_h - 1, (top_src - y0) * k))
+    cv2.line(crop, (0, foot_y), (crop_w - 1, foot_y), COLOUR_ANCHOR_BGR, k, cv2.LINE_AA)
+    _dashed_line(crop, (0, top_y), (crop_w - 1, top_y), COLOUR_GROWTH_BGR, thickness=k, scale=k)
 
-    label_y = max(0, min(crop_h - 4, (foot_y + top_y) // 2 + 4))
-    _label(crop, f"gap {gap_px} px", (4, label_y))
-    _label(crop, f"S1 {stats.s1:.2f}  S2 {stats.s2:.2f}  S3 {stats.s3:.2f}", (4, crop_h - 6))
+    label_y = max(0, min(crop_h - 4 * k, (foot_y + top_y) // 2 + 4 * k))
+    _label(crop, f"gap {gap_px} px", (4 * k, label_y), scale=k)
+    _label(
+        crop,
+        f"S1 {stats.s1:.2f}  S2 {stats.s2:.2f}  S3 {stats.s3:.2f}",
+        (4 * k, crop_h - 6 * k),
+        scale=k,
+    )
 
     path = pathlib.Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
