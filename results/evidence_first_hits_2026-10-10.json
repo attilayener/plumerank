@@ -1,0 +1,456 @@
+{
+  "what": "evidence crop at each DEV fire's first post-ignition rank-1 or alert tick, one live lap",
+  "base": "https://live.plumerank.edycu.dev",
+  "replay_id": "20261010T111623Z",
+  "label_meaning": "does the full-resolution crop region contain the plume, judged by eye",
+  "label_counts": {
+    "cloud": 7,
+    "unclear": 1,
+    "plume": 9,
+    "terrain": 2,
+    "sun or bare sky": 2
+  },
+  "hits": [
+    {
+      "camera_id": "om-w-mobo-c~1",
+      "sequence_id": "20240622_Border58Fire_om-w-mobo-c",
+      "frame_index": 47,
+      "minutes_after_ignition": 8,
+      "rank": 3,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.2957
+      ],
+      "match_score": 0.904,
+      "region_full_res_xyxy": [
+        1536,
+        7,
+        2560,
+        917
+      ],
+      "label": "cloud"
+    },
+    {
+      "camera_id": "tdlln-n-mobo-c",
+      "sequence_id": "20240625_DelMarFire_tdlln-n-mobo-c",
+      "frame_index": 77,
+      "minutes_after_ignition": 38,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        1.0,
+        0.4022,
+        0.1722
+      ],
+      "match_score": 0.911,
+      "region_full_res_xyxy": [
+        1939,
+        477,
+        2963,
+        1388
+      ],
+      "label": "unclear"
+    },
+    {
+      "camera_id": "tp-w-mobo-c",
+      "sequence_id": "20240724_GroveFire_tp-w-mobo-c",
+      "frame_index": 40,
+      "minutes_after_ignition": 1,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1847
+      ],
+      "match_score": 0.924,
+      "region_full_res_xyxy": [
+        0,
+        455,
+        1145,
+        1365
+      ],
+      "label": "cloud"
+    },
+    {
+      "camera_id": "cp-s-mobo-c",
+      "sequence_id": "20240905_ValleyFire_cp-s-mobo-c",
+      "frame_index": 71,
+      "minutes_after_ignition": 32,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.2274
+      ],
+      "match_score": 0.915,
+      "region_full_res_xyxy": [
+        1894,
+        45,
+        2918,
+        955
+      ],
+      "label": "cloud"
+    },
+    {
+      "camera_id": "ws-s-mobo-c",
+      "sequence_id": "20240907_FIRE_ws-s-mobo-c",
+      "frame_index": 58,
+      "minutes_after_ignition": 19,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.2621
+      ],
+      "match_score": 0.471,
+      "region_full_res_xyxy": [
+        1593,
+        341,
+        2432,
+        796
+      ],
+      "label": "cloud"
+    },
+    {
+      "camera_id": "wilson-e-mobo-c",
+      "sequence_id": "20240908_BridgeFire_wilson-e-mobo-c",
+      "frame_index": 53,
+      "minutes_after_ignition": 14,
+      "rank": 3,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.8707,
+        0.078
+      ],
+      "match_score": 0.907,
+      "region_full_res_xyxy": [
+        748,
+        0,
+        2118,
+        910
+      ],
+      "label": "cloud"
+    },
+    {
+      "camera_id": "rm-s-mobo-c~1",
+      "sequence_id": "20241108_GardenFire_rm-s-mobo-c",
+      "frame_index": 70,
+      "minutes_after_ignition": 31,
+      "rank": 1,
+      "alerted": false,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.2044
+      ],
+      "match_score": 0.925,
+      "region_full_res_xyxy": [
+        256,
+        629,
+        1414,
+        1539
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "69bravo-e-mobo-c",
+      "sequence_id": "20250107_PalisadesFire_69bravo-e-mobo-c",
+      "frame_index": 60,
+      "minutes_after_ignition": 21,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1201
+      ],
+      "match_score": 0.647,
+      "region_full_res_xyxy": [
+        889,
+        68,
+        1683,
+        523
+      ],
+      "label": "cloud"
+    },
+    {
+      "camera_id": "om-w-mobo-c~2",
+      "sequence_id": "20250123_Border2Fire_om-w-mobo-c",
+      "frame_index": 44,
+      "minutes_after_ignition": 5,
+      "rank": 1,
+      "alerted": false,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1282
+      ],
+      "match_score": 0.621,
+      "region_full_res_xyxy": [
+        2048,
+        1137,
+        3072,
+        2048
+      ],
+      "label": "terrain"
+    },
+    {
+      "camera_id": "tdlln-s-mobo-c",
+      "sequence_id": "20250123_GilmanFire_tdlln-s-mobo-c",
+      "frame_index": 73,
+      "minutes_after_ignition": 34,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.7213,
+        0.0938
+      ],
+      "match_score": 0.796,
+      "region_full_res_xyxy": [
+        2048,
+        0,
+        3072,
+        1016
+      ],
+      "label": "sun or bare sky"
+    },
+    {
+      "camera_id": "hp-e-mobo-c~1",
+      "sequence_id": "20250514_PrescribedFire_hp-e-mobo-c",
+      "frame_index": 69,
+      "minutes_after_ignition": 30,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.8265,
+        0.1467,
+        0.128
+      ],
+      "match_score": 0.823,
+      "region_full_res_xyxy": [
+        2048,
+        166,
+        3072,
+        1077
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "hp-n-mobo-c~1",
+      "sequence_id": "20250520_CrossingFire_hp-n-mobo-c",
+      "frame_index": 52,
+      "minutes_after_ignition": 13,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1126
+      ],
+      "match_score": 0.909,
+      "region_full_res_xyxy": [
+        1331,
+        561,
+        2355,
+        1471
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "hp-n-mobo-c~2",
+      "sequence_id": "20250610_CahuillaFire_hp-n-mobo-c",
+      "frame_index": 71,
+      "minutes_after_ignition": 32,
+      "rank": 1,
+      "alerted": false,
+      "s1_s2_s3": [
+        1.0,
+        0.0,
+        0.17
+      ],
+      "match_score": 0.904,
+      "region_full_res_xyxy": [
+        1664,
+        538,
+        2688,
+        1448
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "hp-e-mobo-c~2",
+      "sequence_id": "20250612_HighwayFire_hp-e-mobo-c",
+      "frame_index": 52,
+      "minutes_after_ignition": 13,
+      "rank": 3,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.7948,
+        0.1333
+      ],
+      "match_score": 0.75,
+      "region_full_res_xyxy": [
+        755,
+        0,
+        1779,
+        910
+      ],
+      "label": "sun or bare sky"
+    },
+    {
+      "camera_id": "rm-s-mobo-c~2",
+      "sequence_id": "20250616_MissionFire_rm-s-mobo-c",
+      "frame_index": 51,
+      "minutes_after_ignition": 12,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1363
+      ],
+      "match_score": 0.956,
+      "region_full_res_xyxy": [
+        1382,
+        576,
+        2406,
+        1486
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "hp-n-mobo-c~3",
+      "sequence_id": "20250716_DaleBradfordFire_hp-n-mobo-c",
+      "frame_index": 46,
+      "minutes_after_ignition": 7,
+      "rank": 2,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1995
+      ],
+      "match_score": 0.925,
+      "region_full_res_xyxy": [
+        1523,
+        621,
+        2547,
+        1532
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "mp-n-mobo-c",
+      "sequence_id": "20251102_ScissorsFire_mp-n-mobo-c",
+      "frame_index": 47,
+      "minutes_after_ignition": 8,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        1.0,
+        0.0,
+        0.2282
+      ],
+      "match_score": 0.831,
+      "region_full_res_xyxy": [
+        147,
+        1039,
+        928,
+        1494
+      ],
+      "label": "terrain"
+    },
+    {
+      "camera_id": "rm-s-mobo-c~3",
+      "sequence_id": "20260428_LiveOakFire_rm-s-mobo-c",
+      "frame_index": 42,
+      "minutes_after_ignition": 3,
+      "rank": 1,
+      "alerted": false,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.2369
+      ],
+      "match_score": 0.952,
+      "region_full_res_xyxy": [
+        2048,
+        743,
+        3072,
+        1653
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "rm-s-mobo-c~5",
+      "sequence_id": "20260618_MissionFire_rm-s-mobo-c",
+      "frame_index": 56,
+      "minutes_after_ignition": 17,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.2868
+      ],
+      "match_score": 0.905,
+      "region_full_res_xyxy": [
+        0,
+        743,
+        1024,
+        1653
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "bm-s-mobo-c~2",
+      "sequence_id": "20260722_CreelmanFire_bm-s-mobo-c",
+      "frame_index": 48,
+      "minutes_after_ignition": 9,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.0,
+        0.1523
+      ],
+      "match_score": 0.964,
+      "region_full_res_xyxy": [
+        1766,
+        606,
+        2790,
+        1517
+      ],
+      "label": "plume"
+    },
+    {
+      "camera_id": "hp-n-mobo-c~4",
+      "sequence_id": "20260820_ChiaFire_hp-n-mobo-c",
+      "frame_index": 50,
+      "minutes_after_ignition": 11,
+      "rank": 1,
+      "alerted": true,
+      "s1_s2_s3": [
+        0.0,
+        0.6145,
+        0.1298
+      ],
+      "match_score": 0.869,
+      "region_full_res_xyxy": [
+        1708,
+        0,
+        2732,
+        910
+      ],
+      "label": "cloud"
+    }
+  ]
+}

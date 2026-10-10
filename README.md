@@ -173,6 +173,16 @@ reproduces it anywhere. Per-sequence results for every system are in each file's
    counted frame by frame; its effect on fire detection is not measured. Not changed:
    the held-out read measured this pipeline; estimating the shift on the ground band only is the
    first item of future work.
+10. **The evidence crop shows the plume under half the time.** Every row's crop is the camera's
+    largest tracked foreground component, and the ranking is per camera — so a fire camera can
+    reach the top while its largest moving thing is a cloud. At each DEV fire's first
+    post-ignition rank-1 or alert tick, one lap of the live wall, the crop region contains the
+    plume on 9 of 21; cloud on 7, sun or bare sky on 2, terrain on 2, unclear on 1
+    (`scripts/audit_evidence_crops.py`, `results/evidence_first_hits_2026-10-10.json` and its
+    full-resolution contact sheet; labels by eye in `results/evidence_first_hits_labels.json`).
+    A dispatcher should read a cloud in the crop as "look at the whole tile", not as an all-clear.
+    Choosing the component to show by statistic rather than by size is future work; it does not
+    change any rank.
 
 ---
 

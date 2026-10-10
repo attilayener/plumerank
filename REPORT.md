@@ -217,7 +217,8 @@ DEV camera (48 of 55) and otherwise — all 39 on CONFUSE — follow the moving 
 stays still (`results/registration_2026-10-10.json`) — a counterfactual replay without those
 warps moves CONFUSE's uncapped crossings from 64 to 63 and the solved threshold from 0.8492 to
 0.8482 (`results/registration_alerts_2026-10-10.json`);
-the novelty is a metric reframe rather than a new sensor;
+the evidence crop (the largest moving component) contains the plume on 9 of 21 DEV first hits —
+cloud on 7 (`results/evidence_first_hits_2026-10-10.json`); the novelty is a metric reframe rather than a new sensor;
 one instance with no HA; no managed-cloud-vision-API baseline; and no dispatch, suppression,
 or upload path, by architecture rather than oversight.
 

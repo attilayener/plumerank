@@ -1,0 +1,28 @@
+{
+  "labelled": "2026-10-10, by eye, from results/evidence_first_hits_2026-10-10_full.jpg (the crop region at full HPWREN resolution)",
+  "question": "Does the evidence crop region contain the plume?",
+  "values": ["plume", "cloud", "sun or bare sky", "terrain", "unclear"],
+  "labels": {
+    "om-w-mobo-c~1": "cloud",
+    "tdlln-n-mobo-c": "unclear",
+    "tp-w-mobo-c": "cloud",
+    "cp-s-mobo-c": "cloud",
+    "ws-s-mobo-c": "cloud",
+    "wilson-e-mobo-c": "cloud",
+    "rm-s-mobo-c~1": "plume",
+    "69bravo-e-mobo-c": "cloud",
+    "om-w-mobo-c~2": "terrain",
+    "tdlln-s-mobo-c": "sun or bare sky",
+    "hp-e-mobo-c~1": "plume",
+    "hp-n-mobo-c~1": "plume",
+    "hp-n-mobo-c~2": "plume",
+    "hp-e-mobo-c~2": "sun or bare sky",
+    "rm-s-mobo-c~2": "plume",
+    "hp-n-mobo-c~3": "plume",
+    "mp-n-mobo-c": "terrain",
+    "rm-s-mobo-c~3": "plume",
+    "rm-s-mobo-c~5": "plume",
+    "bm-s-mobo-c~2": "plume",
+    "hp-n-mobo-c~4": "cloud"
+  }
+}
