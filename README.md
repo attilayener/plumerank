@@ -1,11 +1,14 @@
 <div align="center">
   <h1>PlumeRank 🔥📷</h1>
   <p><em>A wall of wildfire cameras. One dispatcher. Which one gets opened next?</em></p>
+  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-window; schematic wall and watch list, with the development-set result 17/29 detected, p50 32.0 min" width="100%">
 
   <br/>
 
   [![Live Endpoint](https://img.shields.io/badge/🟢_Live-44.242.91.201-06b6d4?style=for-the-badge)](http://44.242.91.201)
   [![/judge](https://img.shields.io/badge/👩‍⚖️_For-Judges-f59e0b?style=for-the-badge)](http://44.242.91.201/judge)
+  [![Landing](https://img.shields.io/badge/🌐_Site-plumerank.edycu.dev-FF6B4A?style=for-the-badge)](https://plumerank.edycu.dev)
+  [![Pitch Deck](https://img.shields.io/badge/📊_Pitch-Deck-f59e0b?style=for-the-badge)](https://plumerank.edycu.dev/pitch/)
   [![Built for OpenCV AI Competition 2026](https://img.shields.io/badge/OpenCV_AI_Competition-2026-8b5cf6?style=for-the-badge)](https://opencv26.devpost.com/)
 
   <br/>
@@ -17,8 +20,23 @@
   ![ONNX](https://img.shields.io/badge/ONNX-runtime%3A_cv2.dnn-005CED?style=flat&logo=onnx&logoColor=white)
   ![AWS Graviton](https://img.shields.io/badge/AWS-Graviton_t4g.small-FF9900?style=flat&logo=amazonaws&logoColor=white)
   ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat)
+  [![CI](https://github.com/edycutjong/plumerank/actions/workflows/ci.yml/badge.svg)](https://github.com/edycutjong/plumerank/actions/workflows/ci.yml)
+  [![CodeQL](https://github.com/edycutjong/plumerank/actions/workflows/codeql.yml/badge.svg)](https://github.com/edycutjong/plumerank/actions/workflows/codeql.yml)
+  [![gitleaks](https://github.com/edycutjong/plumerank/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/edycutjong/plumerank/actions/workflows/gitleaks.yml)
 
 </div>
+
+---
+
+## See it in action
+
+<div align="center">
+  <img src="docs/assets/live-wall.webp" alt="The live PlumeRank wall on AWS: 62 HPWREN camera tiles and a ranked watch list with per-statistic scores" width="100%">
+</div>
+
+> **The live wall on one Graviton box.** HPWREN FIgLib footage replays through the real
+> OpenCV 5 pipeline → every camera is scored against its own last 15 minutes → the watch list
+> re-ranks all 62 cameras every second, at a budget of 2 alerts per camera-window.
 
 ---
 

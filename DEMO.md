@@ -16,7 +16,7 @@ This is the full walkthrough. For the 30-second version, see [`JUDGE.md`](JUDGE.
 ## Reproduce — real run, measured just now
 
 ```bash
-git clone <this repo> && cd <this repo>
+git clone https://github.com/edycutjong/plumerank && cd plumerank
 make test      # offline suite + coverage + claim-consistency check
 make verify    # clean-venv sanity check (does NOT reproduce the published headline)
 ```

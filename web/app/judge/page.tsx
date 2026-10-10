@@ -148,7 +148,9 @@ make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
       <Section title="6. Links">
         <p style={{ color: "var(--ink-1)" }}>
           <Link href="/">Wall</Link> · <Link href="/results">/results</Link> ·{" "}
-          <a href="/build-info">/build-info</a> · <a href="/health">/health</a>
+          <a href="/build-info">/build-info</a> · <a href="/health">/health</a> ·{" "}
+          <a href="https://github.com/edycutjong/plumerank">source on GitHub</a> ·{" "}
+          <a href="https://plumerank.edycu.dev/pitch/">pitch deck</a>
         </p>
       </Section>
     </main>

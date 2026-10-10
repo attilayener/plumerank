@@ -35,7 +35,7 @@ here is one 81-minute window of footage on one camera — the length of a FIgLib
 ## 3. Reproduce it yourself
 
 ```bash
-git clone <this repo> && cd <this repo>
+git clone https://github.com/edycutjong/plumerank && cd plumerank
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
 make test      # ~95s: the 714-test offline suite + coverage + the claim-consistency check above
 make verify    # ≤3 min: rebuilds the venv from the lockfile, re-runs the offline suite, then
@@ -81,5 +81,6 @@ it is diagnostic, never a claim of generalisation. Until `results/bench_<date>.j
 
 - Live endpoint: `http://44.242.91.201`
 - `/build-info` · `/health` · `/results`
-- Repository: pushed at submission (this box's own `/build-info` names the exact commit it runs)
+- Repository: https://github.com/edycutjong/plumerank (this box's own `/build-info` names the exact commit it runs)
+- Site and pitch deck: https://plumerank.edycu.dev · https://plumerank.edycu.dev/pitch/
 - `README.md` (architecture + full testing detail) · `DEMO.md` (full reproduce walkthrough)
