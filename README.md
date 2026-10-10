@@ -1,7 +1,7 @@
 <div align="center">
   <h1>PlumeRank 🔥📷</h1>
   <p><em>A wall of wildfire cameras. One dispatcher. Which one gets opened next?</em></p>
-  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-window; schematic wall and watch list, with the development-set result 17/29 detected, p50 32.0 min" width="100%">
+  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-window; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
 
   <br/>
 
@@ -57,7 +57,8 @@ minute of footage), a ranked shortlist of which cameras a human should look at n
 cropped evidence tile — calibrated to a fixed budget of **2 alerts per camera-night**. It never
 suppresses a camera and never dispatches an engine. It reorders human attention.
 
-> **The unit.** A *camera-night* in this project is one evaluation window: **81 minutes of
+> **The unit.** A *camera-night* in this project — called a *camera-window* on the landing page and
+> in the description, to stop it reading as a 12-hour night — is one evaluation window: **81 minutes of
 > footage on one camera**, the length of a FIgLib sequence (`plumerank/constants.py`). So the
 > budget is 2 alerts per camera per 81-minute window — about 18 per camera over a 12-hour
 > shift if run continuously, not 2 per night. The name is the code's; the windows are daytime.

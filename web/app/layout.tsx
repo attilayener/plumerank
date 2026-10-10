@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: "PlumeRank",
-    images: [{ url: "/og-image.png?v=2", width: 1200, height: 630, alt: TITLE }],
+    images: [{ url: "/og-image.png?v=3", width: 1200, height: 630, alt: TITLE }],
     locale: "en_US",
     type: "website",
   },
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     // fabricated handle (a string here does not have to resolve to an account, but it
     // must be honest about what it names).
     creator: AUTHOR,
-    images: ["/og-image.png?v=2"],
+    images: ["/og-image.png?v=3"],
   },
 };
 
