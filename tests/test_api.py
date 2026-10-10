@@ -920,7 +920,7 @@ def test_keepalive_is_not_sent_on_every_poll() -> None:
     assert main.KEEPALIVE_SECONDS >= 10 * main.IDLE_POLL_SECONDS
 
 
-def test_thumbnails_cover_the_top_k_plus_one_round_robin_camera(
+def test_thumbnails_cover_the_top_k_plus_the_round_robin_cameras(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Most tiles have no tracked component, so without these they show no image at all."""
@@ -930,7 +930,8 @@ def test_thumbnails_cover_the_top_k_plus_one_round_robin_camera(
 
     monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path)
     replay = main.Replay()
-    keys = [f"cam{i}" for i in range(main.TOP_K + 3)]
+    rr = main.THUMB_ROUND_ROBIN_PER_TICK
+    keys = [f"cam{i}" for i in range(main.TOP_K + rr + 3)]
     replay._cameras = [
         main._Camera(main.Sequence(sequence_id=k, camera_id=k, arm="dev", frame_paths=[], t0_index=None))
         for k in keys
@@ -943,9 +944,9 @@ def test_thumbnails_cover_the_top_k_plus_one_round_robin_camera(
     ]
     replay._write_thumbnails(entries, frames)
     top = {e.camera_id for e in entries if e.rank <= main.TOP_K}
-    assert top | {keys[0]} == set(replay._frame_urls)
+    assert top | set(keys[:rr]) == set(replay._frame_urls)
     written = list((tmp_path / replay.replay_id / "frames").glob("*.jpg"))
-    assert len(written) == main.TOP_K + 1
+    assert len(written) == main.TOP_K + rr
     assert all(u.startswith("/evidence/") and "?t=" in u for u in replay._frame_urls.values())
 
 
@@ -971,6 +972,17 @@ def test_the_first_tick_of_a_replay_gives_every_tile_a_picture(
     assert set(replay._frame_urls) == set(keys)
     written = list((tmp_path / replay.replay_id / "frames").glob("*.jpg"))
     assert len(written) == len(keys)
+
+
+def test_every_lap_wrap_refreshes_every_tile() -> None:
+    """The wrap is a 78-minute jump in the footage: tiles must jump with the clock, not keep
+    last lap's frames. Mid-lap ticks stay on the per-tick budget."""
+    replay = main.Replay()
+    assert replay._fills_every_tile(5), "a replay's first tick, wherever it starts"
+    replay._ticks = 79
+    assert replay._fills_every_tile(0), "a lap's first frame after the wrap"
+    assert not replay._fills_every_tile(1)
+    assert not replay._fills_every_tile(78)
 
 
 def test_repeated_cameras_get_url_safe_roster_keys() -> None:

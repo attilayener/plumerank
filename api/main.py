@@ -186,6 +186,10 @@ MAX_VIEWERS: int = int(os.environ.get("PLUMERANK_MAX_VIEWERS", "32"))
 #: and ~1 ms to encode each from the 480x270 working frame (measured on an M-series laptop).
 THUMB_WIDTH: int = 320
 THUMB_QUALITY: int = 70
+#: Round-robin thumbnails refreshed per tick beyond the top-k. One per tick left a tile up to
+#: a roster's worth of ticks (~61 simulated minutes) behind the ranking beside it; four cuts
+#: that to ~15 for ~3 ms more per tick. Every lap's first frame refreshes them all anyway.
+THUMB_ROUND_ROBIN_PER_TICK: int = 4
 
 #: Concurrent walls one client address may hold. The global cap alone let one script
 #: holding 32 streams lock every judge out; four covers a judge with a few tabs open.
@@ -1420,7 +1424,7 @@ class Replay:
             for s in final
         ]
         entries = self._write_evidence(emit(final, threshold, budget), frames, picked, index)
-        self._write_thumbnails(entries, frames, fill_all=self._ticks == 0)
+        self._write_thumbnails(entries, frames, fill_all=self._fills_every_tile(index))
 
         crossed = [s.camera_id for s in final if s.hazard >= threshold]
         self._alerts_uncapped += len(crossed)
@@ -1558,6 +1562,10 @@ class Replay:
             out.append(dataclasses.replace(entry, evidence_url=url))
         return out
 
+    def _fills_every_tile(self, index: int) -> bool:
+        """A replay's first tick, or any lap's first frame: see ``_write_thumbnails``."""
+        return self._ticks == 0 or index == 0
+
     def _write_thumbnails(
         self,
         entries: list[WatchEntry],
@@ -1570,25 +1578,29 @@ class Replay:
         Evidence crops exist only for cameras with a tracked component, so without these most
         tiles would read "no frame published". Encoding all ~60 cameras every tick would cost
         a t4g.small tens of milliseconds a second; instead the top-k rows -- the ones a
-        dispatcher is reading -- are refreshed every tick, and one more camera per tick in
-        round-robin, so every tile has a picture within one roster's worth of ticks.
+        dispatcher is reading -- are refreshed every tick, and THUMB_ROUND_ROBIN_PER_TICK more
+        in round-robin, so no tile is more than ~roster/4 ticks behind the ranking beside it.
 
         One file per camera, overwritten in place (``{replay_id}/frames/{key}.jpg``), so the
         directory is bounded at the roster size; ``?t=`` busts the browser cache on rewrite.
 
-        ``fill_all`` writes every camera once. ``_tick`` sets it on a replay's first tick:
-        ``_reset_replay`` has just emptied ``_frame_urls``, and without it a quiet camera
-        would read "no frame published" until the round-robin reached it, up to a roster's
-        worth of ticks into the judge's first minute (~62 thumbnails, once).
+        ``fill_all`` writes every camera once. ``_tick`` sets it on a replay's first tick --
+        ``_reset_replay`` has just emptied ``_frame_urls``, and a quiet camera would read
+        "no frame published" until the round-robin reached it -- and on every lap's first
+        frame, because the wrap is a 78-minute jump in the footage and a tile left on last
+        lap's post-ignition smoke under a clock reset to T-39 contradicts the clock
+        (~62 thumbnails, once per lap).
         """
         if fill_all:
             targets = [c.camera_id for c in self._cameras]
         else:
             targets = [e.camera_id for e in entries if e.rank <= TOP_K]
             if self._cameras:
-                self._thumb_cursor %= len(self._cameras)
-                targets.append(self._cameras[self._thumb_cursor].camera_id)
-                self._thumb_cursor += 1
+                n = len(self._cameras)
+                for _ in range(min(THUMB_ROUND_ROBIN_PER_TICK, n)):
+                    self._thumb_cursor %= n
+                    targets.append(self._cameras[self._thumb_cursor].camera_id)
+                    self._thumb_cursor += 1
         directory = EVIDENCE_DIR / self.replay_id / "frames"
         for key in dict.fromkeys(targets):
             frame = frames.get(key)
