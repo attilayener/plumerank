@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { apiUrl } from "@/lib/api";
 import type { StreamState, WatchMeta, WatchRow } from "@/lib/types";
 
 /**
- * The full camera roster, 8 x 5, and it never gets shorter.
+ * The full camera roster, 8 columns, and it never gets shorter.
  *
  * Low-ranked tiles are dimmed to 45%. They are NOT removed, and that is the whole
  * argument the wall exists to make: PlumeRank reorders attention, it does not suppress
@@ -18,6 +20,37 @@ import type { StreamState, WatchMeta, WatchRow } from "@/lib/types";
 
 /** How many tiles the sub-1280 strip carries. A layout number, not a measurement. */
 const STRIP_TILES = 12;
+
+/**
+ * A tile image that never goes blank between frames.
+ *
+ * Every tick rewrites ~8 thumbnails under a new ``?t=`` URL. A plain <img> given a new src
+ * paints nothing until the new JPEG has decoded, so a quarter of the time some tiles were
+ * blank (measured: 48 of 200 samples at 100 ms, up to 8 tiles). The new frame is decoded
+ * off-screen first and swapped in only once it can paint; until then the previous frame
+ * stays. A frame that fails to load leaves the previous one up rather than a hole.
+ */
+function TileImage({ src }: { src: string }) {
+  const [shown, setShown] = useState(src);
+  useEffect(() => {
+    if (src === shown) return;
+    let live = true;
+    const next = new Image();
+    next.src = src;
+    next
+      .decode()
+      .then(() => {
+        if (live) setShown(src);
+      })
+      .catch(() => {
+        /* keep the previous frame */
+      });
+    return () => {
+      live = false;
+    };
+  }, [src, shown]);
+  return <img src={shown} alt="" decoding="async" />;
+}
 
 export function Wall({
   meta,
@@ -139,7 +172,7 @@ export function Wall({
             return (
               <div key={cam} className={`tile${dim ? " tile--dim" : ""}`} title={cam}>
                 {src ? (
-                  <img src={apiUrl(src)} alt="" loading="lazy" decoding="async" />
+                  <TileImage src={apiUrl(src)} />
                 ) : (
                   <span className="tile-empty">no frame published</span>
                 )}
