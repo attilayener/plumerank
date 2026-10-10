@@ -361,6 +361,27 @@ def s3_diffuse_boundary(grey: np.ndarray, component: Component) -> tuple[float, 
 _DIS_BY_SHAPE: OrderedDict[tuple[int, int], cv2.DISOpticalFlow] = OrderedDict()
 DIS_CACHE_SIZE = 64
 
+#: THE SAME GEOMETRY SEGFAULTS ON x86-64. Found 2026-10-10 when CI first ran on GitHub's
+#: x86 runners: the 5.0.0.93 wheel that returns an all-NaN field on arm64 kills the
+#: interpreter with SIGSEGV on x86-64, for exactly the same shapes. Swept every reachable
+#: ROI (heights from S4_MIN_BBOX_PX, widths up to WORK_WIDTH) on arm64, and a 168-shape
+#: grid under linux/amd64 emulation: the two failure sets are identical, and on every
+#: reachable height the boundary is ``rows < 32 and cols >= 80`` -- independent of content
+#: (random, zero, gradient and real HPWREN crops all agree). The "width >= 100" in the note
+#: above was the first failing width the original sweep happened to test, not the edge.
+#:
+#: So DIS is never called inside that zone. On arm64 this is bit-identical to before -- the
+#: call there returned nan, which s4_drift already mapped to 0.0 -- and on x86-64 it is the
+#: difference between "no drift evidence" and a dead process. The finite-field check below
+#: stays as the backstop for any shape the sweep did not cover.
+DIS_NAN_BELOW_ROWS = 32
+DIS_NAN_FROM_COLS = 80
+
+
+def dis_unmeasurable(h: int, w: int) -> bool:
+    """True for ROI shapes on which OpenCV 5.0.0's DIS returns nan (arm64) or segfaults (x86-64)."""
+    return h < DIS_NAN_BELOW_ROWS and w >= DIS_NAN_FROM_COLS
+
 
 def _dis(shape: tuple[int, int]) -> cv2.DISOpticalFlow:
     dis = _DIS_BY_SHAPE.get(shape)
@@ -409,6 +430,9 @@ def s4_drift(
     cur_roi = grey[y : y + h, x : x + w]
     prev_roi = prev_grey[y : y + h, x : x + w]
     if cur_roi.shape != prev_roi.shape or cur_roi.shape[0] != h or cur_roi.shape[1] != w:
+        return 0.0
+
+    if dis_unmeasurable(h, w):
         return 0.0
 
     # DIS wants contiguous 8-bit single-channel input; a bbox crop is a strided view.

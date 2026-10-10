@@ -184,6 +184,52 @@ def test_the_classical_path_stays_inside_its_latency_budget():
 # --- the DIS NaN behaviour, pinned ------------------------------------------------
 
 
+_DIS_PROBE = """
+import sys, numpy as np, cv2
+h, w = int(sys.argv[1]), int(sys.argv[2])
+a = np.random.default_rng(1).integers(0, 255, (h, w), dtype=np.uint8)
+f = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST).calc(a, np.roll(a, -1, 0), None)
+print("nan" if not np.isfinite(f).all() else "ok")
+"""
+
+
+def _dis_probe(h: int, w: int) -> str:
+    """'ok', 'nan' or 'crash' for one DIS call on an h x w ROI, isolated in a child process."""
+    import subprocess
+    import sys
+
+    p = subprocess.run(
+        [sys.executable, "-c", _DIS_PROBE, str(h), str(w)], capture_output=True, text=True, timeout=60
+    )
+    return p.stdout.strip() if p.returncode == 0 else "crash"
+
+
+@pytest.mark.parametrize("h,w", [(24, 79), (24, 80), (31, 79), (31, 80), (32, 80), (32, 480), (30, 195)])
+def test_dis_failure_zone_matches_the_guard_exactly(h, w):
+    """The guard's boundary is the library's, measured -- not a safety margin.
+
+    If the guard were wider than the library's failure zone, arm64 would lose real S4
+    evidence and stop reproducing results/; narrower, and x86-64 would segfault. Both
+    edges are pinned on both sides.
+    """
+    expected_bad = sa.dis_unmeasurable(h, w)
+    assert (_dis_probe(h, w) != "ok") == expected_bad
+
+
+def test_s4_never_calls_dis_inside_the_failure_zone(monkeypatch):
+    """Calling DIS there is a SIGSEGV on x86-64, so s4_drift must return before the call."""
+
+    def boom(shape):
+        raise AssertionError(f"DIS called on unmeasurable shape {shape}")
+
+    monkeypatch.setattr(sa, "_dis", boom)
+    frame = np.zeros((WORK_HEIGHT, WORK_WIDTH), np.uint8)
+    from plumerank.types import Component
+
+    c = Component(x=100, y=100, w=80, h=24, area=80 * 24, cx=140.0, cy=112.0)
+    assert sa.s4_drift(frame, frame.copy(), c) == 0.0
+
+
 def test_dis_returns_nan_for_short_wide_rois_and_s4_absorbs_it():
     """Pins a measured OpenCV 5.0.0 behaviour and our response to it.
 
@@ -197,9 +243,10 @@ def test_dis_returns_nan_for_short_wide_rois_and_s4_absorbs_it():
     rng = np.random.default_rng(1)
     a = rng.integers(0, 255, (30, 195), dtype=np.uint8)
     b = np.roll(a, -1, axis=0)
-    field = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST).calc(a, b, None)
-    assert not np.isfinite(field).all(), (
-        "OpenCV appears to have fixed the DIS short-wide NaN. Re-run the sweep in "
+    # The probe runs in a child process: on x86-64 the same call is a SIGSEGV, not a nan,
+    # and a segfault in-process takes the whole test session down with it.
+    assert _dis_probe(30, 195) in ("nan", "crash"), (
+        "OpenCV appears to have fixed the DIS short-wide failure. Re-run the sweep in "
         "plumerank/statistic.py's _DIS_BY_SHAPE note and simplify the guard."
     )
 
