@@ -211,7 +211,10 @@ adversary**, and none of the four statistics is a good detector on its own (AUC 
 0.44 / 0.538 for S1–S4, pre- vs post-ignition on DEV, and the fused per-frame model beats the
 single bit "a component exists" by only 0.0015 AUC in-sample; S3, the one the project was built around, is
 anti-predictive yet carries the largest fusion weight, and no S3-off ablation has run yet);
-the per-camera baseline is what carries the ranking; the novelty is a metric reframe rather than a new sensor;
+the per-camera baseline is what carries the ranking; stabilisation registers each frame to its raw
+predecessor and, on near-static cameras (direct first-to-last shift 0.22 px median on DEV), its
+per-pair estimates carry error the wall warps by (`results/registration_2026-10-10.json`);
+the novelty is a metric reframe rather than a new sensor;
 one instance with no HA; no managed-cloud-vision-API baseline; and no dispatch, suppression,
 or upload path, by architecture rather than oversight.
 

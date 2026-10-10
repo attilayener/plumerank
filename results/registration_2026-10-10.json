@@ -1,0 +1,145 @@
+{
+  "arms": {
+    "confuse": {
+      "endpoint_shift_px": {
+        "max": 3.511,
+        "p50": 0.156,
+        "p90": 0.569,
+        "p99": 2.718
+      },
+      "largest_chain_gaps": [
+        {
+          "chain_gap_px": 120.439,
+          "chained_sum_px": 121.254,
+          "endpoint_response": 0.0115,
+          "endpoint_shift_px": 3.511,
+          "sequence_id": "confuse_cp-w-mobo-c_20260826"
+        },
+        {
+          "chain_gap_px": 40.416,
+          "chained_sum_px": 39.39,
+          "endpoint_response": 0.0651,
+          "endpoint_shift_px": 1.033,
+          "sequence_id": "confuse_mlo-s-mobo-c_20260826"
+        },
+        {
+          "chain_gap_px": 37.362,
+          "chained_sum_px": 36.851,
+          "endpoint_response": 0.1164,
+          "endpoint_shift_px": 0.516,
+          "sequence_id": "confuse_pi-e-mobo-c_20260823"
+        },
+        {
+          "chain_gap_px": 36.082,
+          "chained_sum_px": 36.402,
+          "endpoint_response": 0.0998,
+          "endpoint_shift_px": 0.758,
+          "sequence_id": "confuse_pi-s-mobo-c_20260823"
+        },
+        {
+          "chain_gap_px": 30.573,
+          "chained_sum_px": 29.991,
+          "endpoint_response": 0.2821,
+          "endpoint_shift_px": 0.582,
+          "sequence_id": "confuse_bh-w-mobo-c_20260817"
+        }
+      ],
+      "methods": {
+        "affine": 11,
+        "phase": 30,
+        "phase+iterative": 2533
+      },
+      "pair_share_at_least_px": {
+        "0.5": 0.0738,
+        "1.0": 0.0152,
+        "2.0": 0.0093
+      },
+      "pair_shift_px": {
+        "max": 6.707,
+        "p50": 0.046,
+        "p90": 0.403,
+        "p99": 1.389
+      },
+      "pairs": 2574,
+      "windows": 33,
+      "windows_with_endpoint_shift_at_least_px": {
+        "1.0": 2,
+        "2.0": 1,
+        "5.0": 0
+      }
+    },
+    "dev": {
+      "endpoint_shift_px": {
+        "max": 1.69,
+        "p50": 0.218,
+        "p90": 0.338,
+        "p99": 1.392
+      },
+      "largest_chain_gaps": [
+        {
+          "chain_gap_px": 24.606,
+          "chained_sum_px": 24.642,
+          "endpoint_response": 0.1172,
+          "endpoint_shift_px": 0.426,
+          "sequence_id": "20240905_ValleyFire_cp-s-mobo-c"
+        },
+        {
+          "chain_gap_px": 21.513,
+          "chained_sum_px": 21.75,
+          "endpoint_response": 0.0577,
+          "endpoint_shift_px": 0.626,
+          "sequence_id": "20250107_PalisadesFire_dwpgm-s-mobo-c"
+        },
+        {
+          "chain_gap_px": 18.711,
+          "chained_sum_px": 18.619,
+          "endpoint_response": 0.0968,
+          "endpoint_shift_px": 0.127,
+          "sequence_id": "20251009_RanchoFire_bm-s-mobo-c"
+        },
+        {
+          "chain_gap_px": 7.568,
+          "chained_sum_px": 7.502,
+          "endpoint_response": 0.4739,
+          "endpoint_shift_px": 0.317,
+          "sequence_id": "20260820_ChiaFire_hp-n-mobo-c"
+        },
+        {
+          "chain_gap_px": 7.465,
+          "chained_sum_px": 7.555,
+          "endpoint_response": 0.213,
+          "endpoint_shift_px": 0.224,
+          "sequence_id": "20240724_GroveFire_tp-w-mobo-c"
+        }
+      ],
+      "methods": {
+        "affine": 13,
+        "phase": 2,
+        "phase+iterative": 2247
+      },
+      "pair_share_at_least_px": {
+        "0.5": 0.0504,
+        "1.0": 0.0243,
+        "2.0": 0.0097
+      },
+      "pair_shift_px": {
+        "max": 5.871,
+        "p50": 0.036,
+        "p90": 0.287,
+        "p99": 1.87
+      },
+      "pairs": 2262,
+      "windows": 29,
+      "windows_with_endpoint_shift_at_least_px": {
+        "1.0": 1,
+        "2.0": 0,
+        "5.0": 0
+      }
+    }
+  },
+  "estimator": "plumerank.stabilise.stabilise, passthrough pairs counted as 0.0",
+  "frames_per_window": 79,
+  "roster": "api.main._wall_sequences + _align (DEV + CONFUSE; HOLD refused)",
+  "unit": "working px (480x270)",
+  "what": "camera motion the wall's background models receive under raw-predecessor registration"
+}
