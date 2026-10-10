@@ -504,6 +504,14 @@ if [ -n "$imds_token" ]; then
     http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || true)"
 fi
 
+# The Elastic IP, for the Caddyfile's second site address (http://<ip>), so turning TLS on
+# for the domain does not retire the bare-IP URL the docs carry.
+PLUMERANK_PUBLIC_IP=""
+if [ -n "$imds_token" ]; then
+  PLUMERANK_PUBLIC_IP="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: ${imds_token}" \
+    http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || true)"
+fi
+
 install -m 0600 -o root -g root /dev/null "$ENV_FILE"
 cat > "$ENV_FILE" <<ENVEOF
 # Written by deploy/bootstrap.sh on $(date -Is). Read by plumerank.service and by
@@ -523,6 +531,8 @@ AWS_DEFAULT_REGION=${PLUMERANK_AWS_REGION}
 # Opt-in: only this box publishes CloudWatch metrics, so the silence alarm watches it alone.
 PLUMERANK_TELEMETRY=1
 ${PLUMERANK_INSTANCE_ID:+PLUMERANK_INSTANCE_ID=${PLUMERANK_INSTANCE_ID}}
+# The Elastic IP, served over plain HTTP beside the domain (Caddyfile, second address).
+${PLUMERANK_PUBLIC_IP:+PLUMERANK_PUBLIC_IP=${PLUMERANK_PUBLIC_IP}}
 ENVEOF
 
 install -D -m 0644 "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
@@ -610,6 +620,18 @@ for probe in "/health:the reverse_proxy leg" "/:the static export leg"; do
        check /etc/caddy/Caddyfile, ${APP_DIR}/web/out, and journalctl -u caddy." ;;
   esac
 done
+
+# With a domain set, the bare-IP URL must still answer 200 itself -- not a redirect -- or
+# turning TLS on has retired the address every judge-facing document carried.
+if [ -n "$PLUMERANK_DOMAIN" ] && [ -n "$PLUMERANK_PUBLIC_IP" ]; then
+  ip_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+    -H "Host: ${PLUMERANK_PUBLIC_IP}" "http://127.0.0.1/health" 2>/dev/null || true)"
+  case "$ip_code" in
+    200) say "caddy http://${PLUMERANK_PUBLIC_IP}/health -> 200 (the bare-IP URL still serves)" ;;
+    *) die "caddy answered ${ip_code:-000} for http://${PLUMERANK_PUBLIC_IP}/health with the
+       domain set: the bare-IP URL is retired. Check the Caddyfile's second site address." ;;
+  esac
+fi
 
 if [ -n "$PLUMERANK_DOMAIN" ]; then
   # A warning and not a die: ACME is asynchronous and a first issuance can trail the

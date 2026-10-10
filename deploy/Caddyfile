@@ -11,7 +11,13 @@
 # With an env placeholder as the address, Caddy 2.8 parses the file as global scope and
 # refuses the matcher: "request matchers may not be defined globally" (first launch,
 # 2026-09-17). The braces cost nothing and remove the ambiguity.
-{$PLUMERANK_DOMAIN::80} {
+#
+# TWO addresses, one site. The second is the Elastic IP over plain HTTP, which every
+# judge-facing document linked before the domain existed: with the domain alone, setting
+# PLUMERANK_DOMAIN would silently retire that URL (Caddy's :80 then belongs to the domain's
+# redirect, and an IP-addressed request matches no site). bootstrap.sh writes
+# PLUMERANK_PUBLIC_IP from IMDS; the 127.0.0.1 default only keeps the address parseable.
+{$PLUMERANK_DOMAIN::80}, http://{$PLUMERANK_PUBLIC_IP:127.0.0.1} {
 	@backend path /api/* /health /build-info
 
 	# Security headers on every response, static and proxied. The CSP fits the Next.js
@@ -47,7 +53,7 @@
 		}
 
 		# Evidence crops are files on disk and never pass through Python: one request per
-		# thumbnail against a single-worker Uvicorn that is holding 40 warm background models
+		# thumbnail against a single-worker Uvicorn that is holding 62 warm background models
 		# would put image serving in contention with the pipeline producing the images.
 		handle_path /evidence/* {
 			root * {$PLUMERANK_ROOT:/opt/plumerank}/web/evidence

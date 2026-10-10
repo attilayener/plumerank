@@ -269,6 +269,18 @@ def test_caddy_falls_back_to_plain_http_before_a_domain_exists() -> None:
     assert "{$PLUMERANK_DOMAIN::80}" in _read(CADDYFILE)
 
 
+def test_turning_tls_on_does_not_retire_the_bare_ip_url() -> None:
+    # Every judge-facing document linked http://<elastic ip> before the domain existed.
+    # With the domain as the only site address, setting PLUMERANK_DOMAIN would hand :80 to
+    # the domain's redirect and leave an IP-addressed request matching no site.
+    caddy = _read(CADDYFILE)
+    assert "http://{$PLUMERANK_PUBLIC_IP:" in caddy
+    boot = _read(BOOTSTRAP)
+    assert "meta-data/public-ipv4" in boot
+    assert "PLUMERANK_PUBLIC_IP=${PLUMERANK_PUBLIC_IP}" in boot, "never reaches /etc/plumerank.env"
+    assert 'Host: ${PLUMERANK_PUBLIC_IP}' in boot, "nothing checks the IP still answers"
+
+
 # ---------------------------------------------------------------------------------
 # Cross-file: three files, one filesystem layout
 # ---------------------------------------------------------------------------------
