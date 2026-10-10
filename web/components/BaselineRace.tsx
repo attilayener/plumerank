@@ -85,6 +85,7 @@ function Lane({
               backgroundImage: `repeating-linear-gradient(135deg, ${colour} 0 3px, transparent 3px 8px)`,
               opacity: 0.35,
             }}
+            role="img"
             aria-label={`${lane.label}: no median, fewer than half detected`}
           />
         ) : (
