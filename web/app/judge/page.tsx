@@ -62,9 +62,8 @@ export default function JudgePage() {
             <Link href="/results" style={{ textDecoration: "underline" }}>
               /results
             </Link>{" "}
-            — the build-info block in-page and, after the held-out run, the headline. Until
-            then it says &ldquo;not run yet&rdquo; and shows the development run — systems on
-            one clock, operating curve, sensitivity strip — labelled in-sample.
+            — the build-info block in-page and the held-out headline: systems on one clock,
+            operating curve, sensitivity strip and the ablation grid, from the committed run.
           </li>
         </ol>
       </Section>
@@ -72,7 +71,7 @@ export default function JudgePage() {
       <Section title="2. The receipt">
         <ul className="bullets" style={{ color: "var(--ink-1)", lineHeight: 1.8 }}>
           <li>
-            <strong>733 passed, 2 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
+            <strong>734 passed, 1 skipped</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
           </li>
           <li>
             <strong>Property-based tests</strong> (<code className="code-inline">tests/test_invariants.py</code>,
@@ -91,7 +90,11 @@ export default function JudgePage() {
             <span className="mono">{DEV_RUN_FILE}</span>; rates and baselines on{" "}
             <Link href="/results">/results</Link>)
           </li>
-          <li>Held-out set (the only number allowed to be the headline): not yet run — see §4 below</li>
+          <li>
+            <strong>Held-out set — the headline: 27/54 detected, median 38.0 min</strong> at 2.0
+            alerts per camera-night; like-for-like baselines 18/54 and 20/54, neither reaching a
+            median (<span className="mono">results/bench_2026-10-10.json</span>) — see §4
+          </li>
           <li>
             One AWS <code className="code-inline">t4g.small</code> (Graviton) and one S3 bucket. No
             Lambda, no managed vision API.
@@ -108,20 +111,24 @@ make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
                # reproduce the published headline, and says so on screen.`}
         </pre>
         <p style={{ color: "var(--ink-2)", fontSize: "var(--size-label)" }}>
-          The pair that reproduces the held-out headline itself, once it exists:{" "}
-          <code className="code-inline">make fetch</code> then <code className="code-inline">make bench</code>, ≈95
-          minutes. Nobody needs to run that to evaluate this submission.
+          The pair that reproduces the held-out headline itself:{" "}
+          <code className="code-inline">make fetch</code> then <code className="code-inline">make bench</code> — about
+          35 minutes of fetch, then the evaluation (12m30s on the machine that produced the
+          published file). Nobody needs to run that to evaluate this submission.
         </p>
       </Section>
 
-      <Section title="4. What is not measured yet">
+      <Section title="4. How the headline was produced — and how far to trust it">
         <p style={{ color: "var(--ink-1)" }}>
-          The held-out run has not happened. Until its results file is committed,{" "}
-          <code className="code-inline">GET /api/benchmark</code> returns 404 with an explicit
-          message instead of a fabricated number, and the Wall labels its threshold as the
-          development run&apos;s. The threshold depends only on the fire-free confusion set,
-          which the held-out run reuses, so the Wall&apos;s operating point will not move when
-          it lands — only the headline will appear.
+          The held-out run happened once, on 2026-10-10: the constants were frozen and committed
+          first (<code className="code-inline">results/constants.sha256</code>), and the single read
+          is logged with its commit (<code className="code-inline">results/hold_access.log</code>). 54
+          sequences were measured — 60 in the manifest, 6 excluded by the published rule.
+        </p>
+        <p style={{ color: "var(--ink-1)" }}>
+          27 of 54 is exactly half, so the median is on a knife edge: against an ignition clock
+          shifted by −5 to 0 minutes it reads 33–38 minutes, and from +1 to +5 minutes it does not
+          exist. The detection counts — 27 against 18 and 20 — are the steadier comparison.
         </p>
       </Section>
 

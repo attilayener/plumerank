@@ -64,35 +64,41 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 
 ---
 
-## What it actually measures (today, honestly)
+## What it actually measures
 
-> **This project does not yet have a headline number, and says so on purpose.** The held-out
-> (HOLD) evaluation — the only run whose number is allowed to be called the headline — has not
-> run yet. What exists today is the **DEV** arm (the data the fusion weights were fit on, never
-> the number a judge should be shown as proof): **17 of 29 sequences detected, median
-> time-to-detection 32.0 minutes**, with the threshold calibrated to 1.99 alerts/camera-night
-> on the fire-free confusion set (it realises 2.37 on DEV itself) (`results/arm_dev_2026-10-04.json`).
-> That number is for orientation only. Until the HOLD run exists, `/api/benchmark` on the live
-> box 404s (there is no `results/bench_*.json` to serve), and the live wall runs on the
-> threshold solved on the confusion set by that DEV run — labelled as such on screen. The
-> threshold depends only on the confusion set, so it is the one the held-out run will solve
-> too. See [`JUDGE.md`](JUDGE.md) and `api/main.py`'s `_calibrated_threshold`.
+> **The headline — held-out, read once.** On the **54 held-out FIgLib fires** (60 in
+> `data/manifest_hold.json`, 6 excluded by the published rule in `data/excluded.json`) — sequences
+> no constant was fit on, read exactly once after the constants were frozen
+> (`results/constants.sha256`, `results/hold_access.log`) — PlumeRank detected **27 of 54**, a
+> **median time-to-detection of 38.0 minutes** with every miss counted as never, at **2 alerts per
+> camera-night** calibrated on the fire-free confusion set (`results/bench_2026-10-10.json`).
+> Neither baseline reaches a median: routed through PlumeRank's own per-camera baseline, the same
+> CNN detects 18 and frame differencing 20.
+>
+> **The median is on a knife edge, and that is part of the result.** It exists because exactly half
+> the fires were detected. Re-scored against an ignition clock shifted by −5…0 minutes it reads
+> 33–38 min; at +1…+5 minutes fewer than half count as detected and there is no median
+> (`results/sensitivity_2026-10-10.csv`). The detection counts are the steadier comparison.
 
-| Metric | DEV (orientation only — never the claim) |
-|---|---|
-| Detected | 17 / 29 |
-| Median time-to-detection | 32.0 min |
-| Alert rate | 1.99 alerts/camera-night on the confusion set (the calibration target is 2.0); 2.37 realised on DEV |
-| Escalation fraction (frames touched by the ONNX classifier) | 2.23% — over the 2% design cap the run itself records (`within_max: false`) |
-| **B1 through PlumeRank's own per-camera baseline (like-for-like)** | **14 / 29 detected — no median** (2.51 realised on DEV) |
-| **B2 through PlumeRank's own per-camera baseline (like-for-like)** | **10 / 29 detected — no median** (2.05 realised on DEV) |
-| B1 as deployed (same CNN, every frame, no baseline) | 6 / 29 detected — no median (0.46 realised on DEV; its threshold sits within 1e-6 of 1.0 — saturated CNN probabilities) |
-| B2 as deployed (frame differencing, no baseline) | 3 / 29 detected — no median (1.84 realised on DEV) |
+| Metric | **HOLD — the headline** (54 fires) | DEV — tuning arm, in-sample (29 fires) |
+|---|---|---|
+| PlumeRank detected | **27 / 54** | 17 / 29 |
+| Median time-to-detection (misses = never) | **38.0 min** | 32.0 min |
+| Mean time-to-detection of the detected fires | 13.3 min | 16.9 min |
+| Alert rate | 1.99 /camera-night on the confusion set (target 2.0); 1.92 realised on HOLD | 1.99 on the confusion set; 2.37 realised on DEV |
+| Escalation fraction (frames sent to the ONNX classifier) | 1.76% — within the 2% cap | 2.23% — over the cap |
+| CNN calls per camera-night | 1.4 (PlumeRank) vs 3,645 (B1) | 1.8 vs 3,645 |
+| **B1 through the same per-camera baseline (like-for-like)** | **18 / 54 — no median** | 14 / 29 — no median |
+| **B2 through the same per-camera baseline (like-for-like)** | **20 / 54 — no median** | 10 / 29 — no median |
+| B1 as deployed (same CNN, every frame) | 2 / 54 — no median (threshold within 1e-6 of 1.0: saturated probabilities) | 6 / 29 — no median |
+| B2 as deployed (frame differencing) | 4 / 54 — no median | 3 / 29 — no median |
 
-Every system is calibrated to the same budget **on the confusion set** (all five land at 1.99).
-On DEV the realised rates differ, as listed. The per-sequence results — which sequences each
-system catches, when, and which it misses — are in the same file under `per_sequence`, and
-summarised in [`REPORT.md`](REPORT.md) §6.
+Every system is calibrated to the same budget **on the same 33 fire-free windows** (all five land at
+1.99). The HOLD run executed on a local arm64 machine (`run.instance: local (not EC2)`, wall clock
+12m30s), not on the endpoint box, so serving judges was never at risk; `make fetch && make bench`
+reproduces it anywhere. Per-sequence results for every system are in each file's `per_sequence`
+and summarised in [`REPORT.md`](REPORT.md) §6. The live wall runs on the same frozen threshold
+(0.849), which depends only on the confusion set.
 
 ## Honest limitations
 
@@ -133,6 +139,15 @@ summarised in [`REPORT.md`](REPORT.md) §6.
    contest between differently-sized models.
 7. **No upload path, no dispatch path, no suppression path — by design, not by omission.** See
    "Responsible use" below.
+8. **The classifier escalation does not earn a detection on DEV, and the shipped cell is not
+   the best DEV cell on count.** The twelve-cell grid (`results/ablation_2026-10-10.csv`,
+   {MOG2, LSBP, GSOC} × S4 on/off × escalation on/off, all through the shipped per-camera
+   baseline at 2.0 alerts/camera-night) shows escalation on and off detecting the same number of fires in
+   five of six pairs, and one fewer with it on in the sixth. S4 is the component that moves the
+   count (MOG2: 17 with it, 14 without). GSOC with S4 off detects 18/29 at p50 33.0 against the
+   shipped cell's 17/29 at p50 32.0. DEV is the tuning arm, so none of this re-opened the frozen
+   configuration: the held-out run measures the shipped cell, escalation included, because the
+   configuration was frozen before this grid existed. On DEV the classifier is not shown to help.
 
 ---
 
@@ -226,7 +241,7 @@ heartbeat-silence alarm that reboots the instance if the service stops beating. 
 ## Testing
 
 ```
-733 passed, 2 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
+734 passed, 1 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
 ```
 
 | Layer | Tool | Notes |
@@ -248,7 +263,7 @@ make verify             # ≤3 min: rebuilds .venv, runs the offline suite, then
                          # results/verify_micro.json. Does NOT reproduce the published
                          # headline and never claims to.
 make fetch && make bench  # ~95 min total: the pair that reproduces the held-out headline
-                           # once results/bench_<date>.json exists (HOLD run, pending)
+                           # (results/bench_2026-10-10.json, committed)
 ```
 
 See [`DEMO.md`](DEMO.md) for the full reproduce walkthrough and [`JUDGE.md`](JUDGE.md) for the

@@ -232,7 +232,7 @@ body.overview .grid-view { display: grid; }
 </section>
 
 <section class="slide s4" data-title="The frozen moment">
-  <div class="kicker">Border58 Fire · Otay Mountain West · real frames</div>
+  <div class="kicker">Border58 Fire · Otay Mountain West · real frames · development set</div>
   <h2>The tile that changed <span class="hot">goes first.</span></h2>
   <div class="strip">
     <div class="f"><div class="im"><img src="../assets/border58-m05.webp" alt="Five minutes before ignition"></div><div class="t">T−05</div><div class="d">quiet</div><div class="sl"><i></i><i></i></div></div>
@@ -274,19 +274,19 @@ body.overview .grid-view { display: grid; }
 </section>
 
 <section class="slide s7" data-title="Results">
-  <div class="kicker">Development set · in-sample · same budget</div>
+  <div class="kicker">Held-out · 54 fires · read once · same budget</div>
   <h2>Same model. <span class="hot">Asked less often.</span></h2>
   <div class="bars">
-    <div class="bar pr"><div class="top">PlumeRank<span>17 / 29</span></div><div class="tr"><div class="fi" style="width:58.6%"></div></div></div>
-    <div class="bar"><div class="top">B1 via same baseline<span>14 / 29</span></div><div class="tr"><div class="fi" style="width:48.3%"></div></div></div>
-    <div class="bar"><div class="top">B2 via same baseline<span>10 / 29</span></div><div class="tr"><div class="fi" style="width:34.5%"></div></div></div>
-    <div class="bar"><div class="top">B1 · CNN on every frame<span>6 / 29</span></div><div class="tr"><div class="fi" style="width:20.7%"></div></div></div>
-    <div class="bar"><div class="top">B2 · frame differencing<span>3 / 29</span></div><div class="tr"><div class="fi" style="width:10.3%"></div></div></div>
+    <div class="bar pr"><div class="top">PlumeRank<span>27 / 54</span></div><div class="tr"><div class="fi" style="width:50%"></div></div></div>
+    <div class="bar"><div class="top">B2 via same baseline<span>20 / 54</span></div><div class="tr"><div class="fi" style="width:37.0%"></div></div></div>
+    <div class="bar"><div class="top">B1 via same baseline<span>18 / 54</span></div><div class="tr"><div class="fi" style="width:33.3%"></div></div></div>
+    <div class="bar"><div class="top">B2 · frame differencing<span>4 / 54</span></div><div class="tr"><div class="fi" style="width:7.4%"></div></div></div>
+    <div class="bar"><div class="top">B1 · CNN on every frame<span>2 / 54</span></div><div class="tr"><div class="fi" style="width:3.7%"></div></div></div>
   </div>
-  <div class="big"><b>32.0</b><p>minutes, median time to detection over all 29 fires, misses counted as never. Only PlumeRank reaches a median.</p></div>
-  <p class="note">CNN calls per camera-window: PlumeRank 1.8 · B1 3,645 · results/arm_dev_2026-10-04.json</p>
+  <div class="big"><b>38.0</b><p>minutes, median time to detection over all 54 fires, misses counted as never. Only PlumeRank reaches a median, and only just.</p></div>
+  <p class="note">CNN calls per camera-window: PlumeRank 1.4 · B1 3,645 · results/bench_2026-10-10.json</p>
   <div class="foot"><span>Results</span><b>07 / 10</b></div>
-  <aside class="speaker-notes">B1 is our own ONNX classifier on every frame, so the gap is the pipeline, not the model. These are development numbers, in-sample, and labelled that way. The held-out run is read once, after the freeze.</aside>
+  <aside class="speaker-notes">These are the held-out fires, read once after the freeze. B1 is our own ONNX classifier on every frame, so the gap is the pipeline, not the model. Twenty-seven of fifty-four is exactly half: the median is fragile, so lean on the counts.</aside>
 </section>
 
 <section class="slide s8" data-title="Held-out discipline">
@@ -297,16 +297,16 @@ body.overview .grid-view { display: grid; }
     <div class="r"><b>Logged reads</b><p>Every read of held-out pixels appends one line, with the commit.</p><code>results/hold_access.log</code></div>
     <div class="r"><b>Verified frames</b><p>Every frame must hash to the fetch receipt before the read counts.</p><code>data/fetch_receipt.json</code></div>
   </div>
-  <p class="lim"><b>Known limits:</b> daylight only · cloud, not fog, is the adversary · S3 alone scores AUC 0.44</p>
+  <p class="lim"><b>Known limits:</b> half the held-out fires missed · median fragile to the ignition clock · daylight only · cloud, not fog, is the adversary</p>
   <div class="foot"><span>Trust</span><b>08 / 10</b></div>
-  <aside class="speaker-notes">We built the honesty into the code. The 54 measured held-out fires are read exactly once, after the freeze, and the README lists the limits in our own words, including that cloud, not fog, is what costs the budget.</aside>
+  <aside class="speaker-notes">We built the honesty into the code. The 54 measured held-out fires were read exactly once, after the freeze, and the README lists the limits in our own words, including that cloud, not fog, is what costs the budget.</aside>
 </section>
 
 <section class="slide s9" data-title="Engineering">
   <div class="kicker">Proof of work</div>
   <h2>Re-checked in <span class="hot">three minutes.</span></h2>
   <div class="grid">
-    <div class="cell"><b>733</b><span>tests passing</span><em>97% coverage on plumerank/</em></div>
+    <div class="cell"><b>734</b><span>tests passing</span><em>97% coverage on plumerank/</em></div>
     <div class="cell"><b>23</b><span>OpenCV 5 surfaces</span><em>counted by check_claims.py</em></div>
     <div class="cell"><b>1,500</b><span>property cases</span><em>hypothesis · budget never overspent</em></div>
     <div class="cell"><b>4</b><span>GET routes</span><em>no upload, no dispatch</em></div>

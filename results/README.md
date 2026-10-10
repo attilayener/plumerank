@@ -7,7 +7,7 @@ that produced it.
 |---|---|
 | `arm_dev_<date>.json` | The shipped configuration on the DEV arm (the fit/tuning data — diagnostic, never the headline). Includes `baselines_rebased` (like-for-like) and `per_sequence` (failure cases). The live wall calibrates from the newest one until a held-out file exists. |
 | `arm_dev_<cell>_<date>.json` | Ablation cells and sweeps (`s4off`, `ztrail10`, a background or budget) — never the shipped configuration. |
-| `bench_<date>.json` | The held-out (HOLD) run — the only file allowed to be called the headline. Not yet run. |
+| `bench_<date>.json` | The held-out (HOLD) run — the only file allowed to be called the headline. `bench_2026-10-10.json`: 27/54 detected, p50 38.0 min, read once at commit `5df7332` (`hold_access.log`) after the freeze (`constants.sha256`). |
 | `verify_micro.json` | What `make verify` must reproduce byte-for-byte on the committed micro corpus. |
 | `*.md` | Dated analysis notes, written when each measurement was taken and left as written. |
 

@@ -98,7 +98,28 @@ the operating point a fire agency actually buys at, not at each system's most fl
 The like-for-like rows put B1 and B2 through the same per-camera baseline PlumeRank uses; on
 DEV the realised rates then differ by system, and are listed.
 
-**What is measured today — the DEV arm (diagnostic, never the headline):**
+**The headline — the held-out (HOLD) arm, read once after the constants were frozen:**
+
+| Metric | HOLD, 54 sequences (`results/bench_2026-10-10.json`) |
+|---|---|
+| Detected | **27 / 54** |
+| Median time-to-detection (misses = never) | **38.0 min** |
+| Mean time-to-detection of the detected fires | 13.3 min |
+| Alert rate | 1.99 alerts/camera-night on the confusion set (target 2.0); 1.92 realised on HOLD |
+| Escalation fraction | 1.76% of frames — within the 2% design cap |
+| **B1 through the same per-camera baseline as PlumeRank** | **18 / 54 detected — no median** |
+| **B2 through the same per-camera baseline as PlumeRank** | **20 / 54 detected — no median** |
+| B1 as deployed (same ONNX, every frame) | 2 / 54 detected — no median |
+| B2 as deployed (frame differencing) | 4 / 54 detected — no median |
+
+27 of 54 is exactly half, so the median is fragile: against an ignition clock shifted by −5…0
+minutes it reads 33–38 min, and at +1…+5 minutes it does not exist
+(`results/sensitivity_2026-10-10.csv`). The detection counts are the steadier comparison. The
+ablation grid the HOLD file quotes (`results/ablation_2026-10-10.csv`) is a DEV run: escalation
+on/off detects the same number of fires in five of six pairs, and GSOC with S4 off detects one more
+DEV fire (18/29) than the shipped cell — disclosed, not acted on, because DEV is the tuning arm.
+
+**The tuning arm — DEV (diagnostic, never the headline):**
 
 | Metric | DEV, shipped configuration |
 |---|---|
@@ -162,23 +183,20 @@ What the rows say, plainly:
 - **DEV is in-sample.** The fusion weights were fit here; the held-out run is the test of whether
   any of this generalises.
 
-**What is not measured yet, and why that is a decision, not an outage.** The held-out (HOLD)
-evaluation — the only run whose number this project is willing to call a headline — has not
-executed, so there is no `results/bench_*.json` and `GET /api/benchmark` returns `404` with an
-explicit message. The live Wall meanwhile runs on the threshold the DEV run solved on the
-fire-free confusion set — the only arm the threshold depends on, so it is the threshold the
-held-out run will solve too — and labels it as development-calibrated on screen.
-`scripts/bench.py`'s `_check_calibration` refuses to publish any threshold it could not bring
-to the budget, from either side. Reproduce path once it exists: `make fetch && make bench` (≈95 minutes;
-`make verify`, ≤3 minutes, is a sanity check against the micro-corpus only and does not
-reproduce this number — see `DEMO.md`).
+**How the headline was protected.** The constants were frozen and committed
+(`results/constants.sha256`) before any held-out frame was read; `scripts/bench.py` refuses to
+read HOLD otherwise, verifies every frame against the fetch receipt, and logs the single read with
+its commit (`results/hold_access.log`). The live Wall runs on the frozen threshold the held-out
+run solved on the fire-free confusion set. Reproduce: `make fetch && make bench` (`make verify`,
+≤3 minutes, is a sanity check against the micro-corpus only and does not reproduce this number —
+see `DEMO.md`).
 
 **Sensitivity design.** Because the reported ignition time is itself soft, the headline is
 designed to be re-scored at every offset from −5 to +5 minutes from the same cached score
 matrix in the same run, so the sensitivity curve cannot drift from the headline it describes
 (`scripts/bench.py --sensitivity`).
 
-**Testing, as a form of evaluation in its own right.** 733 tests passed, 2 skipped, 97%
+**Testing, as a form of evaluation in its own right.** 734 tests passed, 1 skipped, 97%
 coverage on `plumerank/`; 1,500 hypothesis-generated cases (`tests/test_invariants.py`)
 property-testing that the fused hazard never leaves `[0, 1]` and the alert budget is never overspent
 across 500 generated inputs or call sequences each; `scripts/check_claims.py` mechanically checks every route,

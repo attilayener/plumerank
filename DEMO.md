@@ -7,11 +7,10 @@ This is the full walkthrough. For the 30-second version, see [`JUDGE.md`](JUDGE.
 - Wall: `http://44.242.91.201`
 - `GET /build-info` — real `cv2.getBuildInformation()`, instance id, AMI id, commit sha
 - `GET /health`
-- `/results` — `/build-info` in-page now; operating curve, baseline race, sensitivity strip and
-  ablation grid once the held-out run is committed
+- `/results` — `/build-info` in-page; the held-out operating curve, baseline race, sensitivity
+  strip and ablation grid
 - `GET /api/watchlist` — the SSE stream the Wall renders
-- `GET /api/benchmark` — serves the committed `results/bench_<date>.json` verbatim; **404s
-  honestly** until that file exists (the HOLD run — see "What is not measured yet" below)
+- `GET /api/benchmark` — serves the committed `results/bench_2026-10-10.json` verbatim
 
 ## Reproduce — real run, measured just now
 
@@ -40,18 +39,32 @@ REPRODUCED HERE
 ========================================================================
 PUBLISHED, NOT RECOMPUTED HERE
 ========================================================================
-  status         : no committed HOLD run in results/ -- nothing is published yet, and this command does not produce it
+  source         : results/bench_2026-10-10.json, printed verbatim -- not recomputed here
+
+  PlumeRank -- median time-to-detection @ 2.00 alerts/camera-night
+    arm            : hold (54 sequences, 6 excluded from the 60 in manifest_hold.json, see data/excluded.json)
+    PlumeRank      : p50   38.0 min   p95    n/a min
+    B1 CNN grid    : p50    n/a min   p95    n/a min      (the SAME onnx, every frame)
+    B2 frame-diff  : p50    n/a min   p95    n/a min
+    realised rate  : 1.99 alerts/camera-night on the confusion set (target 2.00, uncapped)
+    escalation     : 1.76% of frames touched by ONNX
+    model calls    : PlumeRank 1 / camera-night   |   B1 3645 / camera-night
+    t0 sensitivity : advantage not finite at all 11 offsets in [-5,+5]
+    background     : mog2
+    commit 5df73321059f2797c32d302676b813c81b87fd0c  instance local (not EC2)  wall clock 12m29s  2026-10-10
+  -> results/bench_2026-10-10.json
+
   reproduce with: make fetch && make bench  (about 95 min)
 ```
 
-`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **733 passed, 2
+`make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **734 passed, 1
 skipped, 97% coverage on `plumerank/`, ~95s, no network, no credentials.**
 
-### The pair that reproduces the published headline, once it exists
+### The pair that reproduces the published headline
 
 ```bash
 make fetch   # ~35 min: the corpus, sha256-verified, resumable
-make bench   # ~60 min: scripts/bench.py --arm hold --budget 2.0 --sensitivity --seed 20261026
+make bench   # 12m30s on the arm64 machine that produced results/bench_2026-10-10.json (budget up to an hour on a small instance)
 # the ablation grid is its own DEV run, quoted by the held-out file:
 .venv/bin/python scripts/bench.py --arm dev --ablation   # twelve cells, a few hours, off the box
 ```
@@ -60,26 +73,21 @@ Nobody needs to run this to evaluate the submission — `results/` already carri
 artefact any document cites, and the live box runs the identical code. It exists so the number
 is checkable, not just assertable.
 
-## What is not measured yet, and why that is honest rather than broken
+## The held-out receipt
 
-The HOLD arm — the only run whose number this project is willing to call a headline — has not
-executed. Concretely, right now:
+The one HOLD read, as committed (`results/bench_2026-10-10.json`, `results/hold_access.log`):
 
-- `GET /api/benchmark` → `404`, with a message naming the missing `results/bench_*.json`, not a
-  number.
-- The live Wall runs on the threshold the newest shipped DEV run solved on the fire-free
-  confusion set (`results/arm_dev_<date>.json` → `calibration.threshold`). The threshold depends
-  only on that confusion set, so it is the one the held-out run will solve too; the Wall labels
-  it as development-calibrated, and `/health` reports it under `live_pipeline.calibration_kind`.
-- `scripts/bench.py`'s calibration gate (`_check_calibration`) refuses to publish any threshold
-  it could not bring to the budget, from either side: *"Publishing this as a calibrated
-  operating point would be a fabrication."*
-
-The **DEV** arm exists (the data the fusion weights were fit on — diagnostic only, never the
-claim): 17/29 detected, p50 32.0 min; threshold calibrated to 1.99 alerts/camera-night on the
-confusion set (2.37 realised on DEV). Like-for-like, B1 and B2 through PlumeRank's own
-per-camera baseline detect 14/29 and 10/29; as deployed, 6/29 and 3/29
-(`results/arm_dev_2026-10-04.json`).
+| | |
+|---|---|
+| When / where | 2026-10-10T05:37Z, commit `5df7332`, local arm64 machine (`run.instance: local (not EC2)`), wall clock **12m30s** |
+| Freeze | `results/constants.sha256` = `02752e86…`, committed before the read; bench.py refuses HOLD otherwise |
+| Sequences | 54 measured (60 in the manifest, 6 excluded by `data/excluded.json`) |
+| PlumeRank | **27/54 detected, p50 38.0 min**, mean of detected 13.3 min, 1.92 alerts/camera-night realised |
+| Like-for-like baselines | B1 18/54, B2 20/54 — no median |
+| As-deployed baselines | B1 2/54, B2 4/54 — no median |
+| Escalation | 75 of 4,266 frames (1.76%) — within the 2% cap; 1.4 CNN calls per camera-night vs B1's 3,645 |
+| Per-frame latency (that machine) | classical p50 6.5 ms / p95 8.5 ms; B1 CNN-grid p50 53.6 ms |
+| Sensitivity | p50 33–38 min at ignition-clock offsets −5…0; no median at +1…+5 (`results/sensitivity_2026-10-10.csv`) |
 
 ## What a real-run receipt looks like for this project
 
@@ -89,7 +97,8 @@ committed expectation, which is exactly what the block above shows. The AWS side
 receipt: one `t4g.small` (Graviton) instance, one S3 bucket (corpus: the DEV and CONFUSE
 frames the box replays, 5,082 objects / 2.38 GB per `aws s3 ls --summarize`),
 CloudWatch metrics plus drift (±15%) and silence alarms on the alert budget — all funded by a $150 AWS compute
-grant from this competition, not a personal card.
+grant from this competition, not a personal card. The held-out run itself cost nothing: it ran
+off the box, on the local machine named above.
 
 ## Honest limitations
 

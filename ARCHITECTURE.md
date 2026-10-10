@@ -86,9 +86,9 @@ the ranked list with one evidence crop per entry (drawn server-side with `cv2.li
 
 **There is no pre-rendered ranking anywhere on the judged path.** The background model warms
 from the pre-ignition frames FIgLib supplies, on screen -- exactly what a real camera start
-looks like. `GET /api/benchmark` 404s while no `results/bench_*.json` exists. Until then the
-live Wall runs on the threshold the newest shipped DEV run solved on the fire-free confusion
-set -- the only arm the threshold depends on -- and says so on screen. `bench.py` refuses to
+looks like. `GET /api/benchmark` serves the committed held-out file (`results/bench_2026-10-10.json`)
+verbatim, and the live Wall runs on its threshold -- solved on the fire-free confusion set, the
+only arm the threshold depends on -- and says so on screen. `bench.py` refuses to
 publish any threshold it could not calibrate to the budget (`_check_calibration`).
 
 ## API endpoints -- four, all GET
