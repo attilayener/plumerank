@@ -71,7 +71,7 @@ export default function JudgePage() {
       <Section title="2. The receipt">
         <ul className="bullets" style={{ color: "var(--ink-1)", lineHeight: 1.8 }}>
           <li>
-            <strong>734 passed, 1 skipped locally (CI, without the corpus, runs 722 and skips 13)</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
+            <strong>745 passed, 1 skipped locally (CI, without the corpus, runs 733 and skips 13)</strong>, 97% coverage on <code className="code-inline">plumerank/</code>
           </li>
           <li>
             <strong>Property-based tests</strong> (<code className="code-inline">tests/test_invariants.py</code>,
