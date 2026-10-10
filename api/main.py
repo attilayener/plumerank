@@ -735,13 +735,15 @@ def _calibrated_threshold() -> tuple[float | None, str | None]:
         path = _development_file()
         if path is None:
             return None, None
+    relative = _repo_relative(path)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         LOG.error("benchmark file %s is unreadable: %s", path, exc)
-        return None, None
-
-    relative = _repo_relative(path)
+        # A source, not None: a committed file that cannot be read must reach the probe's
+        # "is committed but cannot calibrate" branch, never "run `make bench`" -- that
+        # sentence tells an operator to re-read HOLD.
+        return None, relative
     # The wall runs MOG2 at the frozen budget, so a threshold solved under anything else
     # would calibrate it to an operating point it does not run at. bench.py refuses to
     # write such a HOLD file; this is the second lock on the same door.

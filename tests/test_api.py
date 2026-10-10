@@ -300,6 +300,19 @@ def _held_out(threshold: float, **over: Any) -> dict[str, Any]:
     return payload
 
 
+def test_an_unreadable_held_out_file_never_prescribes_make_bench(
+    client: TestClient, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, reprobe: None
+) -> None:
+    """A corrupt committed file (merge markers, a truncated checkout) is the only route on
+    the judged box to the "has not been published" sentence -- which names `make bench`."""
+    monkeypatch.setattr(main, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(main, "_wall_sequences", lambda: ([object()], None))
+    (tmp_path / "bench_2026-10-08.json").write_text("{<<<<<<< HEAD", encoding="utf-8")
+    detail = client.get("/health").json()["live_pipeline"]["detail"]
+    assert "is committed but cannot calibrate" in detail, detail
+    assert "make bench" not in detail, detail
+
+
 def test_an_ablation_name_never_calibrates_the_wall(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
