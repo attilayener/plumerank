@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="docs/assets/icon.svg" width="144" alt="PlumeRank Icon">
+  <img src="docs/assets/icon-animated.svg" width="144" alt="PlumeRank Icon">
 
   <h1>PlumeRank 🔥📷</h1>
   <p><em>A wall of wildfire cameras. One dispatcher. Which one gets opened next?</em></p>
-  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-night; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
+  <img src="docs/assets/readme-hero-animated.svg" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-night; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
 
   <br/>
 
