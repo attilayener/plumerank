@@ -579,7 +579,7 @@ def _read_working_frame(path: str) -> np.ndarray:
     if cached is not None:
         try:
             arr = np.load(cached, allow_pickle=False)
-        except (OSError, ValueError):
+        except (OSError, ValueError, EOFError):  # EOFError: a zero-length entry (crash mid-write)
             arr = None
         if (
             arr is not None

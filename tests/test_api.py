@@ -1030,6 +1030,22 @@ def test_the_frame_cache_is_pixel_identical_and_is_read_back(
     assert np.array_equal(main._read_working_frame(str(frame)), direct)
 
 
+def test_a_zero_length_cache_entry_is_re_decoded_and_healed(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """np.load raises EOFError, not OSError/ValueError, on an empty file -- which would fail
+    that frame's tick on every lap instead of falling back to decoding."""
+    frame = sorted((main.REPO_ROOT / "data" / "micro").rglob("*.jpg"))[0]
+    monkeypatch.setattr(main, "FRAME_CACHE_DIR", tmp_path / "cache")
+    cached = main._cache_path(str(frame))
+    assert cached is not None
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(b"")
+    out = main._read_working_frame(str(frame))
+    assert np.array_equal(out, main._decode_working_frame(str(frame)))
+    assert cached.stat().st_size > 0, "the empty entry is rewritten, not left to fail again"
+
+
 def test_a_burst_of_connects_cannot_exceed_the_cap(monkeypatch: pytest.MonkeyPatch) -> None:
     """Slots are reserved before the response exists, so two admits cannot share one."""
     from starlette.requests import Request as StarletteRequest
