@@ -324,10 +324,17 @@ def test_pinning_opencv_threads_actually_takes():
     on the linux/aarch64 deployment target while proving nothing on either. The timing
     proves the cap took: measured 185.2 ms pinned against 33.9 ms unpinned for the same
     work on the same build.
+
+    IPP is switched off for the measurement. On x86-64 the wheel routes this morphology
+    through Intel IPP, which does not run on OpenCV's thread pool at all, so GitHub's x86
+    runners timed 21.4 ms pinned against 19.4 ms unpinned -- a true statement about IPP and
+    no statement about setNumThreads. arm64 has no IPP, so there this changes nothing.
     """
     from plumerank.metrics import pin_opencv_threads
 
     before = cv2.getNumThreads()
+    optimized = cv2.useOptimized()
+    cv2.setUseOptimized(False)
     try:
         assert pin_opencv_threads(1) >= 1
         with pytest.raises(ValueError):
@@ -352,3 +359,4 @@ def test_pinning_opencv_threads_actually_takes():
         )
     finally:
         cv2.setNumThreads(before)
+        cv2.setUseOptimized(optimized)
