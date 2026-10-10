@@ -77,8 +77,9 @@ same time of day. `scripts/train_tile_classifier.py` trains the one ONNX model o
 runs every arm: the DEV arm writes `results/arm_dev_<date>.json`, and the one held-out run
 writes `results/bench_<date>.json`, which `GET /api/benchmark` then serves byte-for-byte.
 
-**Online, per replay tick** -- stabilise against the previous raw frame (not a fixed reference;
-measured in `results/registration_2026-10-10.json`), segment, measure S1-S4,
+**Online, per replay tick** -- stabilise against the previous raw frame (not a fixed reference; a whole-frame
+phase correlation, so under moving cloud the estimate follows the sky -- refereed against the
+ground in `results/registration_2026-10-10.json`), segment, measure S1-S4,
 fuse into a hazard, escalate -- within each arm -- the top-2 ranked cameras whose hazard clears
 the escalation floor through the ONNX tile classifier (the wall is the DEV and CONFUSE replays on
 one screen and reads each camera's arm from the manifest, as bench.py escalates each arm

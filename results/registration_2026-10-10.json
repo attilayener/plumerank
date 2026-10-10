@@ -1,47 +1,211 @@
 {
   "arms": {
     "confuse": {
-      "endpoint_shift_px": {
-        "max": 3.511,
-        "p50": 0.156,
-        "p90": 0.569,
-        "p99": 2.718
+      "endpoint_shift_px_trusted": {
+        "max": 0.582,
+        "p50": 0.107,
+        "p90": 0.27,
+        "p99": 0.512
       },
-      "largest_chain_gaps": [
+      "endpoint_untrusted_windows": 5,
+      "endpoints": [
         {
-          "chain_gap_px": 120.439,
-          "chained_sum_px": 121.254,
+          "endpoint_response": 0.2821,
+          "endpoint_shift_px": 0.582,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_bh-w-mobo-c_20260817"
+        },
+        {
+          "endpoint_response": 0.8141,
+          "endpoint_shift_px": 0.053,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_bl-n-mobo-c_20260826"
+        },
+        {
+          "endpoint_response": 0.1456,
+          "endpoint_shift_px": 0.491,
+          "endpoint_trusted": false,
+          "sequence_id": "confuse_bm-e-mobo-c_20260826"
+        },
+        {
+          "endpoint_response": 0.4082,
+          "endpoint_shift_px": 0.167,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_bm-n-mobo-c_20260820"
+        },
+        {
+          "endpoint_response": 0.8352,
+          "endpoint_shift_px": 0.036,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_ch-s-mobo-c_20260901"
+        },
+        {
+          "endpoint_response": 0.6973,
+          "endpoint_shift_px": 0.274,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_cp-n-mobo-c_20260901"
+        },
+        {
           "endpoint_response": 0.0115,
           "endpoint_shift_px": 3.511,
+          "endpoint_trusted": false,
           "sequence_id": "confuse_cp-w-mobo-c_20260826"
         },
         {
-          "chain_gap_px": 40.416,
-          "chained_sum_px": 39.39,
+          "endpoint_response": 0.7788,
+          "endpoint_shift_px": 0.023,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_dwpgm-w-mobo-c_20260823"
+        },
+        {
+          "endpoint_response": 0.5438,
+          "endpoint_shift_px": 0.087,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_hp-s-mobo-c_20260817"
+        },
+        {
+          "endpoint_response": 0.6965,
+          "endpoint_shift_px": 0.157,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_hp-w-mobo-c_20260901"
+        },
+        {
+          "endpoint_response": 0.5604,
+          "endpoint_shift_px": 0.106,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_lp-n-mobo-c_20260820"
+        },
+        {
+          "endpoint_response": 0.1933,
+          "endpoint_shift_px": 0.268,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_lp-s-mobo-c_20260820"
+        },
+        {
+          "endpoint_response": 0.8714,
+          "endpoint_shift_px": 0.243,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_lp-w-mobo-c_20260829"
+        },
+        {
+          "endpoint_response": 0.8784,
+          "endpoint_shift_px": 0.173,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_marconi-n-mobo-c_20260901"
+        },
+        {
+          "endpoint_response": 0.3086,
+          "endpoint_shift_px": 0.324,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_mg-e-mobo-c_20260823"
+        },
+        {
+          "endpoint_response": 0.695,
+          "endpoint_shift_px": 0.241,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_mg-s-mobo-c_20260829"
+        },
+        {
           "endpoint_response": 0.0651,
           "endpoint_shift_px": 1.033,
+          "endpoint_trusted": false,
           "sequence_id": "confuse_mlo-s-mobo-c_20260826"
         },
         {
-          "chain_gap_px": 37.362,
-          "chained_sum_px": 36.851,
+          "endpoint_response": 0.4695,
+          "endpoint_shift_px": 0.082,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_mp-n-mobo-m_20260820"
+        },
+        {
+          "endpoint_response": 0.9302,
+          "endpoint_shift_px": 0.079,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_om-e-mobo-c_20260829"
+        },
+        {
+          "endpoint_response": 0.312,
+          "endpoint_shift_px": 0.137,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_om-n-mobo-c_20260826"
+        },
+        {
+          "endpoint_response": 0.3876,
+          "endpoint_shift_px": 0.078,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_om-w-mobo-m_20260820"
+        },
+        {
           "endpoint_response": 0.1164,
           "endpoint_shift_px": 0.516,
+          "endpoint_trusted": false,
           "sequence_id": "confuse_pi-e-mobo-c_20260823"
         },
         {
-          "chain_gap_px": 36.082,
-          "chained_sum_px": 36.402,
           "endpoint_response": 0.0998,
           "endpoint_shift_px": 0.758,
+          "endpoint_trusted": false,
           "sequence_id": "confuse_pi-s-mobo-c_20260823"
         },
         {
-          "chain_gap_px": 30.573,
-          "chained_sum_px": 29.991,
-          "endpoint_response": 0.2821,
-          "endpoint_shift_px": 0.582,
-          "sequence_id": "confuse_bh-w-mobo-c_20260817"
+          "endpoint_response": 0.7774,
+          "endpoint_shift_px": 0.243,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_rm-e-mobo-c_20260826"
+        },
+        {
+          "endpoint_response": 0.9678,
+          "endpoint_shift_px": 0.054,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_rm-w-mobo-c_20260826"
+        },
+        {
+          "endpoint_response": 0.7586,
+          "endpoint_shift_px": 0.072,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_sdsc-e-mobo-c_20260826"
+        },
+        {
+          "endpoint_response": 0.265,
+          "endpoint_shift_px": 0.091,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_sm-n-mobo-c_20260820"
+        },
+        {
+          "endpoint_response": 0.6652,
+          "endpoint_shift_px": 0.108,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_sm-s-mobo-c_20260820"
+        },
+        {
+          "endpoint_response": 0.7482,
+          "endpoint_shift_px": 0.086,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_sm-w-mobo-c_20260901"
+        },
+        {
+          "endpoint_response": 0.4586,
+          "endpoint_shift_px": 0.024,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_stgo-w-mobo-c_20260829"
+        },
+        {
+          "endpoint_response": 0.6236,
+          "endpoint_shift_px": 0.216,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_vo-w-mobo-c_20260817"
+        },
+        {
+          "endpoint_response": 0.8506,
+          "endpoint_shift_px": 0.084,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_wc-w-mobo-m_20260826"
+        },
+        {
+          "endpoint_response": 0.7593,
+          "endpoint_shift_px": 0.156,
+          "endpoint_trusted": true,
+          "sequence_id": "confuse_wilson-s-mobo-c_20260829"
         }
       ],
       "methods": {
@@ -61,55 +225,242 @@
         "p99": 1.389
       },
       "pairs": 2574,
+      "refereed_at_least_px": {
+        "0.5": {
+          "camera": 1,
+          "weather": 189
+        },
+        "1.0": {
+          "camera": 0,
+          "weather": 39
+        },
+        "2.0": {
+          "camera": 0,
+          "weather": 24
+        }
+      },
+      "weather_at_least_1px_terrain_shift_px": {
+        "max": 0.233,
+        "p50": 0.043,
+        "p90": 0.104,
+        "p99": 0.222
+      },
       "windows": 33,
-      "windows_with_endpoint_shift_at_least_px": {
-        "1.0": 2,
-        "2.0": 1,
-        "5.0": 0
-      }
+      "windows_at_least_1px": [
+        {
+          "camera": 0,
+          "pairs": 34,
+          "sequence_id": "confuse_cp-w-mobo-c_20260826",
+          "shift_px_max": 6.707,
+          "sky_shift_px_median": 7.391,
+          "terrain_response_median": 0.759,
+          "terrain_shift_px_median": 0.047,
+          "weather": 34
+        },
+        {
+          "camera": 0,
+          "pairs": 4,
+          "sequence_id": "confuse_mlo-s-mobo-c_20260826",
+          "shift_px_max": 1.239,
+          "sky_shift_px_median": 3.325,
+          "terrain_response_median": 0.994,
+          "terrain_shift_px_median": 0.024,
+          "weather": 4
+        },
+        {
+          "camera": 0,
+          "pairs": 1,
+          "sequence_id": "confuse_pi-e-mobo-c_20260823",
+          "shift_px_max": 1.05,
+          "sky_shift_px_median": 14.846,
+          "terrain_response_median": 0.969,
+          "terrain_shift_px_median": 0.026,
+          "weather": 1
+        }
+      ]
     },
     "dev": {
-      "endpoint_shift_px": {
+      "endpoint_shift_px_trusted": {
         "max": 1.69,
-        "p50": 0.218,
-        "p90": 0.338,
-        "p99": 1.392
+        "p50": 0.213,
+        "p90": 0.29,
+        "p99": 1.347
       },
-      "largest_chain_gaps": [
+      "endpoint_untrusted_windows": 3,
+      "endpoints": [
         {
-          "chain_gap_px": 24.606,
-          "chained_sum_px": 24.642,
+          "endpoint_response": 0.2248,
+          "endpoint_shift_px": 0.219,
+          "endpoint_trusted": true,
+          "sequence_id": "20240622_Border58Fire_om-w-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8261,
+          "endpoint_shift_px": 0.104,
+          "endpoint_trusted": true,
+          "sequence_id": "20240625_DelMarFire_tdlln-n-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8389,
+          "endpoint_shift_px": 0.272,
+          "endpoint_trusted": true,
+          "sequence_id": "20240701_McCainfire_ws-e-mobo-c"
+        },
+        {
+          "endpoint_response": 0.213,
+          "endpoint_shift_px": 0.224,
+          "endpoint_trusted": true,
+          "sequence_id": "20240724_GroveFire_tp-w-mobo-c"
+        },
+        {
           "endpoint_response": 0.1172,
           "endpoint_shift_px": 0.426,
+          "endpoint_trusted": false,
           "sequence_id": "20240905_ValleyFire_cp-s-mobo-c"
         },
         {
-          "chain_gap_px": 21.513,
-          "chained_sum_px": 21.75,
+          "endpoint_response": 0.5471,
+          "endpoint_shift_px": 0.202,
+          "endpoint_trusted": true,
+          "sequence_id": "20240907_ChurchFire_ws-w-mobo-c"
+        },
+        {
+          "endpoint_response": 0.4813,
+          "endpoint_shift_px": 0.268,
+          "endpoint_trusted": true,
+          "sequence_id": "20240907_FIRE_ws-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.6807,
+          "endpoint_shift_px": 0.208,
+          "endpoint_trusted": true,
+          "sequence_id": "20240908_BridgeFire_wilson-e-mobo-c"
+        },
+        {
+          "endpoint_response": 0.6985,
+          "endpoint_shift_px": 0.146,
+          "endpoint_trusted": true,
+          "sequence_id": "20241108_GardenFire_rm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.7334,
+          "endpoint_shift_px": 0.226,
+          "endpoint_trusted": true,
+          "sequence_id": "20241113_Fire_dwpgm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.2887,
+          "endpoint_shift_px": 1.69,
+          "endpoint_trusted": true,
+          "sequence_id": "20250107_PalisadesFire_69bravo-e-mobo-c"
+        },
+        {
           "endpoint_response": 0.0577,
           "endpoint_shift_px": 0.626,
+          "endpoint_trusted": false,
           "sequence_id": "20250107_PalisadesFire_dwpgm-s-mobo-c"
         },
         {
-          "chain_gap_px": 18.711,
-          "chained_sum_px": 18.619,
+          "endpoint_response": 0.6012,
+          "endpoint_shift_px": 0.116,
+          "endpoint_trusted": true,
+          "sequence_id": "20250123_Border2Fire_om-w-mobo-c"
+        },
+        {
+          "endpoint_response": 0.6964,
+          "endpoint_shift_px": 0.252,
+          "endpoint_trusted": true,
+          "sequence_id": "20250123_GilmanFire_tdlln-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8167,
+          "endpoint_shift_px": 0.153,
+          "endpoint_trusted": true,
+          "sequence_id": "20250514_PrescribedFire_hp-e-mobo-c"
+        },
+        {
+          "endpoint_response": 0.7786,
+          "endpoint_shift_px": 0.117,
+          "endpoint_trusted": true,
+          "sequence_id": "20250520_CrossingFire_hp-n-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8227,
+          "endpoint_shift_px": 0.309,
+          "endpoint_trusted": true,
+          "sequence_id": "20250610_CahuillaFire_hp-n-mobo-c"
+        },
+        {
+          "endpoint_response": 0.5571,
+          "endpoint_shift_px": 0.221,
+          "endpoint_trusted": true,
+          "sequence_id": "20250612_HighwayFire_hp-e-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8785,
+          "endpoint_shift_px": 0.146,
+          "endpoint_trusted": true,
+          "sequence_id": "20250616_MissionFire_rm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8188,
+          "endpoint_shift_px": 0.267,
+          "endpoint_trusted": true,
+          "sequence_id": "20250716_DaleBradfordFire_hp-n-mobo-c"
+        },
+        {
+          "endpoint_response": 0.8369,
+          "endpoint_shift_px": 0.227,
+          "endpoint_trusted": true,
+          "sequence_id": "20250724_PostaFire_ws-w-mobo-c"
+        },
+        {
           "endpoint_response": 0.0968,
           "endpoint_shift_px": 0.127,
+          "endpoint_trusted": false,
           "sequence_id": "20251009_RanchoFire_bm-s-mobo-c"
         },
         {
-          "chain_gap_px": 7.568,
-          "chained_sum_px": 7.502,
-          "endpoint_response": 0.4739,
-          "endpoint_shift_px": 0.317,
-          "sequence_id": "20260820_ChiaFire_hp-n-mobo-c"
+          "endpoint_response": 0.4618,
+          "endpoint_shift_px": 0.173,
+          "endpoint_trusted": true,
+          "sequence_id": "20251102_ScissorsFire_mp-n-mobo-c"
         },
         {
-          "chain_gap_px": 7.465,
-          "chained_sum_px": 7.555,
-          "endpoint_response": 0.213,
-          "endpoint_shift_px": 0.224,
-          "sequence_id": "20240724_GroveFire_tp-w-mobo-c"
+          "endpoint_response": 0.7525,
+          "endpoint_shift_px": 0.184,
+          "endpoint_trusted": true,
+          "sequence_id": "20260428_LiveOakFire_rm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.6726,
+          "endpoint_shift_px": 0.139,
+          "endpoint_trusted": true,
+          "sequence_id": "20260502_MissionFire_rm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.7051,
+          "endpoint_shift_px": 0.032,
+          "endpoint_trusted": true,
+          "sequence_id": "20260618_MissionFire_rm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.31,
+          "endpoint_shift_px": 0.218,
+          "endpoint_trusted": true,
+          "sequence_id": "20260715_ThornFire_ws-n-mobo-c"
+        },
+        {
+          "endpoint_response": 0.7725,
+          "endpoint_shift_px": 0.069,
+          "endpoint_trusted": true,
+          "sequence_id": "20260722_CreelmanFire_bm-s-mobo-c"
+        },
+        {
+          "endpoint_response": 0.4739,
+          "endpoint_shift_px": 0.317,
+          "endpoint_trusted": true,
+          "sequence_id": "20260820_ChiaFire_hp-n-mobo-c"
         }
       ],
       "methods": {
@@ -129,17 +480,76 @@
         "p99": 1.87
       },
       "pairs": 2262,
+      "refereed_at_least_px": {
+        "0.5": {
+          "camera": 68,
+          "weather": 46
+        },
+        "1.0": {
+          "camera": 48,
+          "weather": 7
+        },
+        "2.0": {
+          "camera": 20,
+          "weather": 2
+        }
+      },
+      "weather_at_least_1px_terrain_shift_px": {
+        "max": 0.355,
+        "p50": 0.07,
+        "p90": 0.319,
+        "p99": 0.351
+      },
       "windows": 29,
-      "windows_with_endpoint_shift_at_least_px": {
-        "1.0": 1,
-        "2.0": 0,
-        "5.0": 0
-      }
+      "windows_at_least_1px": [
+        {
+          "camera": 48,
+          "pairs": 48,
+          "sequence_id": "20250107_PalisadesFire_69bravo-e-mobo-c",
+          "shift_px_max": 5.667,
+          "sky_shift_px_median": 2.881,
+          "terrain_response_median": 0.952,
+          "terrain_shift_px_median": 1.751,
+          "weather": 0
+        },
+        {
+          "camera": 0,
+          "pairs": 4,
+          "sequence_id": "20250107_PalisadesFire_dwpgm-s-mobo-c",
+          "shift_px_max": 1.84,
+          "sky_shift_px_median": 4.641,
+          "terrain_response_median": 0.865,
+          "terrain_shift_px_median": 0.288,
+          "weather": 4
+        },
+        {
+          "camera": 0,
+          "pairs": 2,
+          "sequence_id": "20251009_RanchoFire_bm-s-mobo-c",
+          "shift_px_max": 5.871,
+          "sky_shift_px_median": 8.975,
+          "terrain_response_median": 0.881,
+          "terrain_shift_px_median": 0.05,
+          "weather": 2
+        },
+        {
+          "camera": 0,
+          "pairs": 1,
+          "sequence_id": "20240905_ValleyFire_cp-s-mobo-c",
+          "shift_px_max": 1.11,
+          "sky_shift_px_median": 3.815,
+          "terrain_response_median": 0.989,
+          "terrain_shift_px_median": 0.01,
+          "weather": 1
+        }
+      ]
     }
   },
-  "estimator": "plumerank.stabilise.stabilise, passthrough pairs counted as 0.0",
+  "endpoint_trust_floor": 0.15,
+  "estimator": "plumerank.stabilise.stabilise (whole-frame phase correlation)",
   "frames_per_window": 79,
+  "referee": "TERRAIN band rows 55-88%, cols 5-95%; a warp that lowers the band's MSE against the previous frame is 'camera', one that raises it is 'weather'; pairs >= 0.5 px",
   "roster": "api.main._wall_sequences + _align (DEV + CONFUSE; HOLD refused)",
   "unit": "working px (480x270)",
-  "what": "camera motion the wall's background models receive under raw-predecessor registration"
+  "what": "what stabilise()'s warps correct on the wall's footage, refereed against the ground"
 }

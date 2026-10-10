@@ -150,17 +150,20 @@ reproduces it anywhere. Per-sequence results for every system are in each file's
    configuration: the held-out run measures the shipped cell, escalation included, because
    `constants.py` was fixed before this grid ran (hash `02752e86…` since the 2026-10-04 DEV run) and the
    grid did not change it; the freeze file was committed after the grid and before the held-out read. On DEV the classifier is not shown to help.
-9. **Stabilisation registers each frame to its raw predecessor, and on this footage it mostly
-   corrects shifts that are not there.** `stabilise(prev, cur)` aligns frame *t* to raw frame
-   *t−1* and the next call aligns *t+1* to raw *t*, so real camera motion would still reach the
-   background model, one frame late (`api/main.py` `Replay._tick`, `scripts/bench.py`). Measured
-   on the wall's 62 windows (`scripts/measure_registration.py`,
-   `results/registration_2026-10-10.json`): the cameras barely move — the direct first-to-last
-   shift is 0.22 px median on DEV and 0.16 px on CONFUSE, and 3 of 62 windows exceed 1 px — but
-   the per-pair estimates, summed along a window, drift up to 24.6 px (DEV) and 120.4 px
-   (CONFUSE) from that direct shift, so some of the 2.4% (DEV) / 1.5% (CONFUSE) of pairs
-   estimated at ≥ 1 px are estimator error that the wall then warps by. Not changed: the
-   held-out read measured this pipeline, and a different registration would reopen it.
+9. **Stabilisation registers each frame to its raw predecessor, and under moving cloud its
+   estimate follows the sky, not the camera.** `stabilise(prev, cur)` aligns frame *t* to raw
+   frame *t−1*, so real camera motion still reaches the background model one frame late
+   (`api/main.py` `Replay._tick`, `scripts/bench.py`). Every pair the stabiliser warps by ≥ 1 px
+   was refereed against the ground — rows 55–88% of the frame; a warp that improves the ground's
+   alignment is the camera's, one that worsens it is not (`scripts/measure_registration.py`,
+   `results/registration_2026-10-10.json`). On DEV, 48 of 55 are real motion, all from one camera
+   (`20250107_PalisadesFire_69bravo-e-mobo-c`, up to 5.7 px a minute), and the warp improves the
+   ground on every one. The other 7 on DEV and all 39 on CONFUSE are not: the ground moved a
+   median 0.07 px (DEV) / 0.04 px (CONFUSE) while the sky band moved 3.3–14.8 px (per-window
+   medians), and the whole-frame phase correlation was pulled toward it. On the fire-free set the
+   threshold is solved on, every warp of ≥ 1 px therefore shifts a static ridgeline. Not changed:
+   the held-out read measured this pipeline; estimating the shift on the ground band only is the
+   first item of future work.
 
 ---
 
@@ -340,10 +343,14 @@ Written from the record, not from memory; each line names the file that caught i
 - **2026-10-10: the test suite segfaulted on x86-64**, unseen until the first GitHub CI run, and the
   documented DIS failure boundary ("width ≥ 100") was the first width the original sweep tested,
   not the edge (80). Fixed bit-identically on arm64 (`plumerank/statistic.py`, `dis_unmeasurable`).
-- **2026-10-10: the stabiliser was never measured against the motion it removes.** An outside
-  architecture review pointed out that registration is to the raw predecessor;
-  measuring it showed the cameras are near-static over a window and that the per-pair
-  estimates carry error the wall warps by (limitation 9, `results/registration_2026-10-10.json`).
+- **2026-10-10: the stabiliser was never measured against the motion it removes — and our first
+  measurement of it was wrong.** An outside architecture review pointed out that registration is
+  to the raw predecessor. A single first-to-last correlation per window then led us to publish
+  that the cameras barely move and the large estimates were noise; 8 of those 62 correlations
+  sat below the stabiliser's own trust floor (`PHASE_RESPONSE_MIN`), the window the claim leaned
+  on hardest among them, and none could see a camera that moves and comes back. Refereed against the ground instead, one camera genuinely shakes and
+  every other large shift follows the moving sky (limitation 9,
+  `results/registration_2026-10-10.json`).
 - **The held-out median is one fire from not existing** (27/54; it is the lower order statistic,
   `plumerank/metrics.py` `percentiles`; see "What it actually measures").
 
