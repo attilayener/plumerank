@@ -238,6 +238,10 @@ SURFACES: tuple[Surface, ...] = (
     Surface("TickMeter.start", "core", SUPPORT, method="start"),
     Surface("TickMeter.stop", "core", SUPPORT, method="stop"),
     Surface("TickMeter.getTimeMilli", "core", SUPPORT, method="getTimeMilli"),
+    # scripts/audit_evidence_crops.py locates a served crop in its source frame: audit
+    # tooling, never on the ranking path, so support and not analysis depth.
+    Surface("matchTemplate", "imgproc", SUPPORT),
+    Surface("minMaxLoc", "core", SUPPORT),
 )
 
 _BY_KEY: dict[str, Surface] = {s.key: s for s in SURFACES}
