@@ -30,8 +30,10 @@ only way the check is independent of the thing it is checking.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import pathlib
+import re
 import subprocess
 from zoneinfo import ZoneInfo
 
@@ -633,4 +635,28 @@ def test_wall_caption_quotes_the_surviving_denominator() -> None:
         f"the wall caption does not contain the surviving held-out count {surviving}: "
         f"{caption!r}. The caption is what the demo video says out loud, and quoting the "
         f"pre-exclusion count there publishes a denominator the bench never used."
+    )
+
+
+def test_the_published_headline_was_solved_under_the_running_constants() -> None:
+    """results/bench_<date>.json, results/constants.sha256 and constants.py's bytes agree.
+
+    The wall serves the held-out threshold labelled "held-out", and the micro-expectation
+    test's advice after any edit to constants.py -- a comment is enough -- is to regenerate
+    micro and DEV. Without this test nothing then notices that the headline and the live
+    threshold describe other constants. Hashed here from the file's bytes rather than via
+    ``freeze_hash()``, for the reason in this module's docstring.
+    """
+    held_out = sorted(
+        p for p in _RESULTS.glob("bench_*.json")
+        if re.fullmatch(r"bench_\d{4}-\d{2}-\d{2}\.json", p.name)
+    )
+    if not held_out:
+        pytest.skip("no held-out results/bench_<date>.json committed yet (`make bench`)")
+    payload = json.loads(held_out[-1].read_text(encoding="utf-8"))
+    frozen = (_RESULTS / "constants.sha256").read_text(encoding="utf-8").split()[0]
+    running = hashlib.sha256((_ROOT / "plumerank" / "constants.py").read_bytes()).hexdigest()
+    assert payload["run"]["constants_sha256"] == frozen == running, (
+        f"{held_out[-1].name} was solved under constants that are no longer running: "
+        "revert plumerank/constants.py -- do NOT re-run HOLD"
     )
