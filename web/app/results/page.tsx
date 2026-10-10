@@ -256,7 +256,7 @@ export default function ResultsPage() {
 
             <Section title="Per system">
               <div className="scroll-x card">
-                <table>
+                <table className="table-fit">
                   <thead>
                     <tr>
                       <th>system</th>

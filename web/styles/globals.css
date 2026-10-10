@@ -113,6 +113,10 @@ a:hover { text-decoration: underline; }
 
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 th, td { padding: 8px 14px; text-align: left; white-space: nowrap; }
+/* A table whose last column is the point (model calls / camera-night) must not hide it
+ * behind a sideways scroll on a desktop: headers and the label column wrap, numbers don't. */
+.table-fit th, .table-fit td:first-child { white-space: normal; }
+.table-fit th { vertical-align: bottom; }
 th {
   font-size: var(--size-label);
   color: var(--ink-3);
