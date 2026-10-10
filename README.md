@@ -263,7 +263,7 @@ heartbeat-silence alarm that reboots the instance if the service stops beating. 
 ## Testing
 
 ```
-743 passed, 1 skipped locally (CI, without the corpus, runs 731 and skips 13) · 97% coverage on plumerank/ · ruff clean · mypy clean
+745 passed, 1 skipped locally (CI, without the corpus, runs 733 and skips 13) · 97% coverage on plumerank/ · ruff clean · mypy clean
 ```
 
 | Layer | Tool | Notes |
@@ -320,7 +320,7 @@ plumerank/       # the pipeline: stabilise, segment, statistic, escalate, rank, 
 api/             # FastAPI app — /build-info, /health, /api/watchlist, /api/benchmark
 scripts/         # fetch.py, bench.py, check_claims.py, check_submission_readiness.py
 web/             # Next.js frontend — the Wall ("/"), "/results", "/judge"
-tests/           # 744 tests, 97% coverage on plumerank/
+tests/           # 746 tests, 97% coverage on plumerank/
 deploy/          # EC2 bootstrap (Caddy, systemd, OpenCV 5 build pin)
 results/         # committed run artefacts — every published number lives here
 ```
