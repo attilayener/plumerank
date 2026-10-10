@@ -75,10 +75,9 @@ export function Wall({
     : roster;
 
   const warmupFrames = meta?.warmup_frames ?? null;
-  // framesSeen and NOT frameIndex. The replay wraps every window while the background
-  // models stay warm across the wrap, so a warm-up read off the cyclic frame index
-  // re-announces "warming background model" on every lap -- a caption about forty
-  // models that have been warm for an hour. useWatchlist publishes null rather than a
+  // The server's own `warm` first: the background models are reset at every camera-night
+  // wrap, so every lap re-warms and the tick says so. framesSeen against warmup_frames is
+  // the fallback for a stream that does not; useWatchlist publishes null rather than a
   // count whenever it cannot honestly claim the loop started while this client watched.
   const seen = framesSeen;
   const warming =

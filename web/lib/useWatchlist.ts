@@ -41,16 +41,13 @@ export interface WatchlistState {
    *  carries it. `null` means the stream did not say, and the wall then falls back to
    *  framesSeen against meta.warmup_frames -- or, failing both, does not claim to know. */
   warm: boolean | null;
-  /** Frames this stream has watched the background models consume SINCE THE LOOP
-   *  STARTED, or null when that is not knowable.
+  /** Frames the background models have consumed, as the tick reports it (`frames_seen`),
+   *  or null when that is not knowable.
    *
-   *  It is deliberately not the tick's frame_index. The replay wraps -- frame_index
-   *  returns to 0 every window -- while the segmenters are reset only when the loop
-   *  itself restarts (api/main.py `_reset_replay`), so a warm-up derived from the frame
-   *  index would re-announce "warming background model" on every lap over forty models
-   *  that have been warm for an hour. Null when this client joined mid-replay or has
-   *  already seen a wrap: it then knows the models are past warm-up, and a page that
-   *  cannot tell says nothing rather than guessing. */
+   *  The server sends it, with `warm`, on every tick: the segmenters are reset at every
+   *  camera-night wrap (api/main.py `_reset_camera_night`), so every lap re-warms and only
+   *  the server knows where in its warm-up each tick is. The local fallback below -- count
+   *  from frame 0, give up after a wrap -- exists only for a stream that does not say. */
   framesSeen: number | null;
   state: StreamState;
   /** True when the rows on screen are the last ones received and the stream is not

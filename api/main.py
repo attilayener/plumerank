@@ -1330,6 +1330,11 @@ class Replay:
             return camera, bgr, grey, work, _best_track(components, tracks)
 
         segmented = self._map(segment_one, list(zip(self._cameras, images)))
+        # Read here, straight after segmentation: on a window's last frame
+        # _reset_camera_night() rebuilds every segmenter before the payload is built, and a
+        # flag read then would call a frame scored on warm models cold. Every lap re-warms
+        # (the camera-night reset), so the client cannot infer this from the frame index.
+        warm, frames_seen = self._warm_state()
         for camera, bgr, grey, work, best in segmented:
             if best is None:
                 # No foreground is not a missing measurement, it is a quiet camera: it scores
@@ -1394,10 +1399,23 @@ class Replay:
                 else round((index - self._t0_index) * MINUTES_PER_FRAME, 3)
             ),
             "threshold": threshold,
+            "warm": warm,
+            "frames_seen": frames_seen,
             "entries": [
                 e.to_json() | {"frame_url": self._frame_urls.get(e.camera_id)} for e in entries
             ],
         }
+
+    def _warm_state(self) -> tuple[bool, int]:
+        """(every background model past warm-up?, the fewest frames any of them has seen).
+
+        ``Segmenter.warm`` is the source of truth. It also covers the ranking's own warm-up:
+        ``rank.rebase`` returns 0.0 -- a camera_id-ordered list -- until the baseline holds
+        BASELINE_WARMUP_FRAMES (5), which ends before WARMUP_FRAMES (8) does.
+        """
+        warm = bool(self._cameras) and all(c.segmenter.warm for c in self._cameras)
+        seen = min((c.segmenter.frames_seen for c in self._cameras), default=0)
+        return warm, seen
 
     def _escalate(
         self,

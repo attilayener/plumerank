@@ -1238,6 +1238,29 @@ def test_every_camera_starts_fresh_at_the_replay_wrap() -> None:
     assert all(id(c.tracker) != b for c, b in zip(cams, before))
 
 
+def test_the_tick_says_when_its_ranking_is_still_warming() -> None:
+    """Every lap resets every segmenter, so ``warm`` must come from the server each tick."""
+    from plumerank.constants import WARMUP_FRAMES
+
+    replay = main.Replay()
+    cams = [
+        main._Camera(main.Sequence(sequence_id=f"s{i}", camera_id=f"c{i}", arm="dev",
+                                   frame_paths=[], t0_index=None))
+        for i in range(3)
+    ]
+    replay._cameras = cams
+    assert replay._warm_state() == (False, 0)
+    for cam in cams:
+        cam.segmenter._frames_seen = WARMUP_FRAMES
+    cams[0].segmenter._frames_seen = WARMUP_FRAMES - 1
+    assert replay._warm_state() == (False, WARMUP_FRAMES - 1), "one cold model is a cold wall"
+    cams[0].segmenter._frames_seen = WARMUP_FRAMES
+    assert replay._warm_state() == (True, WARMUP_FRAMES)
+    replay._reset_camera_night()
+    assert replay._warm_state() == (False, 0), "the camera-night wrap re-warms every model"
+    assert main.Replay()._warm_state() == (False, 0), "an empty roster is not warm"
+
+
 def test_images_are_written_atomically(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
