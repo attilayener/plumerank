@@ -1,26 +1,26 @@
-> **âš ï¸ GayriresmÃ® Ã§eviri.** Bu belge, PlumeRank deposunun Ä°ngilizce
-> [`README.md`](README.md) dosyasÄ±nÄ±n TÃ¼rkÃ§e topluluk Ã§evirisidir ve
-> [@attilayener](https://github.com/attilayener) tarafÄ±ndan hazÄ±rlanmÄ±ÅŸtÄ±r.
-> Yetkili sÃ¼rÃ¼m her zaman Ä°ngilizce orijinaldir; sayÄ±lar, teknik ifadeler ve
-> herhangi bir uyuÅŸmazlÄ±kta orijinal baÄŸlayÄ±cÄ±dÄ±r. Ã‡eviri, upstream'in
-> `3c68bbb` commit'ine (10 Ekim 2026) dayanÄ±r. Telif ve lisans sahibi Edy Cu'dur
+> **⚠️ Gayriresmî çeviri.** Bu belge, PlumeRank deposunun İngilizce
+> [`README.md`](README.md) dosyasının Türkçe topluluk çevirisidir ve
+> [@attilayener](https://github.com/attilayener) tarafından hazırlanmıştır.
+> Yetkili sürüm her zaman İngilizce orijinaldir; sayılar, teknik ifadeler ve
+> herhangi bir uyuşmazlıkta orijinal bağlayıcıdır. Çeviri, upstream'in
+> `3c68bbb` commit'ine (10 Ekim 2026) dayanır. Telif ve lisans sahibi Edy Cu'dur
 > (Apache License 2.0).
 
 <div align="center">
   <img src="docs/assets/icon-animated.svg" width="144" alt="PlumeRank Simgesi">
 
-  <h1>PlumeRank ğŸ”¥ğŸ“·</h1>
-  <p><em>YangÄ±n kameralarÄ±ndan oluÅŸan bir duvar. Tek bir sevk gÃ¶revlisi. SÄ±radaki hangisi aÃ§Ä±lÄ±r?</em></p>
-  <img src="docs/assets/readme-hero-animated.svg" alt="PlumeRank â€” yangÄ±n kameralarÄ±nÄ± kendi sakin gecesine karÅŸÄ±, kamera-gecesi baÅŸÄ±na 2 alarm bÃ¼tÃ§esinde sÄ±ralar; ÅŸematik duvar ve izleme listesi, elde tutulan sonuÃ§la birlikte 27/54 tespit, p50 38,0 dk" width="100%">
+  <h1>PlumeRank 🔥📷</h1>
+  <p><em>Yangın kameralarından oluşan bir duvar. Tek bir sevk görevlisi. Sıradaki hangisi açılır?</em></p>
+  <img src="docs/assets/readme-hero-animated.svg" alt="PlumeRank — yangın kameralarını kendi sakin gecesine karşı, kamera-gecesi başına 2 alarm bütçesinde sıralar; şematik duvar ve izleme listesi, elde tutulan sonuçla birlikte 27/54 tespit, p50 38,0 dk" width="100%">
 
   <br/>
 
-  [![CanlÄ± UÃ§ Nokta](https://img.shields.io/badge/ğŸŸ¢_Live-live.plumerank.edycu.dev-06b6d4?style=for-the-badge)](https://live.plumerank.edycu.dev)
-  [![/judge](https://img.shields.io/badge/ğŸ‘©â€âš–ï¸_For-Judges-f59e0b?style=for-the-badge)](https://live.plumerank.edycu.dev/judge)
-  [![Site](https://img.shields.io/badge/ğŸŒ_Site-plumerank.edycu.dev-FF6B4A?style=for-the-badge)](https://plumerank.edycu.dev)
-  [![Pitch Sunumu](https://img.shields.io/badge/ğŸ“Š_Pitch-Deck-f59e0b?style=for-the-badge)](https://plumerank.edycu.dev/pitch/)
-  [![Demo Video](https://img.shields.io/badge/ğŸ¬_Demo-Video-ef4444?style=for-the-badge)](https://youtu.be/QqX85JuNfVM)
-  [![OpenCV AI YarÄ±ÅŸmasÄ± 2026 iÃ§in yapÄ±ldÄ±](https://img.shields.io/badge/OpenCV_AI_Competition-2026-8b5cf6?style=for-the-badge)](https://opencv26.devpost.com/)
+  [![Canlı Uç Nokta](https://img.shields.io/badge/🟢_Live-live.plumerank.edycu.dev-06b6d4?style=for-the-badge)](https://live.plumerank.edycu.dev)
+  [![/judge](https://img.shields.io/badge/👩‍⚖️_For-Judges-f59e0b?style=for-the-badge)](https://live.plumerank.edycu.dev/judge)
+  [![Site](https://img.shields.io/badge/🌐_Site-plumerank.edycu.dev-FF6B4A?style=for-the-badge)](https://plumerank.edycu.dev)
+  [![Pitch Sunumu](https://img.shields.io/badge/📊_Pitch-Deck-f59e0b?style=for-the-badge)](https://plumerank.edycu.dev/pitch/)
+  [![Demo Video](https://img.shields.io/badge/🎬_Demo-Video-ef4444?style=for-the-badge)](https://youtu.be/QqX85JuNfVM)
+  [![OpenCV AI Yarışması 2026 için yapıldı](https://img.shields.io/badge/OpenCV_AI_Competition-2026-8b5cf6?style=for-the-badge)](https://opencv26.devpost.com/)
 
   <br/>
 
@@ -39,419 +39,419 @@
 
 ---
 
-## Ã‡alÄ±ÅŸÄ±rken gÃ¶rÃ¼n
+## Çalışırken görün
 
-**Demo video (3:34):** https://youtu.be/QqX85JuNfVM â€” canlÄ± duvar, 1. sÄ±raya yÃ¼kselen bir yangÄ±n, elde tutulan sonuÃ§lar, mimari ve sÄ±nÄ±rlamalar.
+**Demo video (3:34):** https://youtu.be/QqX85JuNfVM — canlı duvar, 1. sıraya yükselen bir yangın, elde tutulan sonuçlar, mimari ve sınırlamalar.
 
 <div align="center">
-  <img src="docs/assets/live-wall.webp" alt="AWS Ã¼zerindeki canlÄ± PlumeRank duvarÄ±: 62 HPWREN kamera karosu ve istatistik baÅŸÄ±na puanlarÄ±yla sÄ±ralÄ± izleme listesi" width="100%">
+  <img src="docs/assets/live-wall.webp" alt="AWS üzerindeki canlı PlumeRank duvarı: 62 HPWREN kamera karosu ve istatistik başına puanlarıyla sıralı izleme listesi" width="100%">
 </div>
 
-> **Tek bir Graviton makinesindeki canlÄ± duvar.** HPWREN FIgLib gÃ¶rÃ¼ntÃ¼leri gerÃ§ek
-> OpenCV 5 hattÄ±ndan yeniden oynatÄ±lÄ±r â†’ her kamera kendi son 15 dakikasÄ±na gÃ¶re
-> puanlanÄ±r â†’ izleme listesi, kamera-penceresi baÅŸÄ±na 2 alarm bÃ¼tÃ§esinde, saniyede
-> bir 62 kameranÄ±n tamamÄ±nÄ± yeniden sÄ±ralar.
+> **Tek bir Graviton makinesindeki canlı duvar.** HPWREN FIgLib görüntüleri gerçek
+> OpenCV 5 hattından yeniden oynatılır → her kamera kendi son 15 dakikasına göre
+> puanlanır → izleme listesi, kamera-penceresi başına 2 alarm bütçesinde, saniyede
+> bir 62 kameranın tamamını yeniden sıralar.
 
 ---
 
 ## Temel soru
 
-Saat 04:50, bir CAL FIRE acil durum komuta merkezinde gece vardiyasÄ±ndayÄ±z ve ayakta
-olan tek sevk gÃ¶revlisi, Ã¶nÃ¼ndeki onlarca kamera karosuna bakÄ±yor ([ALERTCalifornia](https://alertcalifornia.org/)
-tek baÅŸÄ±na 1.200'den fazla kamera iÅŸletiyor) â€” ve Ã¶nÃ¼mÃ¼zdeki altmÄ±ÅŸ saniyede hangi
-dÃ¶rt kamerayÄ± aÃ§masÄ± gerektiÄŸini sÃ¶yleyen hiÃ§bir alet yok.
+Saat 04:50, bir CAL FIRE acil durum komuta merkezinde gece vardiyasındayız ve ayakta
+olan tek sevk görevlisi, önündeki onlarca kamera karosuna bakıyor ([ALERTCalifornia](https://alertcalifornia.org/)
+tek başına 1.200'den fazla kamera işletiyor) — ve önümüzdeki altmış saniyede hangi
+dört kamerayı açması gerektiğini söyleyen hiçbir alet yok.
 
-YayÄ±mlanmÄ±ÅŸ duman dedektÃ¶rleri **kare baÅŸÄ±na doÄŸruluk** (F1, kesinlik, duyarlÄ±lÄ±k) veya
-yanlÄ±ÅŸ alarm sÄ±nÄ±rÄ± olmaksÄ±zÄ±n tespit sÃ¼resi Ã¼zerinden puanlanÄ±r. BunlarÄ±n hiÃ§biri ona
-hangi karoyu aÃ§acaÄŸÄ±nÄ± sÃ¶ylemez; hiÃ§biri bir yangÄ±n kurumuna, sistemin gerÃ§ek bir
-vardiyayla temas edip susturulmadan Ã¶nce ayakta kalÄ±p kalamayacaÄŸÄ±nÄ± sÃ¶ylemez. Ã–nemli
-olan sayÄ± farklÄ±dÄ±r: **her kameraya yalnÄ±zca sabit sayÄ±da kesintiye katlanacaÄŸÄ±
-gÃ¶z Ã¶nÃ¼ne alÄ±ndÄ±ÄŸÄ±nda, tutuÅŸmadan kaÃ§ dakika sonra bir insan gerÃ§ekten doÄŸru kameraya
-bakÄ±yor?**
+Yayımlanmış duman dedektörleri **kare başına doğruluk** (F1, kesinlik, duyarlılık) veya
+yanlış alarm sınırı olmaksızın tespit süresi üzerinden puanlanır. Bunların hiçbiri ona
+hangi karoyu açacağını söylemez; hiçbiri bir yangın kurumuna, sistemin gerçek bir
+vardiyayla temas edip susturulmadan önce ayakta kalıp kalamayacağını söylemez. Önemli
+olan sayı farklıdır: **her kameraya yalnızca sabit sayıda kesintiye katlanacağı
+göz önüne alındığında, tutuşmadan kaç dakika sonra bir insan gerçekten doğru kameraya
+bakıyor?**
 
-**PlumeRank bu sayÄ±yÄ± yayÄ±mlar.** Bir kamera aÄŸÄ±nÄ± izler ve her karede (dakikalÄ±k
-gÃ¶rÃ¼ntÃ¼de) bir insanÄ±n ÅŸimdi hangi kameralara bakmasÄ± gerektiÄŸinin sÄ±ralÄ± kÄ±sa
-listesini Ã¼retir â€” her satÄ±r kendi kÄ±rpÄ±lmÄ±ÅŸ kanÄ±t karosunu taÅŸÄ±r â€” **kamera-gecesi
-baÅŸÄ±na 2 alarm**lÄ±k sabit bir bÃ¼tÃ§eye kalibre edilmiÅŸtir. HiÃ§bir kamerayÄ± asla
-bastÄ±rmaz ve asla bir tim sevketmez. Ä°nsan dikkatini yeniden sÄ±ralar.
+**PlumeRank bu sayıyı yayımlar.** Bir kamera ağını izler ve her karede (dakikalık
+görüntüde) bir insanın şimdi hangi kameralara bakması gerektiğinin sıralı kısa
+listesini üretir — her satır kendi kırpılmış kanıt karosunu taşır — **kamera-gecesi
+başına 2 alarm**lık sabit bir bütçeye kalibre edilmiştir. Hiçbir kamerayı asla
+bastırmaz ve asla bir tim sevketmez. İnsan dikkatini yeniden sıralar.
 
-> **Birim.** Bu projede bir *kamera-gecesi* (camera-night) â€” aÃ§Ä±lÄ±ÅŸ sayfasÄ±nda
-> *kamera-penceresi* (camera-window), Devpost aÃ§Ä±klamasÄ±nda ise *81-dakikalÄ±k pencere*
-> olarak adlandÄ±rÄ±lÄ±r; bunun 12 saatlik bir gece gibi okunmasÄ±nÄ± engellemek iÃ§in â€”
-> tek bir deÄŸerlendirme penceresidir: **bir kameradaki 81 dakikalÄ±k gÃ¶rÃ¼ntÃ¼**, bir
-> FIgLib dizisinin uzunluÄŸu (`plumerank/constants.py`). DolayÄ±sÄ±yla bÃ¼tÃ§e, kamera
-> baÅŸÄ±na 81 dakikalÄ±k pencere baÅŸÄ±na 2 alarmdÄ±r â€” kesintisiz Ã§alÄ±ÅŸtÄ±rÄ±ldÄ±ÄŸÄ±nda
-> 12 saatlik bir vardiyada kamera baÅŸÄ±na toplam yaklaÅŸÄ±k 18 eder; gecede 2 deÄŸil.
-> Ad kodundadÄ±r; pencereler gÃ¼ndÃ¼zdÃ¼r.
+> **Birim.** Bu projede bir *kamera-gecesi* (camera-night) — açılış sayfasında
+> *kamera-penceresi* (camera-window), Devpost açıklamasında ise *81-dakikalık pencere*
+> olarak adlandırılır; bunun 12 saatlik bir gece gibi okunmasını engellemek için —
+> tek bir değerlendirme penceresidir: **bir kameradaki 81 dakikalık görüntü**, bir
+> FIgLib dizisinin uzunluğu (`plumerank/constants.py`). Dolayısıyla bütçe, kamera
+> başına 81 dakikalık pencere başına 2 alarmdır — kesintisiz çalıştırıldığında
+> 12 saatlik bir vardiyada kamera başına toplam yaklaşık 18 eder; gecede 2 değil.
+> Ad kodundadır; pencereler gündüzdür.
 
 ---
 
-## GerÃ§ekte neyi Ã¶lÃ§Ã¼yor
+## Gerçekte neyi ölçüyor
 
-> **BaÅŸlÄ±k sonucu â€” elde tutulan kÃ¼me, yalnÄ±zca bir kez okundu.** **Elde tutulan 54
-> FIgLib yangÄ±nÄ±nda** (`data/manifest_hold.json` dosyasÄ±nda 60 tanesi, 6 tanesi
-> `data/excluded.json` dosyasÄ±ndaki yayÄ±mlanmÄ±ÅŸ kural dÄ±ÅŸÄ±nda bÄ±rakÄ±ldÄ±) â€” hiÃ§bir
-> sabitin Ã¼zerinde oturtulmadÄ±ÄŸÄ± dizilerde, sabitler dondurulduktan sonra tam olarak
-> bir kez okundu (`results/constants.sha256`, `results/hold_access.log`) â€” PlumeRank
-> **54'Ã¼n 27'sini** tespit etti; her kaÃ§Ä±rma "asla" sayÄ±ldÄ±ÄŸÄ±nda **medyan tespit
-> sÃ¼resi 38,0 dakika** oldu; yangÄ±nsÄ±z karÄ±ÅŸÄ±klÄ±k kÃ¼mesi Ã¼zerinde
-> (`results/bench_2026-10-10.json`) **kamera-gecesi baÅŸÄ±na 2 alarm** bÃ¼tÃ§esine
-> kalibre edilmiÅŸ durumdadÄ±r. HiÃ§bir taban Ã§izgi medyana ulaÅŸamaz: PlumeRank'Ä±n
-> kendi kamera-baÅŸÄ± taban Ã§izgisinden geÃ§irildiÄŸinde aynÄ± CNN 18, kare farkÄ± alma
+> **Başlık sonucu — elde tutulan küme, yalnızca bir kez okundu.** **Elde tutulan 54
+> FIgLib yangınında** (`data/manifest_hold.json` dosyasında 60 tanesi, 6 tanesi
+> `data/excluded.json` dosyasındaki yayımlanmış kural dışında bırakıldı) — hiçbir
+> sabitin üzerinde oturtulmadığı dizilerde, sabitler dondurulduktan sonra tam olarak
+> bir kez okundu (`results/constants.sha256`, `results/hold_access.log`) — PlumeRank
+> **54'ün 27'sini** tespit etti; her kaçırma "asla" sayıldığında **medyan tespit
+> süresi 38,0 dakika** oldu; yangınsız karışıklık kümesi üzerinde
+> (`results/bench_2026-10-10.json`) **kamera-gecesi başına 2 alarm** bütçesine
+> kalibre edilmiş durumdadır. Hiçbir taban çizgi medyana ulaşamaz: PlumeRank'ın
+> kendi kamera-başı taban çizgisinden geçirildiğinde aynı CNN 18, kare farkı alma
 > ise 20 tespit eder.
 >
-> **Medyan bir bÄ±Ã§aÄŸÄ±n sÄ±rtÄ±nda duruyor â€” ve bu sonucun bir parÃ§asÄ±.** Tam olarak
-> yangÄ±nlarÄ±n yarÄ±sÄ± tespit edildiÄŸi iÃ§in var. TutuÅŸma saati âˆ’5â€¦0 dakika kaydÄ±rÄ±larak
-> yeniden puanlanÄ±rsa 32â€“38 dk okunur; +1â€¦+5 dakika kaydÄ±rmada yarÄ±sÄ±ndan azÄ± tespit
-> edilmiÅŸ sayÄ±lÄ±r ve medyan ortadan kalkar (`results/sensitivity_2026-10-10.csv`).
-> Tespit sayÄ±larÄ± daha saÄŸlam karÅŸÄ±laÅŸtÄ±rmadÄ±r.
+> **Medyan bir bıçağın sırtında duruyor — ve bu sonucun bir parçası.** Tam olarak
+> yangınların yarısı tespit edildiği için var. Tutuşma saati −5…0 dakika kaydırılarak
+> yeniden puanlanırsa 32–38 dk okunur; +1…+5 dakika kaydırmada yarısından azı tespit
+> edilmiş sayılır ve medyan ortadan kalkar (`results/sensitivity_2026-10-10.csv`).
+> Tespit sayıları daha sağlam karşılaştırmadır.
 
-| Ã–lÃ§Ã¼m | **HOLD â€” baÅŸlÄ±k sonucu** (54 yangÄ±n) | DEV â€” ayar kolu, Ã¶rnek iÃ§i (29 yangÄ±n) |
+| Ölçüm | **HOLD — başlık sonucu** (54 yangın) | DEV — ayar kolu, örnek içi (29 yangın) |
 |---|---|---|
 | PlumeRank tespit | **27 / 54** | 17 / 29 |
-| Medyan tespit sÃ¼resi (kaÃ§Ä±rma = asla) | **38,0 dk** | 32,0 dk |
-| Tespit edilen yangÄ±nlarÄ±n ortalama tespit sÃ¼resi | 13,3 dk | 16,9 dk |
-| Alarm oranÄ± | KarÄ±ÅŸÄ±klÄ±k kÃ¼mesinde kamera-gecesi baÅŸÄ±na 1,99 (hedef 2,0); HOLD'da gerÃ§ekleÅŸen 1,92 | KarÄ±ÅŸÄ±klÄ±k kÃ¼mesinde 1,99; DEV'de gerÃ§ekleÅŸen 2,37 |
-| YÃ¼kseltme oranÄ± (ONNX sÄ±nÄ±flandÄ±rÄ±cÄ±sÄ±na gÃ¶nderilen kareler) | %1,76 â€” %2 sÄ±nÄ±rÄ±nÄ±n iÃ§inde | %2,14 â€” sÄ±nÄ±rÄ±n Ã¼zerinde |
-| Kamera-gecesi baÅŸÄ±na CNN Ã§aÄŸrÄ±sÄ± | 1,4 (PlumeRank) karÅŸÄ±sÄ±nda 3.645 (B1) | 1,8 karÅŸÄ±sÄ±nda 3.645 |
-| **AynÄ± kamera-baÅŸÄ± taban Ã§izgisinden geÃ§en B1 (birebir karÅŸÄ±laÅŸtÄ±rma)** | **18 / 54 â€” medyan yok** | 14 / 29 â€” medyan yok |
-| **AynÄ± kamera-baÅŸÄ± taban Ã§izgisinden geÃ§en B2 (birebir karÅŸÄ±laÅŸtÄ±rma)** | **20 / 54 â€” medyan yok** | 10 / 29 â€” medyan yok |
-| B1 konuÅŸlandÄ±rÄ±ldÄ±ÄŸÄ± haliyle (aynÄ± CNN, her karede) | 2 / 54 â€” medyan yok (eÅŸik 1,0'a 1e-6 iÃ§inde: doymuÅŸ olasÄ±lÄ±klar) | 6 / 29 â€” medyan yok |
-| B2 konuÅŸlandÄ±rÄ±ldÄ±ÄŸÄ± haliyle (kare farkÄ± alma) | 4 / 54 â€” medyan yok | 3 / 29 â€” medyan yok |
+| Medyan tespit süresi (kaçırma = asla) | **38,0 dk** | 32,0 dk |
+| Tespit edilen yangınların ortalama tespit süresi | 13,3 dk | 16,9 dk |
+| Alarm oranı | Karışıklık kümesinde kamera-gecesi başına 1,99 (hedef 2,0); HOLD'da gerçekleşen 1,92 | Karışıklık kümesinde 1,99; DEV'de gerçekleşen 2,37 |
+| Yükseltme oranı (ONNX sınıflandırıcısına gönderilen kareler) | %1,76 — %2 sınırının içinde | %2,14 — sınırın üzerinde |
+| Kamera-gecesi başına CNN çağrısı | 1,4 (PlumeRank) karşısında 3.645 (B1) | 1,8 karşısında 3.645 |
+| **Aynı kamera-başı taban çizgisinden geçen B1 (birebir karşılaştırma)** | **18 / 54 — medyan yok** | 14 / 29 — medyan yok |
+| **Aynı kamera-başı taban çizgisinden geçen B2 (birebir karşılaştırma)** | **20 / 54 — medyan yok** | 10 / 29 — medyan yok |
+| B1 konuşlandırıldığı haliyle (aynı CNN, her karede) | 2 / 54 — medyan yok (eşik 1,0'a 1e-6 içinde: doymuş olasılıklar) | 6 / 29 — medyan yok |
+| B2 konuşlandırıldığı haliyle (kare farkı alma) | 4 / 54 — medyan yok | 3 / 29 — medyan yok |
 
-Her sistem **aynÄ± 33 yangÄ±nsÄ±z pencere Ã¼zerinde** aynÄ± bÃ¼tÃ§eye kalibre edilmiÅŸtir
-(beÅŸi de 1,99'a dÃ¼ÅŸer). HOLD koÅŸusu yerel bir arm64 makinede yÃ¼rÃ¼tÃ¼ldÃ¼
-(`run.instance: local (not EC2)`, duvar saati 12dk29sn) â€” uÃ§ nokta makinesinde deÄŸil;
-yani jÃ¼riye hizmet asla riske atÄ±lmadÄ±; `make fetch && make bench` bunu her yerde
-yeniden Ã¼retir. Her sistemin dizibaÅŸÄ±na sonuÃ§larÄ± her dosyanÄ±n `per_sequence`
-alanÄ±ndadÄ±r; [`REPORT.md`](REPORT.md) Â§6 DEV olanlarÄ± tablolaÅŸtÄ±rÄ±r, sitenin
-gÃ¼nlÃ¼ÄŸÃ¼ elde tutulan 54 satÄ±rÄ±n tamamÄ±nÄ± listeler. CanlÄ± duvar aynÄ± donmuÅŸ eÅŸikle
-(0,849) Ã§alÄ±ÅŸÄ±r; bu eÅŸik yalnÄ±zca karÄ±ÅŸÄ±klÄ±k kÃ¼mesine baÄŸlÄ±dÄ±r.
+Her sistem **aynı 33 yangınsız pencere üzerinde** aynı bütçeye kalibre edilmiştir
+(beşi de 1,99'a düşer). HOLD koşusu yerel bir arm64 makinede yürütüldü
+(`run.instance: local (not EC2)`, duvar saati 12dk29sn) — uç nokta makinesinde değil;
+yani jüriye hizmet asla riske atılmadı; `make fetch && make bench` bunu her yerde
+yeniden üretir. Her sistemin dizibaşına sonuçları her dosyanın `per_sequence`
+alanındadır; [`REPORT.md`](REPORT.md) §6 DEV olanları tablolaştırır, sitenin
+günlüğü elde tutulan 54 satırın tamamını listeler. Canlı duvar aynı donmuş eşikle
+(0,849) çalışır; bu eşik yalnızca karışıklık kümesine bağlıdır.
 
-## DÃ¼rÃ¼st sÄ±nÄ±rlamalar
+## Dürüst sınırlamalar
 
-1. **YalnÄ±zca gÃ¼ndÃ¼z ve pencere boyutunda bir bÃ¼tÃ§e.** HPWREN FIgLib (gerÃ§ek veri
-   kÃ¼mesi) neredeyse tamamen gÃ¼ndÃ¼zdÃ¼r (elde tutulan koldaki birkaÃ§ gece penceresi,
-   belirtilen 6 hariÃ§ tutmanÄ±n 5'idir) ve bu yapÄ±mda IR kamera yoktur; gece vardiyasÄ±
-   sevk gÃ¶revlisi bu sistemin kapsayamadÄ±ÄŸÄ± saatlerde Ã§alÄ±ÅŸÄ±r. BÃ¼tÃ§e 81 dakikalÄ±k
-   pencere baÅŸÄ±na kalibre edilmiÅŸtir (yukarÄ±daki "Birim"e bakÄ±n); gerÃ§ek bir
-   konuÅŸlandÄ±rma vardiya baÅŸÄ±na bÃ¼tÃ§e belirler ve eÅŸiÄŸi ona gÃ¶re yeniden Ã§Ã¶zerdi.
-2. **DÃ¼ÅŸman bulut â€” bu projenin tasarlandÄ±ÄŸÄ± sis deÄŸil â€” ve istatistikler tasarÄ±mÄ±n
-   varsaydÄ±ÄŸÄ±ndan zayÄ±f.** 2026-09-06'da, *taban Ã§izgi Ã¶ncesi* hat altÄ±nda Ã¶lÃ§Ã¼ldÃ¼
-   (eÅŸik 0,722; gÃ¶nderilen hat altÄ±nda yeniden Ã¶lÃ§Ã¼lmedi): alÃ§ak bulut 4,25 ve bulut
-   gÃ¶lgesi 3,86 alarm/kamera-gecesi maliyetindeyken sisinki 1,15'ti
-   (`results/class_split_2026-09-06.json`) â€” ve kÃ¶r bir sayÄ±m, sis pencerelerini seÃ§en
-   kuralÄ±n bir deniz katmanÄ±nÄ± rastgelelikten daha sÄ±k seÃ§mediÄŸini gÃ¶steriyor
-   (eleme yapÄ±lmamÄ±ÅŸ ÅŸafak karelerinde %29'a karÅŸÄ± %29 taban oranÄ±;
-   `results/fog_census_2026-10-04.md`); dolayÄ±sÄ±yla "sis" sÄ±nÄ±fÄ± Ã§oÄŸunlukla kapalÄ±
-   hava. EÅŸik tÃ¼m karÄ±ÅŸÄ±klÄ±k pencereleri birlikte Ã¼zerinde Ã§Ã¶zÃ¼lÃ¼r, yani bu yalnÄ±zca
-   sÄ±nÄ±f baÅŸÄ±na iddialarÄ± etkiler. Ä°statistik bazÄ±nda, bileÅŸeni olan DEV karelerinde
-   tutuÅŸma Ã¶ncesi/sonrasÄ±: S3 (yaygÄ±n sÄ±nÄ±r) AUC 0,44 â€” ters-Ã¶ngÃ¶rÃ¼mlÃ¼ â€” S1 0,528 ve
-   S2 0,50 ise ÅŸansa yakÄ±n (`results/statistics_confound_2026-09-06.md`). S3 hiÃ§bir
-   zaman doÄŸrudan sise karÅŸÄ± test edilmedi. SÄ±ralamayÄ± taÅŸÄ±yan ÅŸey herhangi bir tek
-   istatistik deÄŸil, her kameranÄ±n kendi izleyen 15 dakikasÄ±na gÃ¶re puanlanmasÄ±dÄ±r.
-3. **Ä°ki birleÅŸim aÄŸÄ±rlÄ±ÄŸÄ± tasarÄ±mÄ±n varsaydÄ±ÄŸÄ± gibi deÄŸil.** S3, tek baÅŸÄ±na AUC'si
-   0,44 olmasÄ±na raÄŸmen en bÃ¼yÃ¼k birleÅŸim aÄŸÄ±rlÄ±ÄŸÄ±nÄ± taÅŸÄ±yor
-   (`FUSION_W_S3 = 4.0931`, `plumerank/constants.py`) ve henÃ¼z S3-kapalÄ± ablasyonu
-   koÅŸulmadÄ±. AyrÄ±ca tek bir aÄŸÄ±rlÄ±k tanÄ±mlÄ± deÄŸil: yeniden oturtma,
-   `FUSION_W_ESCALATION`'Ä± dizibaÅŸÄ±na-bÄ±rak AUC'de 0,0006'lÄ±k bir deÄŸiÅŸim iÃ§in +0,78'den
-   âˆ’0,38'e taÅŸÄ±yor; gÃ¶nderilen deÄŸer, DEV'de iki diziyi ve p50'nin altÄ± dakikasÄ±nÄ± daha
-   iyi puanladÄ±ÄŸÄ± iÃ§in tutuluyor (`results/refit_through_baseline_2026-09-16.md`).
-   DEV ayar koludur, yani bu seÃ§im yapÄ± gereÄŸi Ã¶rnek iÃ§idir. Taban Ã§izgi penceresi de
-   Ã¶yle: 10 dakika 18/29 (p50 30,0) puanlarken gÃ¶nderilen 15 dakika 17/29 (p50 32,0) â€”
-   bir dizi fark, gÃ¼rÃ¼ltÃ¼ iÃ§inde, ayarlanmak yerine tasarÄ±m tercihi olarak tutuldu
+1. **Yalnızca gündüz ve pencere boyutunda bir bütçe.** HPWREN FIgLib (gerçek veri
+   kümesi) neredeyse tamamen gündüzdür (elde tutulan koldaki birkaç gece penceresi,
+   belirtilen 6 hariç tutmanın 5'idir) ve bu yapımda IR kamera yoktur; gece vardiyası
+   sevk görevlisi bu sistemin kapsayamadığı saatlerde çalışır. Bütçe 81 dakikalık
+   pencere başına kalibre edilmiştir (yukarıdaki "Birim"e bakın); gerçek bir
+   konuşlandırma vardiya başına bütçe belirler ve eşiği ona göre yeniden çözerdi.
+2. **Düşman bulut — bu projenin tasarlandığı sis değil — ve istatistikler tasarımın
+   varsaydığından zayıf.** 2026-09-06'da, *taban çizgi öncesi* hat altında ölçüldü
+   (eşik 0,722; gönderilen hat altında yeniden ölçülmedi): alçak bulut 4,25 ve bulut
+   gölgesi 3,86 alarm/kamera-gecesi maliyetindeyken sisinki 1,15'ti
+   (`results/class_split_2026-09-06.json`) — ve kör bir sayım, sis pencerelerini seçen
+   kuralın bir deniz katmanını rastgelelikten daha sık seçmediğini gösteriyor
+   (eleme yapılmamış şafak karelerinde %29'a karşı %29 taban oranı;
+   `results/fog_census_2026-10-04.md`); dolayısıyla "sis" sınıfı çoğunlukla kapalı
+   hava. Eşik tüm karışıklık pencereleri birlikte üzerinde çözülür, yani bu yalnızca
+   sınıf başına iddiaları etkiler. İstatistik bazında, bileşeni olan DEV karelerinde
+   tutuşma öncesi/sonrası: S3 (yaygın sınır) AUC 0,44 — ters-öngörümlü — S1 0,528 ve
+   S2 0,50 ise şansa yakın (`results/statistics_confound_2026-09-06.md`). S3 hiçbir
+   zaman doğrudan sise karşı test edilmedi. Sıralamayı taşıyan şey herhangi bir tek
+   istatistik değil, her kameranın kendi izleyen 15 dakikasına göre puanlanmasıdır.
+3. **İki birleşim ağırlığı tasarımın varsaydığı gibi değil.** S3, tek başına AUC'si
+   0,44 olmasına rağmen en büyük birleşim ağırlığını taşıyor
+   (`FUSION_W_S3 = 4.0931`, `plumerank/constants.py`) ve henüz S3-kapalı ablasyonu
+   koşulmadı. Ayrıca tek bir ağırlık tanımlı değil: yeniden oturtma,
+   `FUSION_W_ESCALATION`'ı dizibaşına-bırak AUC'de 0,0006'lık bir değişim için +0,78'den
+   −0,38'e taşıyor; gönderilen değer, DEV'de iki diziyi ve p50'nin altı dakikasını daha
+   iyi puanladığı için tutuluyor (`results/refit_through_baseline_2026-09-16.md`).
+   DEV ayar koludur, yani bu seçim yapı gereği örnek içidir. Taban çizgi penceresi de
+   öyle: 10 dakika 18/29 (p50 30,0) puanlarken gönderilen 15 dakika 17/29 (p50 32,0) —
+   bir dizi fark, gürültü içinde, ayarlanmak yerine tasarım tercihi olarak tutuldu
    (`results/baseline_calibrated_2026-09-16.md`).
-4. **Yenilik bir metrik yeniden Ã§erÃ§eveleme, yeni bir sensÃ¶r deÄŸil.** Tek tek OpenCV
-   iÅŸlemleri iyi bilinir; yeni olan onlarÄ± birleÅŸtiren ilkel ve yÃ¶neltildikleri
-   dikkat-bÃ¼tÃ§esi hedefidir.
-5. **Tek Ã¶rnek, HA yok, statik yansÄ±ma yok.** UÃ§ nokta tek bir Graviton `t4g.small`
-   (sÄ±nÄ±rsÄ±z kredi modu), yarÄ±ÅŸmanÄ±n AWS bursuyla finanse ediliyor. YayÄ±mlanan her
-   sayÄ± `results/` iÃ§inde commit'lenmiÅŸtir; iddia, makine kapansa da ayakta kalÄ±r.
-6. **YÃ¶netilen bulut gÃ¶rÃ¼ iÅŸlemleri API taban Ã§izgisi yok.** Ä°ki taban Ã§izgi de
-   karÄ±ÅŸÄ±klÄ±k kÃ¼mesi Ã¼zerinde PlumeRank ile aynÄ± alarm bÃ¼tÃ§esine kalibre edilir;
-   bunlardan biri (B1) PlumeRank'Ä±n kendi sinir aÄŸÄ±nÄ± paylaÅŸÄ±r â€” klasik aÅŸamanÄ±n
-   yÃ¼kselttiÄŸi ~%2 yerine her karede Ã§alÄ±ÅŸtÄ±rÄ±lÄ±r â€” bu farklÄ± boyutlu modeller
-   yarÄ±ÅŸÄ± deÄŸil, kontrollÃ¼ bir deneydir.
-7. **YÃ¼kleme yolu yok, sevk yolu yok, bastÄ±rma yolu yok â€” tasarÄ±m gereÄŸi, unutma
-   sonucu deÄŸil.** AÅŸaÄŸÄ±daki "Sorumlu kullanÄ±m"a bakÄ±n.
-8. **SÄ±nÄ±flandÄ±rÄ±cÄ± yÃ¼kseltmesi DEV'de bir tespit kazandÄ±rmÄ±yor ve gÃ¶nderilen hÃ¼cre,
-   sayÄ±m bakÄ±mÄ±ndan en iyi DEV hÃ¼cresi deÄŸil.** On iki hÃ¼creli Ä±zgara
-   (`results/ablation_2026-10-10.csv`, {MOG2, LSBP, GSOC} Ã— S4 aÃ§Ä±k/kapalÄ± Ã—
-   yÃ¼kseltme aÃ§Ä±k/kapalÄ±, hepsi 2,0 alarm/kamera-gecesi bÃ¼tÃ§esinde gÃ¶nderilen
-   kamera-baÅŸÄ± taban Ã§izgisinden geÃ§er) yÃ¼kseltme aÃ§Ä±kken ve kapalÄ±ken altÄ± Ã§iftin
-   beÅŸinde aynÄ± sayÄ±da yangÄ±n tespit ettiÄŸini, altÄ±ncÄ±da aÃ§Ä±kken bir eksik
-   tespit ettiÄŸini gÃ¶sterir. SayÄ±mÄ± oynatan bileÅŸen S4'tÃ¼r (MOG2: 17 varken,
-   yokken 14). S4 kapalÄ± GSOC, gÃ¶nderilen hÃ¼crenin 17/29 ve p50 32,0'sÄ±na karÅŸÄ±
-   18/29 tespit eder; p50 33,0. DEV ayar koludur; yani bunlarÄ±n hiÃ§biri donmuÅŸ
-   yapÄ±landÄ±rmayÄ± yeniden aÃ§madÄ±: elde tutulan koÅŸu gÃ¶nderilen hÃ¼creyi Ã¶lÃ§tÃ¼,
-   yÃ¼kseltme dahil â€” Ã§Ã¼nkÃ¼ `constants.py` bu Ä±zgara koÅŸulmadan Ã¶nce sabitlendi
-   (2026-10-04 DEV koÅŸusundan beri hash `02752e86â€¦`) ve Ä±zgara onu deÄŸiÅŸtirmedi;
-   dondurma dosyasÄ± Ä±zgaradan sonra, elde tutulan okumadan Ã¶nce commit'lendi.
-   DEV'de sÄ±nÄ±flandÄ±rÄ±cÄ±ya yardÄ±mcÄ± olduÄŸu gÃ¶sterilemiyor.
-9. **Stabilizasyon her kareyi ham Ã¶ncÃ¼lÃ¼ne kaydeder ve hareket eden bulut altÄ±nda
-   tahmini kamerayÄ± deÄŸil gÃ¶kyÃ¼zÃ¼nÃ¼ izler.** `stabilise(prev, cur)`, *t* karesini
-   ham *tâˆ’1* karesine hizalar; yani gerÃ§ek kamera hareketi arka plan modeline bir
-   kare gecikmeyle hÃ¢lÃ¢ ulaÅŸÄ±r (`api/main.py` `Replay._tick`, `scripts/bench.py`).
-   StabilizatÃ¶rÃ¼n â‰¥ 1 px bÃ¼kÃ¼m uyguladÄ±ÄŸÄ± her Ã§ift zemine karÅŸÄ± hakem edildi â€”
-   karenin satÄ±r %55â€“88'i; zeminin hizasÄ±nÄ± iyileÅŸtiren bÃ¼kÃ¼m kameranÄ±nkidir,
-   kÃ¶tÃ¼leÅŸtiren ise deÄŸildir (`scripts/measure_registration.py`,
-   `results/registration_2026-10-10.json`). DEV'de 55'in 48'i gerÃ§ek harekettir,
+4. **Yenilik bir metrik yeniden çerçeveleme, yeni bir sensör değil.** Tek tek OpenCV
+   işlemleri iyi bilinir; yeni olan onları birleştiren ilkel ve yöneltildikleri
+   dikkat-bütçesi hedefidir.
+5. **Tek örnek, HA yok, statik yansıma yok.** Uç nokta tek bir Graviton `t4g.small`
+   (sınırsız kredi modu), yarışmanın AWS bursuyla finanse ediliyor. Yayımlanan her
+   sayı `results/` içinde commit'lenmiştir; iddia, makine kapansa da ayakta kalır.
+6. **Yönetilen bulut görü işlemleri API taban çizgisi yok.** İki taban çizgi de
+   karışıklık kümesi üzerinde PlumeRank ile aynı alarm bütçesine kalibre edilir;
+   bunlardan biri (B1) PlumeRank'ın kendi sinir ağını paylaşır — klasik aşamanın
+   yükselttiği ~%2 yerine her karede çalıştırılır — bu farklı boyutlu modeller
+   yarışı değil, kontrollü bir deneydir.
+7. **Yükleme yolu yok, sevk yolu yok, bastırma yolu yok — tasarım gereği, unutma
+   sonucu değil.** Aşağıdaki "Sorumlu kullanım"a bakın.
+8. **Sınıflandırıcı yükseltmesi DEV'de bir tespit kazandırmıyor ve gönderilen hücre,
+   sayım bakımından en iyi DEV hücresi değil.** On iki hücreli ızgara
+   (`results/ablation_2026-10-10.csv`, {MOG2, LSBP, GSOC} × S4 açık/kapalı ×
+   yükseltme açık/kapalı, hepsi 2,0 alarm/kamera-gecesi bütçesinde gönderilen
+   kamera-başı taban çizgisinden geçer) yükseltme açıkken ve kapalıken altı çiftin
+   beşinde aynı sayıda yangın tespit ettiğini, altıncıda açıkken bir eksik
+   tespit ettiğini gösterir. Sayımı oynatan bileşen S4'tür (MOG2: 17 varken,
+   yokken 14). S4 kapalı GSOC, gönderilen hücrenin 17/29 ve p50 32,0'sına karşı
+   18/29 tespit eder; p50 33,0. DEV ayar koludur; yani bunların hiçbiri donmuş
+   yapılandırmayı yeniden açmadı: elde tutulan koşu gönderilen hücreyi ölçtü,
+   yükseltme dahil — çünkü `constants.py` bu ızgara koşulmadan önce sabitlendi
+   (2026-10-04 DEV koşusundan beri hash `02752e86…`) ve ızgara onu değiştirmedi;
+   dondurma dosyası ızgaradan sonra, elde tutulan okumadan önce commit'lendi.
+   DEV'de sınıflandırıcıya yardımcı olduğu gösterilemiyor.
+9. **Stabilizasyon her kareyi ham öncülüne kaydeder ve hareket eden bulut altında
+   tahmini kamerayı değil gökyüzünü izler.** `stabilise(prev, cur)`, *t* karesini
+   ham *t−1* karesine hizalar; yani gerçek kamera hareketi arka plan modeline bir
+   kare gecikmeyle hâlâ ulaşır (`api/main.py` `Replay._tick`, `scripts/bench.py`).
+   Stabilizatörün ≥ 1 px büküm uyguladığı her çift zemine karşı hakem edildi —
+   karenin satır %55–88'i; zeminin hizasını iyileştiren büküm kameranınkidir,
+   kötüleştiren ise değildir (`scripts/measure_registration.py`,
+   `results/registration_2026-10-10.json`). DEV'de 55'in 48'i gerçek harekettir,
    hepsi tek kameradan (`20250107_PalisadesFire_69bravo-e-mobo-c`, dakikada 5,7
-   px'e kadar) ve bÃ¼kÃ¼m hepsinde zemin hizasÄ±nÄ± iyileÅŸtirir. DEV'deki diÄŸer 7 ve
-   CONFUSE'daki 39 deÄŸil: zemin medyan 0,07 px (DEV) / 0,04 px (CONFUSE) hareket
-   ederken gÃ¶kyÃ¼zÃ¼ bandÄ± 3,3â€“14,8 px hareket etti (pencere baÅŸÄ±na medyanlar) ve
-   tam-kare faz korelasyonu ona doÄŸru Ã§ekildi. EÅŸkin Ã¼zerinde Ã§Ã¶zÃ¼ldÃ¼ÄŸÃ¼ yangÄ±nsÄ±z
-   kÃ¼mede â‰¥ 1 px'lik her bÃ¼kÃ¼m bu yÃ¼zden duraÄŸÄ±n bir sÄ±rt Ã§izgisini kaydÄ±rÄ±r â€” ve
-   maliyeti azdÄ±r, karÅŸÄ±olgusal olarak Ã¶lÃ§Ã¼ldÃ¼: CONFUSE'u commit'lenen koÅŸunun
-   yaptÄ±ÄŸÄ± gibi yeniden oynatmak (kamera-gecesi baÅŸÄ±na 1,9885 alarmÄ±nÄ± ve eÅŸiÄŸini
-   tam olarak yeniden Ã¼retmek) ve ardÄ±ndan o 39 bÃ¼kÃ¼m uygulanmadan tekrar oynatmak,
-   eÅŸiksiz eÅŸik aÅŸmalarÄ±nÄ± 64'ten 63'e, 2,0 bÃ¼tÃ§esinin Ã§Ã¶zdÃ¼ÄŸÃ¼ eÅŸiÄŸi 0,8492'den
-   0,8482'ye deÄŸiÅŸtirir (`scripts/measure_registration_alerts.py`,
-   `results/registration_alerts_2026-10-10.json`). Etki bÃ¼kÃ¼len kareler yerine
-   bÃ¼tÃ¼n pencerelere yayÄ±lÄ±r â€” bir pencerede bÃ¼kÃ¼mleri kaldÄ±rmak bir aÅŸma ekler â€”
-   yani kare kare sayÄ±lmaz; yangÄ±n tespitine etkisi Ã¶lÃ§Ã¼lmedi. DeÄŸiÅŸmeyen:
-   elde tutulan okuma bu hattÄ± Ã¶lÃ§tÃ¼; kaymayÄ± yalnÄ±zca zemin bandÄ±nda tahmin etmek
-   gelecek Ã§alÄ±ÅŸmanÄ±n ilk maddesidir.
-10. **KanÄ±t kÄ±rpÄ±mÄ± dumanÄ± zamanÄ±n yarÄ±sÄ±ndan azÄ±nda gÃ¶sterir.** Her satÄ±rÄ±n
-    kÄ±rpÄ±mÄ± kameranÄ±n izlenen en bÃ¼yÃ¼k Ã¶n plan bileÅŸenidir ve sÄ±ralama kameraya
-    gÃ¶redir â€” yani bir yangÄ±n kamerasÄ±, en bÃ¼yÃ¼k hareket eden ÅŸeyi bir bulut
-    olduÄŸunda bile tepreye ulaÅŸabilir. Her DEV yangÄ±nÄ±nÄ±n tutuÅŸma sonrasÄ± ilk
-    1. sÄ±rada veya alarm tikinde, canlÄ± duvarÄ±n bir turunda, kÄ±rpÄ±m bÃ¶lgesi 21'in
-    9'unda dumanÄ±; 7'sinde bulut, 2'sinde gÃ¼neÅŸ veya Ã§Ä±plak gÃ¶kyÃ¼zÃ¼, 2'sinde
-    arazi, 1'inde belirsizi iÃ§erir (`scripts/audit_evidence_crops.py`,
-    `results/evidence_first_hits_2026-10-10.json` ve tam Ã§Ã¶zÃ¼nÃ¼rlÃ¼klÃ¼ temas
-    sayfasÄ±; etiketler gÃ¶zle, `results/evidence_first_hits_labels.json` iÃ§inde).
-    Sevk gÃ¶revlisi kÄ±rpÄ±mdaki bulutu "tÃ¼m karoya bak" olarak okumalÄ±dÄ±r, "temiz"
-    olarak deÄŸil. GÃ¶sterilecek bileÅŸeni boyuta gÃ¶re deÄŸil istatistiÄŸe gÃ¶re seÃ§mek
-    gelecek Ã§alÄ±ÅŸmadÄ±r; hiÃ§bir sÄ±ralamayÄ± deÄŸiÅŸtirmez.
+   px'e kadar) ve büküm hepsinde zemin hizasını iyileştirir. DEV'deki diğer 7 ve
+   CONFUSE'daki 39 değil: zemin medyan 0,07 px (DEV) / 0,04 px (CONFUSE) hareket
+   ederken gökyüzü bandı 3,3–14,8 px hareket etti (pencere başına medyanlar) ve
+   tam-kare faz korelasyonu ona doğru çekildi. Eşkin üzerinde çözüldüğü yangınsız
+   kümede ≥ 1 px'lik her büküm bu yüzden durağın bir sırt çizgisini kaydırır — ve
+   maliyeti azdır, karşıolgusal olarak ölçüldü: CONFUSE'u commit'lenen koşunun
+   yaptığı gibi yeniden oynatmak (kamera-gecesi başına 1,9885 alarmını ve eşiğini
+   tam olarak yeniden üretmek) ve ardından o 39 büküm uygulanmadan tekrar oynatmak,
+   eşiksiz eşik aşmalarını 64'ten 63'e, 2,0 bütçesinin çözdüğü eşiği 0,8492'den
+   0,8482'ye değiştirir (`scripts/measure_registration_alerts.py`,
+   `results/registration_alerts_2026-10-10.json`). Etki bükülen kareler yerine
+   bütün pencerelere yayılır — bir pencerede bükümleri kaldırmak bir aşma ekler —
+   yani kare kare sayılmaz; yangın tespitine etkisi ölçülmedi. Değişmeyen:
+   elde tutulan okuma bu hattı ölçtü; kaymayı yalnızca zemin bandında tahmin etmek
+   gelecek çalışmanın ilk maddesidir.
+10. **Kanıt kırpımı dumanı zamanın yarısından azında gösterir.** Her satırın
+    kırpımı kameranın izlenen en büyük ön plan bileşenidir ve sıralama kameraya
+    göredir — yani bir yangın kamerası, en büyük hareket eden şeyi bir bulut
+    olduğunda bile tepreye ulaşabilir. Her DEV yangınının tutuşma sonrası ilk
+    1. sırada veya alarm tikinde, canlı duvarın bir turunda, kırpım bölgesi 21'in
+    9'unda dumanı; 7'sinde bulut, 2'sinde güneş veya çıplak gökyüzü, 2'sinde
+    arazi, 1'inde belirsizi içerir (`scripts/audit_evidence_crops.py`,
+    `results/evidence_first_hits_2026-10-10.json` ve tam çözünürlüklü temas
+    sayfası; etiketler gözle, `results/evidence_first_hits_labels.json` içinde).
+    Sevk görevlisi kırpımdaki bulutu "tüm karoya bak" olarak okumalıdır, "temiz"
+    olarak değil. Gösterilecek bileşeni boyuta göre değil istatistiğe göre seçmek
+    gelecek çalışmadır; hiçbir sıralamayı değiştirmez.
 
 ---
 
-## NasÄ±l Ã§alÄ±ÅŸÄ±r
+## Nasıl çalışır
 
-Yuvarlanan, stabilize edilmiÅŸ bir pencere Ã¼zerinde, her kamera Ã¼zerindeki her Ã¶n plan
-bileÅŸeni ÅŸunlar iÃ§in Ã¶lÃ§Ã¼lÃ¼r:
+Yuvarlanan, stabilize edilmiş bir pencere üzerinde, her kamera üzerindeki her ön plan
+bileşeni şunlar için ölçülür:
 
-| # | Ä°statistik | TasarÄ±m hipotezi | Tek baÅŸÄ±na Ã¶lÃ§Ã¼len (DEV, tutuÅŸma Ã¶ncesi/sonrasÄ± AUC) |
+| # | İstatistik | Tasarım hipotezi | Tek başına ölçülen (DEV, tutuşma öncesi/sonrası AUC) |
 |---|---|---|---|
-| S1 | **Tabana baÄŸlanma** | bir yangÄ±n zemine baÄŸlÄ±dÄ±r; bulut deÄŸildir | 0,528 â€” ÅŸansa yakÄ±n |
-| S2 | **Dikey bÃ¼yÃ¼me anizotropisi** | bir duman sÃ¼tunu yayÄ±ldÄ±ÄŸÄ±ndan hÄ±zlÄ± yÃ¼kselir | 0,50 â€” ÅŸans |
-| S3 | **YaygÄ±n-sÄ±nÄ±r kontrastÄ±** | dumanÄ±n kenarÄ± yumuÅŸaktÄ±r | 0,44 â€” ters-Ã¶ngÃ¶rÃ¼mlÃ¼ (sÄ±nÄ±rlama 2 ve 3) |
-| S4 | **Kutu iÃ§i optik akÄ±ÅŸ sÃ¼rÃ¼klenmesi** | bir duman tutarlÄ± sÃ¼rÃ¼klenir; sensÃ¶r gÃ¼rÃ¼ltÃ¼sÃ¼ sÃ¼rÃ¼klenmez | 0,538 â€” zayÄ±f; tespit kanÄ±tÄ± Ã¼zerine tutulur: gÃ¶nderilen taban Ã§izgisi altÄ±nda varken 17/29, yokken 14/29 â€” yine de S4-kapalÄ± koÅŸu Ã§ok daha az kare yÃ¼kseltir (aynÄ± Ä±zgarada %0,17'ye karÅŸÄ± %2,14; o Ä±zgaranÄ±n gÃ¶nderilen hÃ¼cre yeniden koÅŸusu, aynÄ± sabit hash'i ve eÅŸiÄŸinde 2026-10-04 koÅŸusunun 51'ine karÅŸÄ± 49 kare yÃ¼kseltti, tespitler Ã¶zdeÅŸ), yani iki etki ayrÄ±ÅŸtÄ±rÄ±lmamÄ±ÅŸtÄ±r |
+| S1 | **Tabana bağlanma** | bir yangın zemine bağlıdır; bulut değildir | 0,528 — şansa yakın |
+| S2 | **Dikey büyüme anizotropisi** | bir duman sütunu yayıldığından hızlı yükselir | 0,50 — şans |
+| S3 | **Yaygın-sınır kontrastı** | dumanın kenarı yumuşaktır | 0,44 — ters-öngörümlü (sınırlama 2 ve 3) |
+| S4 | **Kutu içi optik akış sürüklenmesi** | bir duman tutarlı sürüklenir; sensör gürültüsü sürüklenmez | 0,538 — zayıf; tespit kanıtı üzerine tutulur: gönderilen taban çizgisi altında varken 17/29, yokken 14/29 — yine de S4-kapalı koşu çok daha az kare yükseltir (aynı ızgarada %0,17'ye karşı %2,14; o ızgaranın gönderilen hücre yeniden koşusu, aynı sabit hash'i ve eşiğinde 2026-10-04 koşusunun 51'ine karşı 49 kare yükseltti, tespitler özdeş), yani iki etki ayrıştırılmamıştır |
 
-DÃ¶rdÃ¼nÃ¼n hiÃ§biri tek baÅŸÄ±na iyi bir dedektÃ¶r deÄŸildir ve kare baÅŸÄ±na, birleÅŸmiÅŸ
-model "bir bileÅŸen var" tek bitini Ã¶rnek iÃ§inde yalnÄ±zca 0,0015 AUC ile geÃ§er
-(`results/statistics_confound_2026-09-06.md`). Tespiti kaldÄ±ran aÅŸaÄŸÄ±daki
-kamera-baÅŸÄ± taban Ã§izgisidir, kare-baÅŸÄ± puan deÄŸil.
+Dördünün hiçbiri tek başına iyi bir dedektör değildir ve kare başına, birleşmiş
+model "bir bileşen var" tek bitini örnek içinde yalnızca 0,0015 AUC ile geçer
+(`results/statistics_confound_2026-09-06.md`). Tespiti kaldıran aşağıdaki
+kamera-başı taban çizgisidir, kare-başı puan değil.
 
-Bu dÃ¶rt, kamera baÅŸÄ±na bir tehlikeye katlanÄ±r (sabit bir lojistik, aÄŸÄ±rlÄ±klar DEV
-Ã¼zerinde oturtulmuÅŸ, varlÄ±k terimi yok). ArdÄ±ndan her kamera **kendi izleyen 15
-dakikasÄ±na** gÃ¶re puanlanÄ±r â€” bÃ¼tÃ¼n gece sÄ±cak Ã§alÄ±ÅŸan bir kamera yangÄ±n deÄŸildir â€”
-ve bundan sonra bir Ã§Ã¶zÃ¼cÃ¼, alarm eÅŸiÄŸini bÃ¼tÃ§eye kalibre eder.
+Bu dört, kamera başına bir tehlikeye katlanır (sabit bir lojistik, ağırlıklar DEV
+üzerinde oturtulmuş, varlık terimi yok). Ardından her kamera **kendi izleyen 15
+dakikasına** göre puanlanır — bütün gece sıcak çalışan bir kamera yangın değildir —
+ve bundan sonra bir çözücü, alarm eşiğini bütçeye kalibre eder.
 
-**Ã–ÄŸrenilen bileÅŸen hiÃ§bir Kaliforniya pikseli gÃ¶rmez.** Tek eÄŸitilmiÅŸ model â€”
-`cv2.dnn` Ã¼zerinden eriÅŸilen kÃ¼Ã§Ã¼k bir ONNX karo sÄ±nÄ±flandÄ±rÄ±cÄ±sÄ± â€” yalnÄ±zca
-Pyro-SDIS (FransÄ±z yangÄ±n servisleri, Apache-2.0) Ã¼zerinde eÄŸitilmiÅŸtir ve
-yalnÄ±zca klasik aÅŸamanÄ±n yÃ¼kselttiÄŸi karelerin ~%2'sine dokunur. AynÄ± model taban
-Ã§izgi B1'in ta kendisidir â€” %2 yerine her karede Ã§alÄ±ÅŸtÄ±rÄ±lÄ±r: PlumeRank bu
-karÅŸÄ±laÅŸtÄ±rmayÄ± daha bÃ¼yÃ¼k bir modelle kazanamaz, Ã§Ã¼nkÃ¼ model iki tarafta da
-Ã¶zdeÅŸtir.
+**Öğrenilen bileşen hiçbir Kaliforniya pikseli görmez.** Tek eğitilmiş model —
+`cv2.dnn` üzerinden erişilen küçük bir ONNX karo sınıflandırıcısı — yalnızca
+Pyro-SDIS (Fransız yangın servisleri, Apache-2.0) üzerinde eğitilmiştir ve
+yalnızca klasik aşamanın yükselttiği karelerin ~%2'sine dokunur. Aynı model taban
+çizgi B1'in ta kendisidir — %2 yerine her karede çalıştırılır: PlumeRank bu
+karşılaştırmayı daha büyük bir modelle kazanamaz, çünkü model iki tarafta da
+özdeştir.
 
-### Neden Ã¶zellikle OpenCV 5
+### Neden özellikle OpenCV 5
 
-**YarÄ±ÅŸma gereÄŸi**, ve sÃ¼s deÄŸil yapÄ±sal: 6 modÃ¼lde 23 savunulan OpenCV 5 yÃ¼zeyi â€”
-18 analiz Ã§aÄŸrÄ±sÄ± artÄ± 5 Ã§alÄ±ÅŸma zamanÄ±/introspeksiyon yÃ¼zeyi (iÅŸ parÃ§acÄ±ÄŸÄ± sabitleme,
-zamanlama, yapÄ± bilgisi ve iki motor/tahminci bayraÄŸÄ±) â€” her `make test` koÅŸusunda
-kaynak Ã¼zerinden mekanik olarak sayÄ±lÄ±r `scripts/check_claims.py` (asla elle
-yazÄ±lmaz):
+**Yarışma gereği**, ve süs değil yapısal: 6 modülde 23 savunulan OpenCV 5 yüzeyi —
+18 analiz çağrısı artı 5 çalışma zamanı/introspeksiyon yüzeyi (iş parçacığı sabitleme,
+zamanlama, yapı bilgisi ve iki motor/tahminci bayrağı) — her `make test` koşusunda
+kaynak üzerinden mekanik olarak sayılır `scripts/check_claims.py` (asla elle
+yazılmaz):
 
-| YÃ¼zey | BulunduÄŸu yer | OlmasaydÄ± |
+| Yüzey | Bulunduğu yer | Olmasaydı |
 |---|---|---|
-| `createBackgroundSubtractorMOG2` + `.apply` | `plumerank/segment.py` | makale baÅŸÄ±na yeniden yazÄ±lacak, piksel baÅŸÄ±na Gauss karÄ±ÅŸÄ±mÄ± arka plan modeli |
-| `phaseCorrelate` + `createHanningWindow` (+ OpenCV 4.13 / 5.0'da eklenen `phaseCorrelateIterative`) | `plumerank/stabilise.py` | alt-piksel iyileÅŸtirmeli, dolgulu DFT Ã§ap-gÃ¼Ã§-spektrumu stabilize edici |
-| `estimateAffine2D(..., USAC_MAGSAC)` | `plumerank/stabilise.py` | doÄŸru bir MAGSAC++ uygulamasÄ± |
-| `connectedComponentsWithStats`, `Sobel`, `Laplacian` | `plumerank/segment.py`, `plumerank/statistic.py` | S1/S2'nin okuduÄŸu bileÅŸen kutularÄ± ve S3'Ã¼n okuduÄŸu sÄ±nÄ±r enerjileri |
-| `DISOpticalFlow_create` | `plumerank/statistic.py` (S4) | kullanÄ±labilir hÄ±zda yoÄŸun bir akÄ±ÅŸ alanÄ± |
-| `dnn.readNetFromONNX` (`dnn.ENGINE_NEW`) + `dnn.blobFromImage` + `dnn.Net.forward` | `plumerank/escalate.py` | arm64 makinesinde ikinci bir Ã§Ä±karÄ±m Ã§alÄ±ÅŸma zamanÄ± |
-| `getBuildInformation` | `api/main.py` â†’ `GET /build-info` | bir jÃ¼rinin OpenCV 5 iddiasÄ±nÄ± doÄŸrulamak iÃ§in `curl`'leyebileceÄŸi bir ÅŸey |
+| `createBackgroundSubtractorMOG2` + `.apply` | `plumerank/segment.py` | makale başına yeniden yazılacak, piksel başına Gauss karışımı arka plan modeli |
+| `phaseCorrelate` + `createHanningWindow` (+ OpenCV 4.13 / 5.0'da eklenen `phaseCorrelateIterative`) | `plumerank/stabilise.py` | alt-piksel iyileştirmeli, dolgulu DFT çap-güç-spektrumu stabilize edici |
+| `estimateAffine2D(..., USAC_MAGSAC)` | `plumerank/stabilise.py` | doğru bir MAGSAC++ uygulaması |
+| `connectedComponentsWithStats`, `Sobel`, `Laplacian` | `plumerank/segment.py`, `plumerank/statistic.py` | S1/S2'nin okuduğu bileşen kutuları ve S3'ün okuduğu sınır enerjileri |
+| `DISOpticalFlow_create` | `plumerank/statistic.py` (S4) | kullanılabilir hızda yoğun bir akış alanı |
+| `dnn.readNetFromONNX` (`dnn.ENGINE_NEW`) + `dnn.blobFromImage` + `dnn.Net.forward` | `plumerank/escalate.py` | arm64 makinesinde ikinci bir çıkarım çalışma zamanı |
+| `getBuildInformation` | `api/main.py` → `GET /build-info` | bir jürinin OpenCV 5 iddiasını doğrulamak için `curl`'leyebileceği bir şey |
 
-Kalan yÃ¼zeyler (ablasyon Ä±zgarasÄ± iÃ§in tutulan iki arka plan Ã§Ä±karÄ±cÄ± varyantÄ±,
-CLAHE kontrast normalleÅŸtirmesi, morfoloji temizliÄŸi, yapÄ±/zamanlama
-introspeksiyonu) `scripts/check_claims.py` Ã§Ä±ktÄ±sÄ±nda eksiksiz listelenir.
+Kalan yüzeyler (ablasyon ızgarası için tutulan iki arka plan çıkarıcı varyantı,
+CLAHE kontrast normalleştirmesi, morfoloji temizliği, yapı/zamanlama
+introspeksiyonu) `scripts/check_claims.py` çıktısında eksiksiz listelenir.
 
 ### Mimari
 
 ```
-HPWREN FIgLib yeniden oynatma â”€â”€â–¶ stabilize et (phaseCorrelate + MAGSAC) â”€â”€â–¶ bÃ¶lÃ¼tle (MOG2 + baÄŸlÄ± bileÅŸenler)
-                                                                        â”‚
-                                                            S1Â·S2Â·S3Â·S4 istatistikleri
-                                                                        â”‚
-                                               yÃ¼kselt (karelerin ~%2'si) â”€â”€â–¶ ONNX karo sÄ±nÄ±flandÄ±rÄ±cÄ±sÄ± (cv2.dnn)
-                                                                        â”‚
-                                                      birleÅŸtir â”€â”€â–¶ kamera-baÅŸÄ± taban Ã§izgi (izleyen 15 dk)
-                                                                        â”‚
-                                              eÅŸik Ã§Ã¶z (alarm bÃ¼tÃ§esi) â”€â”€â–¶ yayÄ±mla (sÄ±ralÄ± izleme listesi)
-                                                                        â”‚
+HPWREN FIgLib yeniden oynatma ──▶ stabilize et (phaseCorrelate + MAGSAC) ──▶ bölütle (MOG2 + bağlı bileşenler)
+                                                                        │
+                                                            S1·S2·S3·S4 istatistikleri
+                                                                        │
+                                               yükselt (karelerin ~%2'si) ──▶ ONNX karo sınıflandırıcısı (cv2.dnn)
+                                                                        │
+                                                      birleştir ──▶ kamera-başı taban çizgi (izleyen 15 dk)
+                                                                        │
+                                              eşik çöz (alarm bütçesi) ──▶ yayımla (sıralı izleme listesi)
+                                                                        │
                                    FastAPI (/api/watchlist SSE, /api/benchmark, /health, /build-info)
-                                                                        â”‚
-                                                        Next.js â€” Duvar, /results, /judge
+                                                                        │
+                                                        Next.js — Duvar, /results, /judge
 ```
 
-Tek t4g.small (Graviton/ARM) Ã¶rneÄŸi, kÃ¼me iÃ§in tek S3 kovasÄ±, alarm bÃ¼tÃ§esi iÃ§in
-CloudWatch (duvarÄ±n yangÄ±nsÄ±z kameralarÄ±ndaki oran; Â±%15 sapma alarmlarÄ±yla â€” duvar
-bu pencereleri kÄ±yaslamanÄ±n yaptÄ±ÄŸÄ± gibi aynen yeniden oynatÄ±r, yani saÄŸlÄ±klÄ± bir
-makine kalibre edilmiÅŸ 1,99'u okur) ve servis atmayÄ± kestiÄŸinde Ã¶rneÄŸi yeniden
-baÅŸlatan bir kalp-atÄ±ÅŸÄ±-sessizlik alarmÄ±. Lambda yok, yÃ¶netilen gÃ¶rÃ¼ API'si yok,
-ikinci Ã¶rnek yok.
+Tek t4g.small (Graviton/ARM) örneği, küme için tek S3 kovası, alarm bütçesi için
+CloudWatch (duvarın yangınsız kameralarındaki oran; ±%15 sapma alarmlarıyla — duvar
+bu pencereleri kıyaslamanın yaptığı gibi aynen yeniden oynatır, yani sağlıklı bir
+makine kalibre edilmiş 1,99'u okur) ve servis atmayı kestiğinde örneği yeniden
+başlatan bir kalp-atışı-sessizlik alarmı. Lambda yok, yönetilen görü API'si yok,
+ikinci örnek yok.
 
 ---
 
-## Sorumlu kullanÄ±m
+## Sorumlu kullanım
 
-1. **Ä°nsan iÃ§in sÄ±ralama yardÄ±mÄ±, sevk deÄŸil.** Bu kod tabanÄ±nda hiÃ§bir yerde sevk
-   yolu yoktur (`tests/test_api.py::test_there_is_no_upload_route` ve eÅŸdeÄŸer bir
-   sevk yolu da yoktur â€” `test_exactly_the_four_documented_routes_exist`).
-2. **HiÃ§bir kamerayÄ± asla gizlemez.** Kadronin tamamÄ± ekranda kalÄ±r; sistem yalnÄ±zca
-   sÄ±rasÄ±nÄ± deÄŸiÅŸtirir.
-3. **Alarm bÃ¼tÃ§esi yayÄ±mlanmÄ±ÅŸ, gÃ¼nlÃ¼ÄŸe yazÄ±lan, ayarlanabilir bir parametredir** â€”
-   bir yapÄ±landÄ±rma dosyasÄ±na gÃ¶mÃ¼lÃ¼ bir sabit deÄŸil, sapma alarmÄ± olan bir CloudWatch
-   metriÄŸidir.
-4. **Her sÄ±ralÄ± satÄ±r kanÄ±t kÄ±rpÄ±mÄ±nÄ± da taÅŸÄ±r**, yani bir insan sÄ±ralamayÄ± tek
-   bakÄ±ÅŸta geÃ§ersiz kÄ±labilir.
-5. **Yeni gÃ¶rÃ¼ntÃ¼ toplanmaz.** Duvar manzaralarÄ±n kamuya aÃ§Ä±k HPWREN FIgLib
-   gÃ¶rÃ¼ntÃ¼lerini yeniden oynatÄ±r; yazdÄ±ÄŸÄ± tek kareler, ekran iÃ§in o gÃ¶rÃ¼ntÃ¼nÃ¼n kÃ¼Ã§Ã¼k
-   kanÄ±t kÄ±rpÄ±mlarÄ± ve kÃ¼Ã§Ã¼k resimleridir ve her yeniden oynatmada Ã¼zerine yazÄ±lÄ±r.
+1. **İnsan için sıralama yardımı, sevk değil.** Bu kod tabanında hiçbir yerde sevk
+   yolu yoktur (`tests/test_api.py::test_there_is_no_upload_route` ve eşdeğer bir
+   sevk yolu da yoktur — `test_exactly_the_four_documented_routes_exist`).
+2. **Hiçbir kamerayı asla gizlemez.** Kadronin tamamı ekranda kalır; sistem yalnızca
+   sırasını değiştirir.
+3. **Alarm bütçesi yayımlanmış, günlüğe yazılan, ayarlanabilir bir parametredir** —
+   bir yapılandırma dosyasına gömülü bir sabit değil, sapma alarmı olan bir CloudWatch
+   metriğidir.
+4. **Her sıralı satır kanıt kırpımını da taşır**, yani bir insan sıralamayı tek
+   bakışta geçersiz kılabilir.
+5. **Yeni görüntü toplanmaz.** Duvar manzaraların kamuya açık HPWREN FIgLib
+   görüntülerini yeniden oynatır; yazdığı tek kareler, ekran için o görüntünün küçük
+   kanıt kırpımları ve küçük resimleridir ve her yeniden oynatmada üzerine yazılır.
 
 ---
 
 ## Test
 
 ```
-Yerel olarak 832 geÃ§ti, 1 atlandÄ± (kÃ¼me olmadan CI, 820 koÅŸar ve 13'Ã¼ atlar) Â· plumerank/ Ã¼zerinde %100 satÄ±r kapsamÄ± Â· ruff temiz Â· mypy temiz
+Yerel olarak 832 geçti, 1 atlandı (küme olmadan CI, 820 koşar ve 13'ü atlar) · plumerank/ üzerinde %100 satır kapsamı · ruff temiz · mypy temiz
 ```
 
-| Katman | AraÃ§ | Notlar |
+| Katman | Araç | Notlar |
 |---|---|---|
-| Birim + entegrasyon | `pytest` | `make test` â€” Ã§evrimdÄ±ÅŸÄ±, aÄŸ yok, kimlik bilgisi yok, ~2 dk |
-| Ã–zellik tabanlÄ± | `hypothesis` | `tests/test_invariants.py` â€” **1.500 Ã¼retilmiÅŸ vaka** (her biri 500) Ã¶zellik testi: birleÅŸmiÅŸ tehlikenin geÃ§erli girdilerde asla `[0, 1]` dÄ±ÅŸÄ±na Ã§Ä±kmamasÄ± ve geÃ§ersiz bir tanesini sessizce geÃ§memesi; Ã¼retilmiÅŸ Ã§aÄŸrÄ± dizileri boyunca alarm bÃ¼tÃ§esinin asla aÅŸilmamasÄ± |
-| Regresyon | 690+ Ã¶rnek test, Ã§oÄŸu sabitlediÄŸi belirli davranÄ±ÅŸ veya hatanÄ±n adÄ±nÄ± taÅŸÄ±r (Ã¶r. `test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health`) | `tests/` |
-| Ä°ddia/kod tutarlÄ±lÄ±ÄŸÄ± | `scripts/check_claims.py` (`make test` iÃ§inde koÅŸar) | bu belgenin adÄ±nÄ± andÄ±ÄŸÄ± her OpenCV sembolÃ¼, API rotasÄ±, baÄŸÄ±mlÄ±lÄ±k, Makefile hedefi ve dosya yolu gerÃ§ek kaynakla mekanik olarak doÄŸrulanÄ±r â€” taÅŸÄ±nan bir dosya, yeniden adlandÄ±rÄ±lan bir sembol veya silinen bir rota bir sonraki test koÅŸusunu dÃ¼ÅŸÃ¼rÃ¼r (metne elle yazÄ±lan sayÄ±lar, Ã¶rn. test toplamÄ±, ayrÄ±ÅŸtÄ±rÄ±lmaz) |
+| Birim + entegrasyon | `pytest` | `make test` — çevrimdışı, ağ yok, kimlik bilgisi yok, ~2 dk |
+| Özellik tabanlı | `hypothesis` | `tests/test_invariants.py` — **1.500 üretilmiş vaka** (her biri 500) özellik testi: birleşmiş tehlikenin geçerli girdilerde asla `[0, 1]` dışına çıkmaması ve geçersiz bir tanesini sessizce geçmemesi; üretilmiş çağrı dizileri boyunca alarm bütçesinin asla aşilmaması |
+| Regresyon | 690+ örnek test, çoğu sabitlediği belirli davranış veya hatanın adını taşır (ör. `test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health`) | `tests/` |
+| İddia/kod tutarlılığı | `scripts/check_claims.py` (`make test` içinde koşar) | bu belgenin adını andığı her OpenCV sembolü, API rotası, bağımlılık, Makefile hedefi ve dosya yolu gerçek kaynakla mekanik olarak doğrulanır — taşınan bir dosya, yeniden adlandırılan bir sembol veya silinen bir rota bir sonraki test koşusunu düşürür (metne elle yazılan sayılar, örn. test toplamı, ayrıştırılmaz) |
 | Statik analiz | `ruff check .`, `mypy plumerank api --ignore-missing-imports` | her ikisi de temiz |
-| SÄ±r taramasÄ± | `gitleaks` (tam geÃ§miÅŸ, 0 bulgu) + GitHub sÄ±r taramasÄ± ve itme korumasÄ± (etkin) | CI + depo ayarlarÄ± |
-| BaÄŸÄ±mlÄ±lÄ±k denetimi | `pip-audit`, `npm audit` | CI, danÄ±ÅŸma amaÃ§lÄ± |
+| Sır taraması | `gitleaks` (tam geçmiş, 0 bulgu) + GitHub sır taraması ve itme koruması (etkin) | CI + depo ayarları |
+| Bağımlılık denetimi | `pip-audit`, `npm audit` | CI, danışma amaçlı |
 | SAST | CodeQL (`python`, `javascript-typescript`) | CI, her itmede |
-| E2E | Playwright, **gerÃ§ek** FastAPI arka ucuna (sahte yok) | `web/e2e/` |
+| E2E | Playwright, **gerçek** FastAPI arka ucuna (sahte yok) | `web/e2e/` |
 
 ```bash
-make test              # Ã§evrimdÄ±ÅŸÄ± paket + kapsam, ~2 dk, aÄŸ yok, kimlik bilgisi yok
-make verify             # â‰¤3 dk: .venv'i yeniden kurar, Ã§evrimdÄ±ÅŸÄ± paketi koÅŸar, ardÄ±ndan
-                         # mikro-kÃ¼me Ã¶lÃ§Ã¼mlerini yeniden hesaplar ve commit'lenmiÅŸ
-                         # results/verify_micro.json ile karÅŸÄ±laÅŸtÄ±rÄ±r. YayÄ±mlanan baÅŸlÄ±k
-                         # sonucunu YENÄ°DEN ÃœRETMEZ ve asla Ã¼rettiÄŸini iddia etmez.
-make fetch && make bench  # toplam ~95 dk: elde tutulan baÅŸlÄ±k sonucunu yeniden Ã¼reten Ã§ift
-                            # (results/bench_2026-10-10.json, commit'lenmiÅŸ)
+make test              # çevrimdışı paket + kapsam, ~2 dk, ağ yok, kimlik bilgisi yok
+make verify             # ≤3 dk: .venv'i yeniden kurar, çevrimdışı paketi koşar, ardından
+                         # mikro-küme ölçümlerini yeniden hesaplar ve commit'lenmiş
+                         # results/verify_micro.json ile karşılaştırır. Yayımlanan başlık
+                         # sonucunu YENİDEN ÜRETMEZ ve asla ürettiğini iddia etmez.
+make fetch && make bench  # toplam ~95 dk: elde tutulan başlık sonucunu yeniden üreten çift
+                            # (results/bench_2026-10-10.json, commit'lenmiş)
 ```
 
-Tam yeniden Ã¼retme yÃ¼rÃ¼yÃ¼ÅŸÃ¼ iÃ§in [`DEMO.md`](DEMO.md), 30 saniyelik yol iÃ§in
-[`JUDGE.md`](JUDGE.md) dosyasÄ±na bakÄ±n.
+Tam yeniden üretme yürüyüşü için [`DEMO.md`](DEMO.md), 30 saniyelik yol için
+[`JUDGE.md`](JUDGE.md) dosyasına bakın.
 
 ---
 
-## BaÅŸlangÄ±Ã§
+## Başlangıç
 
-### Arka uÃ§ (kÃ¶k)
+### Arka uç (kök)
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
 .venv/bin/pip install -e ".[dev]"
 .venv/bin/uvicorn api.main:app --reload   # http://127.0.0.1:8000
 ```
 
-### Ã–n uÃ§ (`web/`)
+### Ön uç (`web/`)
 ```bash
 cd web && npm install
-cp .env.example .env.local   # NEXT_PUBLIC_PLUMERANK_API â€” bkz. web/.env.example
+cp .env.example .env.local   # NEXT_PUBLIC_PLUMERANK_API — bkz. web/.env.example
 npm run dev                  # http://127.0.0.1:3000
 ```
 
-Bu yÄ±ÄŸÄ±nda hiÃ§bir yerde API anahtarÄ±, hesap veya oturum aÃ§ma yoktur.
+Bu yığında hiçbir yerde API anahtarı, hesap veya oturum açma yoktur.
 
 ---
 
-## Proje yapÄ±sÄ±
+## Proje yapısı
 
 ```
-plumerank/       # hat: stabilize et, bÃ¶lÃ¼tle, istatistik, yÃ¼kselt, sÄ±rala, Ã¶lÃ§Ã¼mler, tipler
-api/             # FastAPI uygulamasÄ± â€” /build-info, /health, /api/watchlist, /api/benchmark
+plumerank/       # hat: stabilize et, bölütle, istatistik, yükselt, sırala, ölçümler, tipler
+api/             # FastAPI uygulaması — /build-info, /health, /api/watchlist, /api/benchmark
 scripts/         # fetch.py, bench.py, check_claims.py, check_submission_readiness.py
-web/             # Next.js Ã¶n yÃ¼z â€” Duvar ("/"), "/results", "/judge"
-tests/           # 833 test, plumerank/ Ã¼zerinde %100 satÄ±r kapsamÄ±
-deploy/          # EC2 Ã¶nyÃ¼kleme (Caddy, systemd, OpenCV 5 yapÄ± sabitlemesi)
-results/         # commit'lenmiÅŸ koÅŸu yapÄ±tlarÄ± â€” yayÄ±mlanan her sayÄ± burada yaÅŸar
+web/             # Next.js ön yüz — Duvar ("/"), "/results", "/judge"
+tests/           # 833 test, plumerank/ üzerinde %100 satır kapsamı
+deploy/          # EC2 önyükleme (Caddy, systemd, OpenCV 5 yapı sabitlemesi)
+results/         # commit'lenmiş koşu yapıtları — yayımlanan her sayı burada yaşar
 ```
 
 ---
 
-## Neyi yanlÄ±ÅŸ yaptÄ±k (tarihli)
+## Neyi yanlış yaptık (tarihli)
 
-KayÄ±ttan yazÄ±ldÄ±, hafÄ±zadan deÄŸil; her satÄ±r yakalayan dosyayÄ± adlandÄ±rÄ±r.
+Kayıttan yazıldı, hafızadan değil; her satır yakalayan dosyayı adlandırır.
 
-- **2026-09-06: baÅŸlÄ±ÄŸÄ±mÄ±zÄ± biz yanlÄ±ÅŸ aktardÄ±k.** DÃ¶rt belge gÃ¶nderilen DEV sonucu
-  olarak 12/29'u aktardÄ±; o, sonuÃ§ dosyasÄ± dÃ¼z `arm_dev_<tarih>.json` adÄ±nÄ± almÄ±ÅŸ
-  S4-kapalÄ± ablasyon hÃ¼cresiydi. GÃ¶nderilen yapÄ±landÄ±rma o gÃ¼n 9/29 Ã¶lÃ§tÃ¼. SonuÃ§
-  dosya adlarÄ± artÄ±k S4, taban Ã§izgi, arka plan ve bÃ¼tÃ§e hÃ¼crelerini adlandÄ±rÄ±yor
+- **2026-09-06: başlığımızı biz yanlış aktardık.** Dört belge gönderilen DEV sonucu
+  olarak 12/29'u aktardı; o, sonuç dosyası düz `arm_dev_<tarih>.json` adını almış
+  S4-kapalı ablasyon hücresiydi. Gönderilen yapılandırma o gün 9/29 ölçtü. Sonuç
+  dosya adları artık S4, taban çizgi, arka plan ve bütçe hücrelerini adlandırıyor
   (`scripts/bench.py` `results_filename`; S4 2026-09-06'da
-  `results/artefact_provenance_2026-09-06.md` Â§7 uyarÄ±nca, diÄŸer Ã¼Ã§Ã¼ 2026-10-04'te
-  `c977858` iÃ§inde dÃ¼zeltildi).
-- **TasarÄ±m Ã¶ncÃ¼lÃ¼ sisti; dÃ¼ÅŸman bulut.** AlÃ§ak bulut ve bulut gÃ¶lgesi, sisin 1,15'ine
-  karÅŸÄ± 4,25 ve 3,86 alarm/kamera-gecesi'ne mal oldu (taban Ã§izgi Ã¶ncesi eÅŸik,
-  `results/class_split_2026-09-06.json`) ve kÃ¶r bir sayÄ±m, sis pencerelerini seÃ§en
-  kuralÄ±n bir deniz katmanÄ±nÄ± rastgelelik sÄ±klÄ±ÄŸÄ±nda seÃ§tiÄŸini buldu
+  `results/artefact_provenance_2026-09-06.md` §7 uyarınca, diğer üçü 2026-10-04'te
+  `c977858` içinde düzeltildi).
+- **Tasarım öncülü sisti; düşman bulut.** Alçak bulut ve bulut gölgesi, sisin 1,15'ine
+  karşı 4,25 ve 3,86 alarm/kamera-gecesi'ne mal oldu (taban çizgi öncesi eşik,
+  `results/class_split_2026-09-06.json`) ve kör bir sayım, sis pencerelerini seçen
+  kuralın bir deniz katmanını rastgelelik sıklığında seçtiğini buldu
   (`results/fog_census_2026-10-04.md`).
-- **TasarÄ±mÄ±n dayandÄ±ÄŸÄ± istatistik tek baÅŸÄ±na ters-Ã¶ngÃ¶rÃ¼mlÃ¼.** S3, yaygÄ±n-sÄ±nÄ±r
-  kontrastÄ±, bileÅŸeni olan DEV karelerinde AUC 0,44 skorluyor
-  (`results/statistics_confound_2026-09-06.md`). SÄ±ralamayÄ± taÅŸÄ±yan her kameranÄ±n
-  kendi taban Ã§izgisidir.
-- **SÄ±nÄ±flandÄ±rÄ±cÄ± yÃ¼kseltmesi DEV tespiti kazanmÄ±yor** (sÄ±nÄ±rlama 8,
+- **Tasarımın dayandığı istatistik tek başına ters-öngörümlü.** S3, yaygın-sınır
+  kontrastı, bileşeni olan DEV karelerinde AUC 0,44 skorluyor
+  (`results/statistics_confound_2026-09-06.md`). Sıralamayı taşıyan her kameranın
+  kendi taban çizgisidir.
+- **Sınıflandırıcı yükseltmesi DEV tespiti kazanmıyor** (sınırlama 8,
   `results/ablation_2026-10-10.csv`).
-- **2026-10-10: test paketi x86-64'te segfault etti** â€” ilk GitHub CI koÅŸusuna kadar
-  gÃ¶rÃ¼lmedi â€” ve belgelenen DIS baÅŸarÄ±sÄ±zlÄ±k sÄ±nÄ±rÄ± ("geniÅŸlik â‰¥ 100") Ã¶zgÃ¼n
-  taramanÄ±n test ettiÄŸi ilk geniÅŸlikti, kenar (80) deÄŸil. arm64 Ã¼zerinde bite-Ã¶zdeÅŸ
-  olarak dÃ¼zeltildi (`plumerank/statistic.py`, `dis_unmeasurable`).
-- **2026-10-10: stabilize edici, kaldÄ±rdÄ±ÄŸÄ± harekete karÅŸÄ± hiÃ§ Ã¶lÃ§Ã¼lmemiÅŸti â€” ve ilk
-  Ã¶lÃ§Ã¼mÃ¼mÃ¼z yanlÄ±ÅŸtÄ±.** DÄ±ÅŸ bir mimari incelemesi kaydÄ±n ham Ã¶ncÃ¼le yapÄ±ldÄ±ÄŸÄ±nÄ±
-  gÃ¶sterdi. Pencere baÅŸÄ±na tek bir ilkten-sona korelasyon bize kameralarÄ±n zar zor
-  hareket ettiÄŸini, bÃ¼yÃ¼k tahminlerin gÃ¼rÃ¼ltÃ¼ olduÄŸunu yayÄ±mlatmÄ±ÅŸtÄ±; o 62
-  korelasyonun 8'i stabilize edicinin kendi gÃ¼ven tabanÄ±nÄ±n altÄ±ndaydÄ±
-  (`PHASE_RESPONSE_MIN`), iddianÄ±n en Ã§ok yaslandÄ±ÄŸÄ± pencere onlarÄ±n arasÄ±ndaydÄ± ve
-  hiÃ§biri hareket edip geri dÃ¶nen bir kamerayÄ± gÃ¶remezdi. Onun yerine zemine karÅŸÄ±
-  hakem edildiÄŸinde tek bir kamera gerÃ§ekten sallanÄ±yor ve diÄŸer her bÃ¼yÃ¼k
-  kayma hareket eden gÃ¶kyÃ¼zÃ¼nÃ¼ izliyor (sÄ±nÄ±rlama 9,
+- **2026-10-10: test paketi x86-64'te segfault etti** — ilk GitHub CI koşusuna kadar
+  görülmedi — ve belgelenen DIS başarısızlık sınırı ("genişlik ≥ 100") özgün
+  taramanın test ettiği ilk genişlikti, kenar (80) değil. arm64 üzerinde bite-özdeş
+  olarak düzeltildi (`plumerank/statistic.py`, `dis_unmeasurable`).
+- **2026-10-10: stabilize edici, kaldırdığı harekete karşı hiç ölçülmemişti — ve ilk
+  ölçümümüz yanlıştı.** Dış bir mimari incelemesi kaydın ham öncüle yapıldığını
+  gösterdi. Pencere başına tek bir ilkten-sona korelasyon bize kameraların zar zor
+  hareket ettiğini, büyük tahminlerin gürültü olduğunu yayımlatmıştı; o 62
+  korelasyonun 8'i stabilize edicinin kendi güven tabanının altındaydı
+  (`PHASE_RESPONSE_MIN`), iddianın en çok yaslandığı pencere onların arasındaydı ve
+  hiçbiri hareket edip geri dönen bir kamerayı göremezdi. Onun yerine zemine karşı
+  hakem edildiğinde tek bir kamera gerçekten sallanıyor ve diğer her büyük
+  kayma hareket eden gökyüzünü izliyor (sınırlama 9,
   `results/registration_2026-10-10.json`).
-- **Elde tutulan medyan bir yangÄ±na kadar yok olmaktadÄ±r** (27/54; o daha alt sÄ±ra
-  istatistiÄŸidir, `plumerank/metrics.py` `percentiles`; bkz. "GerÃ§ekte neyi Ã¶lÃ§Ã¼yor").
+- **Elde tutulan medyan bir yangına kadar yok olmaktadır** (27/54; o daha alt sıra
+  istatistiğidir, `plumerank/metrics.py` `percentiles`; bkz. "Gerçekte neyi ölçüyor").
 
-## Kategori seÃ§imi
+## Kategori seçimi
 
-**YalnÄ±zca Genel.** Ä°ki Ã¶zel Ã¶dÃ¼l kutusu da bilinÃ§li olarak iÅŸaretlenmedi:
+**Yalnızca Genel.** İki özel ödül kutusu da bilinçli olarak işaretlenmedi:
 
-- **COOL'un En Ä°yi KullanÄ±mÄ± â€” reddedildi.** Bu hattÄ±n sÄ±cak dÃ¶ngÃ¼sÃ¼ arka plan
-  modelleme ve optik akÄ±ÅŸtÄ±r; yeniden boyutlandÄ±rma / uyarlanabilir eÅŸik / kontur
-  deÄŸil; bir COOL iddiasÄ±, o Ã¶dÃ¼lÃ¼n kendi Ã¶lÃ§Ã¼len-performans Ã¶lÃ§Ã¼tÃ¼ne karÅŸÄ± dÃ¼z
-  kalÄ±rdÄ±.
-- **Agentic Vision â€” reddedildi.** Orkestrasyon dÃ¶ngÃ¼sÃ¼ yoktur. Sevk gÃ¶revlisi
-  tasarÄ±m gereÄŸi komutadaki insandÄ±r â€” bu *ta kendisi* gÃ¼venlik gerekÃ§esidir
-  (yukarÄ±daki "Sorumlu kullanÄ±m"a bakÄ±n).
+- **COOL'un En İyi Kullanımı — reddedildi.** Bu hattın sıcak döngüsü arka plan
+  modelleme ve optik akıştır; yeniden boyutlandırma / uyarlanabilir eşik / kontur
+  değil; bir COOL iddiası, o ödülün kendi ölçülen-performans ölçütüne karşı düz
+  kalırdı.
+- **Agentic Vision — reddedildi.** Orkestrasyon döngüsü yoktur. Sevk görevlisi
+  tasarım gereği komutadaki insandır — bu *ta kendisi* güvenlik gerekçesidir
+  (yukarıdaki "Sorumlu kullanım"a bakın).
 
 ## Lisans
 
-[Apache License 2.0](LICENSE) Â© 2026 Edy Cu
+[Apache License 2.0](LICENSE) © 2026 Edy Cu
 
-Bu Ã§eviri, aynÄ± lisansÄ±n izinleri uyarÄ±nca yapÄ±lmÄ±ÅŸtÄ±r; lisans ve telif, orijinal
+Bu çeviri, aynı lisansın izinleri uyarınca yapılmıştır; lisans ve telif, orijinal
 sahibi Edy Cu'ya aittir.
 
-## TeÅŸekkÃ¼rler
+## Teşekkürler
 
-**OpenCV AI Competition 2026, powered by AWS** iÃ§in yapÄ±ldÄ±. GÃ¶rÃ¼ntÃ¼ler: HPWREN
-FIgLib (`http://hpwren.ucsd.edu/`). Tek Ã¶ÄŸrenilen bileÅŸenin eÄŸitim verisi:
-Pyro-SDIS (Apache-2.0, FransÄ±z yangÄ±n servisleri) â€” asla bir Kaliforniya pikseli
-deÄŸil.
+**OpenCV AI Competition 2026, powered by AWS** için yapıldı. Görüntüler: HPWREN
+FIgLib (`http://hpwren.ucsd.edu/`). Tek öğrenilen bileşenin eğitim verisi:
+Pyro-SDIS (Apache-2.0, Fransız yangın servisleri) — asla bir Kaliforniya pikseli
+değil.
