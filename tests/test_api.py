@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import pathlib
+import threading
 import time
 from typing import Any, Callable, Iterator
 
@@ -1177,6 +1178,34 @@ def test_the_next_viewer_re_probes_a_failed_wall(monkeypatch: pytest.MonkeyPatch
     asyncio.run(run())
     assert probes == [1]
     assert replay.failed is None
+
+
+def test_a_second_caller_waits_for_the_probe_already_in_flight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A second judge connecting while the first judge's probe is still scanning must wait
+    for that probe's verdict -- not return early and start the loop on a cleared roster."""
+    entered, release = threading.Event(), threading.Event()
+    replay = main.Replay()
+
+    def slow_reason() -> str | None:
+        entered.set()
+        release.wait(5)
+        return "stub verdict"
+
+    monkeypatch.setattr(replay, "_probe_reason", slow_reason)
+
+    async def run() -> None:
+        first = asyncio.create_task(replay.ensure_probed())
+        assert await asyncio.to_thread(entered.wait, 5)
+        second = asyncio.create_task(replay.ensure_probed())
+        await asyncio.sleep(0.05)
+        assert not second.done(), "returned before the in-flight probe had a verdict"
+        release.set()
+        await asyncio.gather(first, second)
+        assert replay._unavailable == "stub verdict"
+
+    asyncio.run(run())
 
 
 def test_health_reports_degraded_for_a_failed_wall(

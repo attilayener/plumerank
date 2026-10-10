@@ -956,13 +956,18 @@ class Replay:
         ``live_pipeline.available: false`` with the reason attached. An unforeseen failure
         therefore becomes a named reason string and an ERROR in the log, which is the same
         degraded state the three expected ones produce.
+
+        ``_probed`` is raised LAST, once ``_unavailable`` holds the verdict: ``ensure_probed``
+        trusts the flag on its fast path, and raising it first let a second viewer through
+        while ``_probe_reason`` was still scanning -- onto a roster it had just cleared.
         """
-        self._probed = True
         try:
             self._unavailable = self._probe_reason()
         except Exception as exc:
             LOG.exception("probe failed")
             self._unavailable = f"probe failed: {type(exc).__name__}: {exc}"
+        finally:
+            self._probed = True
 
     def _probe_reason(self) -> str | None:
         """Why this box cannot replay, or None when it can -- in which case the inputs are set.
@@ -1035,15 +1040,18 @@ class Replay:
         first is still inside ``asyncio.to_thread``: two ONNX loads, two full manifest scans,
         and a second ``_cameras`` list assigned underneath a loop already ticking against the
         first. Callers share the in-flight task instead. ``shield`` because one judge closing
-        the tab must not cancel the probe the other is waiting on.
+        the tab must not cancel the probe the other is waiting on. A probe already in flight
+        is awaited before the flag is consulted, so no caller returns ahead of its verdict.
         """
+        task = self._probe_task
+        if task is not None and not task.done():
+            await asyncio.shield(task)
+            return
         if self._probed:
             return
-        task = self._probe_task
-        if task is None or task.done():
-            task = self._probe_task = asyncio.create_task(
-                asyncio.to_thread(self.probe), name="plumerank-probe"
-            )
+        task = self._probe_task = asyncio.create_task(
+            asyncio.to_thread(self.probe), name="plumerank-probe"
+        )
         await asyncio.shield(task)
 
     @property
