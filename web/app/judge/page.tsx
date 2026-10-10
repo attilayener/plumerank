@@ -147,6 +147,19 @@ make verify    # ≤ 3 min: rebuilds the venv, re-runs the suite, recomputes the
             largest fusion weight, and no S3-off ablation has run. The measured result comes from
             the per-camera baseline and the budget-calibrated ranking, not from that one signal.
           </li>
+          <li>
+            Stabilisation registers each frame to its raw predecessor, and under moving cloud
+            its whole-frame estimate follows the sky: checked against the ground, 48 of DEV&rsquo;s 55
+            warps of 1 px or more are one genuinely shaking camera, the rest follow cloud
+            (results/registration_2026-10-10.json). Replaying the fire-free set without those
+            warps moves its false alarms from 64 to 63.
+          </li>
+          <li>
+            The evidence crop is the largest moving component, not a fire localisation: at each
+            DEV fire&rsquo;s first rank-1 or alert tick it contains the plume on 9 of 21, cloud on 7
+            (results/evidence_first_hits_2026-10-10.json). A cloud in the crop means &ldquo;look at the
+            tile&rdquo;, not &ldquo;all clear&rdquo;.
+          </li>
           <li>One instance, no HA — every published number is committed in the repository.</li>
           <li>No dispatch, no suppression, no upload path — architecturally absent.</li>
         </ul>
