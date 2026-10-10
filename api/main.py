@@ -42,7 +42,7 @@ true.
 
 Evidence crops are static files under ``web/evidence/`` and are served by Caddy. Image
 serving never touches this process: one request per thumbnail against a single-worker
-Uvicorn that is holding 40 warm background models would put file IO in contention with the
+Uvicorn that is holding 62 warm background models would put file IO in contention with the
 pipeline producing the files.
 """
 
@@ -925,7 +925,7 @@ class Replay:
     Public state is read by ``/health`` and by the ``meta`` event; everything else is
     private to the loop task. There is exactly one instance (``REPLAY``), which is why
     ``deploy/plumerank.service`` runs Uvicorn with ``--workers 1``: a second worker would
-    give the next judge to connect a second wall, two sets of 40 background models
+    give the next judge to connect a second wall, two sets of 62 background models
     competing for 2 GiB, and the burstable CPU budget spent twice.
     """
 
@@ -1198,7 +1198,7 @@ class Replay:
         """Drop one viewer. The loop notices on its next pass and starts its idle timer.
 
         Deliberately not "stop the loop when this was the last one": a judge reloading the
-        page would otherwise tear down 40 warm background models and pay the whole warm-up
+        page would otherwise tear down 62 warm background models and pay the whole warm-up
         again, every reload. ``REPLAY_IDLE_STOP_SECONDS`` is the grace this buys.
         """
         self._viewers.discard(queue)
@@ -1276,7 +1276,7 @@ class Replay:
                     continue
                 self._tick_failures = 0
                 self._publish(payload)
-                # The remainder of the tick, not a flat sleep: at 40 cameras the pipeline
+                # The remainder of the tick, not a flat sleep: at 62 cameras the pipeline
                 # itself takes a large slice of the second, and sleeping a whole one on top
                 # would make the wall drift slower than the clock it prints.
                 await asyncio.sleep(max(0.0, self.tick_seconds - (time.monotonic() - started)))
@@ -1473,10 +1473,13 @@ class Replay:
     ) -> list[CameraScore]:
         """Fold one ONNX tile score into the hazard of the cameras that earned one.
 
-        The ordering is ``emit``'s ordering -- hazard descending, ties on camera id -- and
-        not a second sort written here, because ``should_escalate`` is a statement about the
-        rank a dispatcher would read, and two ranking rules that are meant to agree and are
-        written twice do not stay agreed.
+        The ordering is ``emit``'s key -- hazard descending, ties on camera id -- written a
+        second time below: change one, change both. It is applied WITHIN each arm, and the
+        arm is ground-truth metadata from the manifest: the wall is the DEV and CONFUSE bench
+        replays on one screen, and bench.py escalates the top-2 of each separately. So the
+        rank this gate reads is the camera's rank inside its own arm, not the rank a
+        dispatcher sees on the merged watch list; a single-roster deployment, with no arm
+        labels, would allot the top-2 across every camera.
         """
         # Ranked WITHIN each arm, not across the whole wall. bench.py replays the CONFUSE
         # windows alone (the calibration) and the DEV windows alone, each with its own

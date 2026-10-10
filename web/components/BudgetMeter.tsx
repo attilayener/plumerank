@@ -7,14 +7,14 @@ import { rate, ABSENT } from "@/lib/format";
 import type { Benchmark, WatchMeta, WatchRow } from "@/lib/types";
 
 /**
- * 80 DISCRETE COUNTABLE SLOTS -- 2 per camera, grouped by camera. Never a percentage,
+ * DISCRETE COUNTABLE SLOTS (124 on the 62-camera wall) -- 2 per camera, grouped by camera. Never a percentage,
  * never a gauge, never an arc.
  *
  * A dispatcher's night contains a countable number of interruptions. "63% of budget
- * used" does not say that; forty little pairs of boxes, of which eleven are filled,
+ * used" does not say that; sixty-two little pairs of boxes, of which eleven are filled,
  * says it without arithmetic and says it from across a control room. The grouping by
  * camera is the second half of the idea: the budget is spent PER CAMERA, so a meter
- * that pooled 80 slots into one bar would show a number the system does not actually
+ * that pooled 124 slots into one bar would show a number the system does not actually
  * enforce.
  *
  * Two rates share one name in this project and this component publishes both, labelled,

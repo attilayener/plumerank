@@ -389,9 +389,10 @@ class BudgetState:
     """Two alerts per camera per night, counted, spendable once each.
 
     A counter rather than a rate limiter with a decay: the unit the whole project is
-    calibrated to is the *night*, the UI draws the budget as 80 discrete countable slots
-    (2 per camera, never a percentage and never a gauge), and a decaying limiter would
-    make those slots un-drawable and the published rate un-checkable.
+    calibrated to is the *night*, the UI draws the budget as discrete countable slots
+    (2 per camera -- 124 on the 62-camera wall -- never a percentage and never a gauge),
+    and a decaying limiter would make those slots un-drawable and the published rate
+    un-checkable.
 
     ``per_camera`` defaults to the frozen ``ALERTS_PER_CAMERA_PER_NIGHT`` and exists as a
     parameter for exactly one caller: ``bench.py --budget``, which has to sweep the
@@ -436,7 +437,7 @@ class BudgetState:
 
     @property
     def capacity(self) -> int:
-        """Total slots for the night -- the 80 the UI draws."""
+        """Total slots for the night -- 2 per camera, the ones the UI draws (124 on the wall)."""
         return len(self._spent) * self._per_camera
 
 

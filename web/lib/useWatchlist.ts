@@ -128,7 +128,7 @@ export function useWatchlist(): WatchlistState {
           backoff = RECONNECT_MIN_MS;
         } catch (e) {
           // A meta event the page cannot parse is a broken contract, and it is shown as
-          // one. Guessing a camera roster would put 40 invented tiles on a judge's screen.
+          // one. Guessing a camera roster would put 62 invented tiles on a judge's screen.
           setError(`meta event was not JSON: ${String(e)}`);
           setState("down");
         }

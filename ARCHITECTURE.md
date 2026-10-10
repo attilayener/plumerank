@@ -78,8 +78,10 @@ runs every arm: the DEV arm writes `results/arm_dev_<date>.json`, and the one he
 writes `results/bench_<date>.json`, which `GET /api/benchmark` then serves byte-for-byte.
 
 **Online, per replay tick** -- stabilise against the previous frame, segment, measure S1-S4,
-fuse into a hazard, escalate the top-2 ranked cameras whose hazard clears the escalation floor
-through the ONNX tile classifier, rebase each hazard against the camera's own trailing 15
+fuse into a hazard, escalate -- within each arm -- the top-2 ranked cameras whose hazard clears
+the escalation floor through the ONNX tile classifier (the wall is the DEV and CONFUSE replays on
+one screen and reads each camera's arm from the manifest, as bench.py escalates each arm
+separately; a single-roster deployment would allot two slots in total), rebase each hazard against the camera's own trailing 15
 minutes, compare it with the committed threshold (solved offline on the confusion set), emit
 the ranked list with one evidence crop per entry (drawn server-side with `cv2.line` /
 `cv2.rectangle` / `cv2.putText`, written with `cv2.imwrite`), and stream it over SSE.
