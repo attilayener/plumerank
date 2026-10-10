@@ -1,7 +1,9 @@
 <div align="center">
+  <img src="docs/assets/icon-animated.svg" width="144" alt="PlumeRank Icon">
+
   <h1>PlumeRank 🔥📷</h1>
   <p><em>A wall of wildfire cameras. One dispatcher. Which one gets opened next?</em></p>
-  <img src="docs/assets/readme-hero.webp" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-night; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
+  <img src="docs/assets/readme-hero-animated.svg" alt="PlumeRank — ranks wildfire cameras against their own quiet night at 2 alerts per camera-night; schematic wall and watch list, with the held-out result 27/54 detected, p50 38.0 min" width="100%">
 
   <br/>
 
@@ -162,10 +164,13 @@ reproduces it anywhere. Per-sequence results for every system are in each file's
    median 0.07 px (DEV) / 0.04 px (CONFUSE) while the sky band moved 3.3–14.8 px (per-window
    medians), and the whole-frame phase correlation was pulled toward it. On the fire-free set the
    threshold is solved on, every warp of ≥ 1 px therefore shifts a static ridgeline — and it
-   costs little: replaying CONFUSE as the committed run did (reproducing its 1.9885 alerts per
-   camera-night), 2 of the 64 threshold crossings fall on those 39 sky-warped frames, a per-frame
-   rate of 5.1% against 2.4% on the rest (`scripts/measure_registration_alerts.py`,
-   `results/registration_alerts_2026-10-10.json`; two events, so a direction, not a size). Not changed:
+   costs little, measured by counterfactual: replaying CONFUSE as the committed run did
+   (reproducing its 1.9885 alerts per camera-night and its threshold exactly) and again with
+   those 39 warps not applied changes the uncapped threshold crossings from 64 to 63, and the
+   threshold the 2.0 budget solves to from 0.8492 to 0.8482 (`scripts/measure_registration_alerts.py`,
+   `results/registration_alerts_2026-10-10.json`). The effect spreads over whole windows rather
+   than the warped frames — in one window removing the warps adds a crossing — so it is not
+   counted frame by frame; its effect on fire detection is not measured. Not changed:
    the held-out read measured this pipeline; estimating the shift on the ground band only is the
    first item of future work.
 

@@ -214,8 +214,9 @@ anti-predictive yet carries the largest fusion weight, and no S3-off ablation ha
 the per-camera baseline is what carries the ranking; stabilisation registers each frame to its raw
 predecessor, and refereed against the ground its warps of ≥ 1 px are real motion on one shaking
 DEV camera (48 of 55) and otherwise — all 39 on CONFUSE — follow the moving sky while the ground
-stays still (`results/registration_2026-10-10.json`) — 2 of CONFUSE's 64 threshold crossings
-fall on those frames (`results/registration_alerts_2026-10-10.json`);
+stays still (`results/registration_2026-10-10.json`) — a counterfactual replay without those
+warps moves CONFUSE's uncapped crossings from 64 to 63 and the solved threshold from 0.8492 to
+0.8482 (`results/registration_alerts_2026-10-10.json`);
 the novelty is a metric reframe rather than a new sensor;
 one instance with no HA; no managed-cloud-vision-API baseline; and no dispatch, suppression,
 or upload path, by architecture rather than oversight.
