@@ -23,20 +23,20 @@ here is one 81-minute window of footage on one camera — the length of a FIgLib
 
 | | |
 |---|---|
-| Tests | **734 passed, 1 skipped**, 97% coverage on `plumerank/` |
+| Tests | **734 passed, 1 skipped locally (CI, without the corpus, runs 722 and skips 13)**, 97% coverage on `plumerank/` |
 | Property-based testing | **1,500 generated cases** (`tests/test_invariants.py`, `hypothesis`) — the fused hazard never leaves `[0, 1]` across 500 valid-input cases and never silently passes an invalid one through another 500; the alert budget can never be overspent under any of 500 generated call sequences |
 | Static analysis | `ruff check .` and `mypy plumerank api --ignore-missing-imports` — both clean |
 | Claim/code consistency | `scripts/check_claims.py`, run inside `make test` — 23 defended OpenCV 5 surfaces across 6 modules (18 analysis calls, 5 runtime/introspection), every API route, every dependency, every Makefile target and every file path this document and `README.md` name, checked mechanically against the real source on every test run |
 | DEV arm (orientation only — fit data, never the claim) | 17/29 detected, p50 32.0 min; calibrated to 1.99 alerts/camera-night on the confusion set, 2.37 realised on DEV. Like-for-like baselines (B1/B2 through the same per-camera baseline): 14/29 and 10/29 (`results/arm_dev_2026-10-04.json`) |
 | **HOLD arm — the headline** | **27/54 detected, median 38.0 min** at 2.0 alerts/camera-night, read once after the freeze. Like-for-like B1 18/54, B2 20/54 — neither reaches a median. The median exists only at ignition-clock offsets −5…0 min (`results/bench_2026-10-10.json`, `results/sensitivity_2026-10-10.csv`) — see §4 |
-| Compute | One AWS `t4g.small` (Graviton/ARM), one S3 bucket (the replayed corpus: 5,082 objects, 2.38 GB), CloudWatch metrics, two drift alarms (±15% around the 2.0 budget) and a heartbeat-silence alarm (`deploy/alarms.sh`). No Lambda, no managed vision API. |
+| Compute | One AWS `t4g.small` (Graviton/ARM), one S3 bucket (the replayed corpus: 5,082 objects, 2,378,622,722 bytes per `aws s3 ls --summarize`, 2026-10-10), CloudWatch metrics, two drift alarms (±15% around the 2.0 budget) and a heartbeat-silence alarm (`deploy/alarms.sh`). No Lambda, no managed vision API. |
 
 ## 3. Reproduce it yourself
 
 ```bash
 git clone https://github.com/edycutjong/plumerank && cd plumerank
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.lock
-make test      # ~95s: the 735-test offline suite + coverage + the claim-consistency check above
+make test      # ~2 min: the 735-test offline suite + coverage + the claim-consistency check above
 make verify    # ≤3 min: rebuilds the venv from the lockfile, re-runs the offline suite, then
                # recomputes the micro-corpus metrics and checks them byte-for-byte against the
                # committed results/verify_micro.json. This is the fast sanity check — it does
@@ -44,7 +44,7 @@ make verify    # ≤3 min: rebuilds the venv from the lockfile, re-runs the offl
 ```
 
 The pair that **does** reproduce the held-out headline (`results/bench_2026-10-10.json`):
-`make fetch && make bench` — ≈35 min corpus fetch, then the held-out evaluation (12m30s on the
+`make fetch && make bench` — ≈35 min corpus fetch, then the held-out evaluation (12m29s on the
 arm64 machine that produced the published file; budget up to an hour on a small instance). The ablation grid is a separate DEV run,
 `scripts/bench.py --arm dev --ablation` (twelve cells, a few hours, run off the box), which the
 held-out file quotes verbatim. Nobody is asked to run that to evaluate this submission; it exists so the number is
@@ -65,7 +65,7 @@ The held-out run happened once, on 2026-10-10, at commit `5df7332`:
   confusion set).
 
 **How far to trust it.** 27 of 54 is exactly half, so the median is on a knife edge: re-scored
-against an ignition clock shifted by −5…0 minutes it reads 33–38 min, and at +1…+5 minutes it
+against an ignition clock shifted by −5…0 minutes it reads 32–38 min, and at +1…+5 minutes it
 does not exist. The detection counts — 27 against 18 and 20 for the like-for-like baselines — are
 the steadier comparison. The run executed on a local arm64 machine, not the endpoint box.
 

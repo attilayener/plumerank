@@ -18,6 +18,7 @@ This is the full walkthrough. For the 30-second version, see [`JUDGE.md`](JUDGE.
 git clone https://github.com/edycutjong/plumerank && cd plumerank
 make test      # offline suite + coverage + claim-consistency check
 make verify    # clean-venv sanity check (does NOT reproduce the published headline)
+               # measured 2026-10-10: real 124 s end to end (arm64 laptop, warm pip cache)
 ```
 
 Output of `make verify`'s final step (`scripts/bench.py --arm micro`), pasted verbatim; the full
@@ -58,13 +59,13 @@ PUBLISHED, NOT RECOMPUTED HERE
 ```
 
 `make test` alone (the offline suite + coverage + `scripts/check_claims.py`): **734 passed, 1
-skipped, 97% coverage on `plumerank/`, ~95s, no network, no credentials.**
+skipped, 97% coverage on `plumerank/`, ~2 min, no network, no credentials.**
 
 ### The pair that reproduces the published headline
 
 ```bash
 make fetch   # ~35 min: the corpus, sha256-verified, resumable
-make bench   # 12m30s on the arm64 machine that produced results/bench_2026-10-10.json (budget up to an hour on a small instance)
+make bench   # 12m29s on the arm64 machine that produced results/bench_2026-10-10.json (budget up to an hour on a small instance)
 # the ablation grid is its own DEV run, quoted by the held-out file:
 .venv/bin/python scripts/bench.py --arm dev --ablation   # twelve cells, a few hours, off the box
 ```
@@ -79,7 +80,7 @@ The one HOLD read, as committed (`results/bench_2026-10-10.json`, `results/hold_
 
 | | |
 |---|---|
-| When / where | 2026-10-10T05:37Z, commit `5df7332`, local arm64 machine (`run.instance: local (not EC2)`), wall clock **12m30s** |
+| When / where | 2026-10-10T05:37Z, commit `5df7332`, local arm64 machine (`run.instance: local (not EC2)`), wall clock **12m29s** |
 | Freeze | `results/constants.sha256` = `02752e86…`, committed before the read; bench.py refuses HOLD otherwise |
 | Sequences | 54 measured (60 in the manifest, 6 excluded by `data/excluded.json`) |
 | PlumeRank | **27/54 detected, p50 38.0 min**, mean of detected 13.3 min, 1.92 alerts/camera-night realised |
@@ -87,7 +88,7 @@ The one HOLD read, as committed (`results/bench_2026-10-10.json`, `results/hold_
 | As-deployed baselines | B1 2/54, B2 4/54 — no median |
 | Escalation | 75 of 4,266 frames (1.76%) — within the 2% cap; 1.4 CNN calls per camera-night vs B1's 3,645 |
 | Per-frame latency (that machine) | classical p50 6.5 ms / p95 8.5 ms; B1 CNN-grid p50 53.6 ms |
-| Sensitivity | p50 33–38 min at ignition-clock offsets −5…0; no median at +1…+5 (`results/sensitivity_2026-10-10.csv`) |
+| Sensitivity | p50 32–38 min at ignition-clock offsets −5…0; no median at +1…+5 (`results/sensitivity_2026-10-10.csv`) |
 
 ## What a real-run receipt looks like for this project
 
@@ -95,7 +96,7 @@ There is no per-call provider bill here (no hosted LLM API, no metered generatio
 "receipt" is the pipeline actually executing against real pixels and being checked against a
 committed expectation, which is exactly what the block above shows. The AWS side has its own
 receipt: one `t4g.small` (Graviton) instance, one S3 bucket (corpus: the DEV and CONFUSE
-frames the box replays, 5,082 objects / 2.38 GB per `aws s3 ls --summarize`),
+frames the box replays, 5,082 objects / 2,378,622,722 bytes per `aws s3 ls --recursive --summarize`, 2026-10-10),
 CloudWatch metrics plus drift (±15%) and silence alarms on the alert budget — all funded by a $150 AWS compute
 grant from this competition, not a personal card. The held-out run itself cost nothing: it ran
 off the box, on the local machine named above.

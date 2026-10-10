@@ -113,7 +113,7 @@ DEV the realised rates then differ by system, and are listed.
 | B2 as deployed (frame differencing) | 4 / 54 detected — no median |
 
 27 of 54 is exactly half, so the median is fragile: against an ignition clock shifted by −5…0
-minutes it reads 33–38 min, and at +1…+5 minutes it does not exist
+minutes it reads 32–38 min, and at +1…+5 minutes it does not exist
 (`results/sensitivity_2026-10-10.csv`). The detection counts are the steadier comparison. The
 ablation grid the HOLD file quotes (`results/ablation_2026-10-10.csv`) is a DEV run: escalation
 on/off detects the same number of fires in five of six pairs, and GSOC with S4 off detects one more
@@ -196,7 +196,7 @@ designed to be re-scored at every offset from −5 to +5 minutes from the same c
 matrix in the same run, so the sensitivity curve cannot drift from the headline it describes
 (`scripts/bench.py --sensitivity`).
 
-**Testing, as a form of evaluation in its own right.** 734 tests passed, 1 skipped, 97%
+**Testing, as a form of evaluation in its own right.** 734 tests passed, 1 skipped locally (CI, without the corpus, runs 722 and skips 13), 97%
 coverage on `plumerank/`; 1,500 hypothesis-generated cases (`tests/test_invariants.py`)
 property-testing that the fused hazard never leaves `[0, 1]` and the alert budget is never overspent
 across 500 generated inputs or call sequences each; `scripts/check_claims.py` mechanically checks every route,

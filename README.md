@@ -78,7 +78,7 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 >
 > **The median is on a knife edge, and that is part of the result.** It exists because exactly half
 > the fires were detected. Re-scored against an ignition clock shifted by −5…0 minutes it reads
-> 33–38 min; at +1…+5 minutes fewer than half count as detected and there is no median
+> 32–38 min; at +1…+5 minutes fewer than half count as detected and there is no median
 > (`results/sensitivity_2026-10-10.csv`). The detection counts are the steadier comparison.
 
 | Metric | **HOLD — the headline** (54 fires) | DEV — tuning arm, in-sample (29 fires) |
@@ -96,9 +96,9 @@ suppresses a camera and never dispatches an engine. It reorders human attention.
 
 Every system is calibrated to the same budget **on the same 33 fire-free windows** (all five land at
 1.99). The HOLD run executed on a local arm64 machine (`run.instance: local (not EC2)`, wall clock
-12m30s), not on the endpoint box, so serving judges was never at risk; `make fetch && make bench`
-reproduces it anywhere. Per-sequence results for every system are in each file's `per_sequence`
-and summarised in [`REPORT.md`](REPORT.md) §6. The live wall runs on the same frozen threshold
+12m29s), not on the endpoint box, so serving judges was never at risk; `make fetch && make bench`
+reproduces it anywhere. Per-sequence results for every system are in each file's `per_sequence`;
+[`REPORT.md`](REPORT.md) §6 tabulates the DEV ones, and the site's log lists all 54 held-out rows. The live wall runs on the same frozen threshold
 (0.849), which depends only on the confusion set.
 
 ## Honest limitations
@@ -147,8 +147,9 @@ and summarised in [`REPORT.md`](REPORT.md) §6. The live wall runs on the same f
    five of six pairs, and one fewer with it on in the sixth. S4 is the component that moves the
    count (MOG2: 17 with it, 14 without). GSOC with S4 off detects 18/29 at p50 33.0 against the
    shipped cell's 17/29 at p50 32.0. DEV is the tuning arm, so none of this re-opened the frozen
-   configuration: the held-out run measures the shipped cell, escalation included, because the
-   configuration was frozen before this grid existed. On DEV the classifier is not shown to help.
+   configuration: the held-out run measures the shipped cell, escalation included, because
+   `constants.py` was fixed before this grid ran (hash `02752e86…` since the 2026-10-04 DEV run) and the
+   grid did not change it; the freeze file was committed after the grid and before the held-out read. On DEV the classifier is not shown to help.
 
 ---
 
@@ -161,7 +162,7 @@ Over a rolling, stabilised window, each foreground component on each camera is m
 | S1 | **Base anchoring** | a fire is tied to the ground; a cloud is not | 0.528 — near chance |
 | S2 | **Vertical growth anisotropy** | a plume rises faster than it spreads | 0.50 — chance |
 | S3 | **Diffuse-boundary contrast** | smoke has a soft edge | 0.44 — anti-predictive (limitations 2 and 3) |
-| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | 0.538 — weak; kept on detection evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.23%), so the two effects are not separated |
+| S4 | **In-box optical-flow drift** | a plume drifts coherently; sensor noise does not | 0.538 — weak; kept on detection evidence: 17/29 with it vs. 14/29 without under the shipped baseline — though the S4-off run also escalates far fewer frames (0.17% vs 2.14% in the same grid), so the two effects are not separated |
 
 None of the four is a good detector alone, and per frame the fused model beats the single bit
 "a component exists" by only 0.0015 AUC in-sample (`results/statistics_confound_2026-09-06.md`).
@@ -242,12 +243,12 @@ heartbeat-silence alarm that reboots the instance if the service stops beating. 
 ## Testing
 
 ```
-734 passed, 1 skipped · 97% coverage on plumerank/ · ruff clean · mypy clean
+734 passed, 1 skipped locally (CI, without the corpus, runs 722 and skips 13) · 97% coverage on plumerank/ · ruff clean · mypy clean
 ```
 
 | Layer | Tool | Notes |
 |---|---|---|
-| Unit + integration | `pytest` | `make test` — offline, no network, no credentials, ~95s |
+| Unit + integration | `pytest` | `make test` — offline, no network, no credentials, ~2 min |
 | Property-based | `hypothesis` | `tests/test_invariants.py` — **1,500 generated cases** (500 each) property-testing that the fused hazard never leaves `[0, 1]` on valid inputs and never silently passes an invalid one, and that the alert budget is never overspent across generated call sequences |
 | Regression | 690+ example tests, most named after the specific behaviour or defect they pin (e.g. `test_an_unusable_threshold_degrades_the_wall_instead_of_500ing_health`) | `tests/` |
 | Claim/code consistency | `scripts/check_claims.py` (runs inside `make test`) | every OpenCV symbol, API route, dependency, Makefile target and file path this document names is mechanically checked against the real source — a moved file, renamed symbol or deleted route fails the next test run (counts typed into prose, such as the test total, are not parsed) |
@@ -258,7 +259,7 @@ heartbeat-silence alarm that reboots the instance if the service stops beating. 
 | E2E | Playwright, against the **real** FastAPI backend (no mocks) | `web/e2e/` |
 
 ```bash
-make test              # offline suite + coverage, ~95s, no network, no credentials
+make test              # offline suite + coverage, ~2 min, no network, no credentials
 make verify             # ≤3 min: rebuilds .venv, runs the offline suite, then recomputes
                          # the micro-corpus metrics and checks them against the committed
                          # results/verify_micro.json. Does NOT reproduce the published
@@ -305,6 +306,26 @@ results/         # committed run artefacts — every published number lives here
 ```
 
 ---
+
+## What we got wrong (dated)
+
+Written from the record, not from memory; each line names the file that caught it.
+
+- **2026-09-06: our own headline was misquoted.** Four documents quoted 12/29 as the shipped DEV
+  result; it was the S4-off ablation cell, whose run had taken the plain `arm_dev_<date>.json`
+  filename. The shipped configuration measured 9/29 that day. Every result filename now carries
+  every axis of its configuration (`results/artefact_provenance_2026-09-06.md`).
+- **The design premise was fog; the adversary is cloud.** Low cloud and cloud shadow cost several
+  times fog's alerts (`results/class_split_2026-09-06.json`), and a blind census found the rule that
+  chose the fog windows picks a marine layer at chance (`results/fog_census_2026-10-04.md`).
+- **The statistic the design rests on is anti-predictive alone.** S3, diffuse-boundary contrast,
+  scores AUC 0.44 on DEV frames with a component (`results/statistics_confound_2026-09-06.md`). What
+  carries the ranking is each camera's own baseline.
+- **The classifier escalation earns no DEV detection** (limitation 8, `results/ablation_2026-10-10.csv`).
+- **2026-10-10: the test suite segfaulted on x86-64**, unseen until the first GitHub CI run, and the
+  documented DIS failure boundary ("width ≥ 100") was the first width the original sweep tested,
+  not the edge (80). Fixed bit-identically on arm64 (`plumerank/statistic.py`, `dis_unmeasurable`).
+- **The held-out median is half a fire from not existing** (27/54; see "What it actually measures").
 
 ## Track selection
 
